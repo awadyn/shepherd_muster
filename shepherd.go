@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+
+/////////////////////////////////////////////////////////////////////
+
+
 type node struct {
 	ip string
 }
@@ -39,7 +43,9 @@ func (m muster) log() {
 	fmt.Println("---> LOG: ", m.id, " starting logging..")
 }
 
+
 ///////////////////////////////////////////////////////////////
+
 
 // any shepherd is able to:
 //	1. deploy N musters to N pastures - i.e. nodes
@@ -54,13 +60,11 @@ type Shepherd interface {
 // that it is responsible for
 type shepherd struct {
 	id int
-	m_sig_chan chan string
 	m_map map[string]muster
 }
 
 func (s *shepherd) init(n_list []node) {
 	s.id = 1101
-	s.m_sig_chan = make(chan string, len(n_list))
 	s.m_map = make(map[string]muster)
 	for i := 0; i < len(n_list); i ++ {
 		m_id := n_list[i].ip + "-id"
@@ -74,15 +78,22 @@ func (s *shepherd) run_muster(m_id string) {
 	go s.m_map[m_id].heartbeat()
 	go s.m_map[m_id].log()
 	//go s.m_map[m_id].control()
+}
 
-	/* listen to muster heartbeat */
+func (s *shepherd) listen_heartbeats() {
+	fmt.Println("--> LISTEN_HEARTBEATS: now the shepherd can receive heartbeats from musters")
 	for {
-		select {
-		case <- s.m_map[m_id].hb_chan:
-			fmt.Println("-- -- heartbeat from ", m_id)
+		for m_id, _ := range(s.m_map) {
+			select {
+			case <- s.m_map[m_id].hb_chan:
+				fmt.Println("-- -- heartbeat from ", m_id)
+			}
 		}
 	}
 }
+
+///////////////////////////////////////////////////////////////////////
+
 
 /* A shepherd is defined to watch for some property of execution, 
    (e.g. energy proportionality (EP)) and optimize for it. 
@@ -104,6 +115,7 @@ func (s ep_bayopt_shepherd) deploy_musters() {
 		m_id := m_id
 		go s.run_muster(m_id)
 	}
+	go s.listen_heartbeats()
 }
 func (s ep_bayopt_shepherd) process_logs() {
 	fmt.Println("-> PROCESS_LOGS: this function implements a shepherd's processing of logs from its musters.")
