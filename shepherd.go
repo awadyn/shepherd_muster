@@ -34,8 +34,16 @@ type muster struct {
 	node
 	id string
 	hb_chan chan string
+
 	full_buff chan string
+	flush_buff chan string
 	ready_buff chan string
+	kill_log chan string
+	process_log chan string
+	ready_log chan string
+	compute_ctrl chan string
+	ready_ctrl chan string
+
 	buffer *log
 }
 
@@ -45,6 +53,33 @@ func (m muster) heartbeat() {
 		case m.hb_chan <- "hb":
 			time.Sleep(time.Second/10)
 		default:
+		}
+	}
+}
+
+// this goroutine simulates logging on a remote node that in turn
+// populates memory on this shepherd node
+func (m muster) simulate_remote_log(c int, v uint64) {
+	fmt.Println(m.id + " -- -- -- -- SIMULATING REMOTE LOG -- counter = ", c, " , val = ", v)
+	counter := c
+	val := v
+	for {
+		select {
+		case <- m.kill_log:
+			m.buffer.mem = make([][]uint64, 0)
+			go m.simulate_remote_log(c, v)
+			return
+		default:
+			if counter == m.buffer.max_size { 
+				m.full_buff <- "FULL"
+				<- m.ready_buff
+				m.buffer.mem = make([][]uint64, 0)
+				counter = 0
+			}
+			m.buffer.mem = append(m.buffer.mem, []uint64{val, val * 2})
+			val += 1
+			counter += 1
+			time.Sleep(time.Second/100)
 		}
 	}
 }
@@ -60,31 +95,18 @@ func (m muster) log() {
 	   - this muster thread will have to be implemented to communicate with the actual
 	     muster that is logging on some remote node */
 
-	// this goroutine simulates logging on a remote node that in turn
-	// populates memory on this shepherd node
-	var counter int = 0
-	var val uint64 = 0
-	go func() {
-		for {
-			if counter == m.buffer.max_size { 
-				m.full_buff <- "FULL"
-				<- m.ready_buff
-			}
-			m.buffer.mem = append(m.buffer.mem, []uint64{val, val * 2})
-			val += 1
-			counter += 1
-			time.Sleep(time.Second/100)
-		}
-	} ()
+	go m.simulate_remote_log(0, 0)
 
+	// shepherd-muster local thread waits to handle full remote logs
 	for {
 		select {
-		case msg:= <- m.full_buff:
-			fmt.Println(m.id + " FLUSH BUFF NEEDED " + msg)
-			// m.process_log <- "READY"
-			// <- m.process_log
-			m.buffer.mem = make([][]uint64, 0)
-			counter = 0
+		case <- m.flush_buff:
+			fmt.Println(m.id + " FLUSH BUFF NEEDED AFTER CONTROL CHANGE ")
+			m.kill_log <- ""
+		case <- m.full_buff:
+			fmt.Println(m.id + " FLUSH BUFF NEEDED ")
+			m.process_log <- ""
+			<- m.ready_log
 			m.ready_buff <- "READY"
 		}
 	}
@@ -94,6 +116,17 @@ func (m muster) control() {
 	// start control if muster is up
 	<- m.hb_chan
 	fmt.Println("---> CONTROL: ", m.id, " starting control..")
+
+	for {
+		select {
+		case <- m.ready_ctrl:
+			fmt.Println(m.id + " NEW CONTROL DECISION MADE ")
+			m.flush_buff <- ""
+			//<- m.ready_buff
+			//<- m.ready_log
+			//m.ready_buff <- "READY"
+		}
+	}
 }
 
 
@@ -123,9 +156,18 @@ func (s *shepherd) init(n_list []node) {
 		m_id := n_list[i].ip + "-id"
 		m_hb_chan := make(chan string)
 		m_full_buff := make(chan string, 1)
+		m_flush_buff := make(chan string, 1)
 		m_ready_buff := make(chan string, 1)
+		m_kill_log := make(chan string, 1)
+		m_process_log := make(chan string, 1)
+		m_ready_log := make(chan string, 1)
+		m_compute_ctrl := make(chan string, 1)
+		m_ready_ctrl := make(chan string, 1)
 		m_buffer := &log{id: m_id + "-log"}
-		s.m_map[m_id] = muster{node: n_list[i], id: m_id, hb_chan: m_hb_chan, full_buff: m_full_buff, ready_buff: m_ready_buff, buffer: m_buffer}
+		s.m_map[m_id] = muster{node: n_list[i], id: m_id, hb_chan: m_hb_chan, 
+							full_buff: m_full_buff, flush_buff: m_flush_buff, ready_buff: m_ready_buff, 
+							kill_log: m_kill_log, process_log: m_process_log, ready_log: m_ready_log, 
+							compute_ctrl: m_compute_ctrl, ready_ctrl: m_ready_ctrl, buffer: m_buffer}
 	}
 }
 
@@ -140,6 +182,30 @@ func (s *shepherd) listen_heartbeats() {
 		}
 	}
 }
+
+func (s *shepherd) wait_and_process(m_id string) {
+	for {
+		select {
+		case <- s.m_map[m_id].process_log:
+			fmt.Println(m_id + " PROCESSING LOGS")
+			// do processing
+			s.m_map[m_id].ready_log <- ""
+			s.m_map[m_id].compute_ctrl <- ""
+		}
+	}
+}
+
+func (s *shepherd) wait_and_control(m_id string) {
+	for {
+		select {
+		case <- s.m_map[m_id].compute_ctrl:
+			fmt.Println(m_id + " COMPUTING CONTROL")
+			// do computation
+			s.m_map[m_id].ready_ctrl <- ""
+		}
+	}
+}
+
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -181,18 +247,16 @@ func (s ep_bayopt_shepherd) deploy_musters() {
 
 func (s ep_bayopt_shepherd) process_logs() {
 	fmt.Println("-> PROCESS_LOGS: this function implements a shepherd's processing of logs from its musters.")
-//	go func()
-//	for {
-//		select {
-//			case <- s.m_map[m_id].process_log:
-//				// do processing
-//				s.m_map[m_id].process_log <- "DONE"
-//		}
-//	}
+	for m_id, _ := range(s.m_map) {
+		go s.wait_and_process(m_id)
+	}
 }
 
 func (s ep_bayopt_shepherd) compute_control() {
 	fmt.Println("-> COMPUTE_CONTROL: this function implements a shepherd's computation of a control decision.")
+	for m_id, _ := range(s.m_map) {
+		go s.wait_and_control(m_id)
+	}
 }
 
 func main() {
