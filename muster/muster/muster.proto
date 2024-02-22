@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option go_package = "github.com/awadyn/muster";
+//option java_multiple_files = true;
+//option java_package = "io.grpc.examples.remote_local_muster";
+//option java_outer_classname = "MusterProto";
+
+package muster;
+
+service Registrar {
+	rpc Register (MusterRequest) returns (MusterReply) {}
+	rpc SetupLogs (LogsRequest) returns (LogsReply) {}
+}
+
+message MusterRequest {
+	string id = 1;
+}
+
+message MusterReply {
+	string ip = 1;
+	uint32 ncores = 2;
+}
+
+message LogsRequest {
+	uint64 logs_map_ptr = 1; 
+}
+
+message LogsReply {
+	uint64 logs_map_ptr = 1; 
+}
+
+
