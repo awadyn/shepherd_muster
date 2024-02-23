@@ -8,7 +8,6 @@ import (
 )
 /************************************/
 type node struct {
-	registration_chan chan string
 	ncores uint8
 	ip string
 }
@@ -41,6 +40,7 @@ type muster struct {
 	// CHANNELS
 	logs map[string]*log
 	controls map[string]*control
+	hb_chan chan bool
 	id string
 	/* e.g. {"muster_n", {"ctrl-dvfs-i": {..}, "ctrl-itr-i": {..} ...}, {"log-ep-i": {..}, "log-ep-j": {..}, ...}, node{"10.0.0.1", 24}} */
 }
@@ -60,7 +60,7 @@ type cat struct {
 
 type shepherd struct {
 	musters map[string]*muster
-	hb_channels map[string]chan bool
+	hb_chan chan string
 	id string
 	/* e.g. {"sheperd-ep", {"muster-10.0.0.1": &muster{..}, "muster-10.0.0.2": &muster{..} ...}} */
 }
@@ -89,15 +89,14 @@ func (c_ptr *control) show() {
 func (m_ptr *muster) show() {
 	fmt.Println()
 	fmt.Printf("ADDR %p ", m_ptr)
-	fmt.Println("ID:", m_ptr.id)
+	fmt.Println("ID:", m_ptr.id, "HB_CHAN:", m_ptr.hb_chan)
 	fmt.Println("------ LOGS:", m_ptr.logs)
 	fmt.Println("-- CONTROLS:", m_ptr.controls) 
 }
 func (s_ptr *shepherd) show() {
 	fmt.Printf("ADDR %p ", s_ptr)
-	fmt.Println("ID:", s_ptr.id)
+	fmt.Println("ID:", s_ptr.id, "HB_CHAN:", s_ptr.hb_chan)
 	fmt.Println("-- MUSTERS:", s_ptr.musters)
-	fmt.Println("-- HB_CHANNELS:", s_ptr.hb_channels)
 	for _, m := range(s_ptr.musters) {
 		m.show()
 		for _, l := range(m.logs) {l.show()}
@@ -106,38 +105,51 @@ func (s_ptr *shepherd) show() {
 	fmt.Println()
 }
 /************************************/
+/* 
+   This function initializes 1) a general shepherd with a muster representation
+   for each node under the shepherd's supervision and 2) a general log and control 
+   representation for each core under a muster's supervision. 
+*/
 func (s *shepherd) init(nodes []node) {
 	s.musters = make(map[string]*muster)
-	s.hb_channels = make(map[string]chan bool)
+	s.hb_chan = make(chan string)
 	for n := 0; n < len(nodes); n++ {
 		m_id := "muster-" + nodes[n].ip
 		m_n := muster{id: m_id, node: nodes[n], 
 				logs: make(map[string]*log), 
-				controls: make(map[string]*control)}
+				controls: make(map[string]*control),
+				hb_chan: make(chan bool)}
 		s.musters[m_id] = &m_n
-		s.hb_channels[m_id] = make(chan bool)
 	}
 }
 
-//func (s *shepherd) listen_heartbeats() {
-//	for {
-//		for m_id, _ := range(s.musters) {
-//			select {
-//			case <- s.musters[m_id].heartbeat_chan:
-//				fmt.Println("-- -- -- heartbeat from ", m_id)
-//			}
-//		}
-//	}
-//}
+func (s *shepherd) listen_heartbeats() {
+	fmt.Println("-- Starting listen_heartbeat for ", s.id, " on channel ", s.hb_chan)
+	for {
+		for _, m := range(s.musters) {
+			select {
+			case m.hb_chan <- true:
+				m_id := <- s.hb_chan
+				fmt.Println("-- -- -- heartbeat from ", m_id)
+			default:
+			}
+		}
+	}
+}
 
 func (s *shepherd) start_local_muster(m local_muster) {
+	fmt.Println("-------------------------------------------------------------")
 	fmt.Printf("-- Starting local muster %p\n", &m)
-	fmt.Printf("%p\n", &m.muster)
+	m.show()
+	fmt.Println("-------------------------------------------------------------")
 }
 
 func (s *shepherd) start_remote_muster(m remote_muster) {
+	fmt.Println("-------------------------------------------------------------")
 	fmt.Printf("-- Starting remote muster %p\n", &m)
-	fmt.Printf("%p\n", &m.muster)
+	m.show()
+	fmt.Println("-------------------------------------------------------------")
+      	go m.heartbeat(s.hb_chan)
 }
 
 func (s *shepherd) deploy_musters() {
@@ -147,8 +159,16 @@ func (s *shepherd) deploy_musters() {
 		s.start_local_muster(l_m)
 		s.start_remote_muster(r_m)
 	}	
+	go s.listen_heartbeats()
 }
 /************************************/
+/* 
+   This function initializes a specialized shepherd for energy-and-performance 
+   supervision. Each muster under this shepherd's supervision logs energy and
+   performance metrics - i.e. joules and timestamp counters - and controls
+   energy and performance settings - i.e. interrupt delay 
+   and dynamic-voltage-frequency-scaling - for each core under its supervision.
+*/
 func (ep_s ep_shepherd) init() {
 	for m_id, m := range(ep_s.musters) {
 		var c uint8
@@ -173,36 +193,34 @@ func (ep_s ep_shepherd) init() {
 	}
 }
 /************************************/
-//func (n *node) heartbeat() {
-//	for {
-//		select {
-//		case n.heartbeat_chan <- true:
-//			time.Sleep(time.Second/5)
-//		default:
-//		}
-//	}	
-//}
-
-func simulate_remote_node(n *node) {
-	fmt.Println("\n*** REMOTE ", n.ip, "*** starting simulation..")
+func (r_m *remote_muster) heartbeat(shep_hb_chan chan string) {
+	fmt.Println("-- Starting heartbeat for muster ", r_m.id, " to ", shep_hb_chan)
 	for {
 		select {
-		case m_id := <- n.registration_chan:
-			fmt.Println("*** REMOTE ", n.ip, "*** registration request from", m_id)
-		default:
-			// by default, a node is executing its resident application
-			time.Sleep(time.Second/10)
+		case <- r_m.hb_chan:
+			fmt.Println("-- Received heartbeat request at ", r_m.id, r_m.hb_chan)
+			shep_hb_chan <- r_m.id
 		}
-	}
+		time.Sleep(time.Second/5)
+	}	
 }
+
+//func simulate_remote_node(n *node) {
+//	fmt.Println("\n*** REMOTE ", n.ip, "*** starting simulation..")
+//	for {
+//		select {
+//		case m_id := <- n.registration_chan:
+//			fmt.Println("*** REMOTE ", n.ip, "*** registration request from", m_id)
+//		default:
+//			// by default, a node is executing its resident application
+//			time.Sleep(time.Second/10)
+//		}
+//	}
+//}
 /************************************/
 func main() {
-	nodes := []node{{ip: "10.0.0.1", ncores: 4, registration_chan: make(chan string)}, 
-			{ip: "10.0.0.2", ncores: 4, registration_chan: make(chan string)}}
-
-	/* simulating remote nodes */
-//	for n := 0; n < len(nodes); n++ { go simulate_remote_node(&nodes[n]) } 
-//	time.Sleep(time.Second/10)
+	nodes := []node{{ip: "10.0.0.1", ncores: 4}, 
+			{ip: "10.0.0.2", ncores: 4}}
 
 	s := shepherd{id: "sheperd-ep"}
 	s.init(nodes)
