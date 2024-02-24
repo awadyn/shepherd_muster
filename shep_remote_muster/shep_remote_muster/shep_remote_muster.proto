@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = "github.com/awadyn/shep_remote_muster";
+
+package muster;
+
+service Pulse {
+	rpc HeartBeat (HeartbeatRequest) returns (HeartbeatReply) {}
+}
+
+message HeartbeatRequest {
+	bool shep_request = 1;
+}
+
+message HeartbeatReply {
+	string muster_reply = 1;
+}
