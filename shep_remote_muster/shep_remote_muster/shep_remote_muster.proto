@@ -9,9 +9,10 @@ service Pulse {
 }
 
 message HeartbeatRequest {
-	bool shep_request = 1;
+	uint32 shep_request = 1;
 }
 
 message HeartbeatReply {
-	string muster_reply = 1;
+	uint32 shep_request = 1;
+	string muster_reply = 2;
 }

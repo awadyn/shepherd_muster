@@ -7,7 +7,7 @@ import (
 	"context"
 	"os"
 	"strconv"
-	//"time"
+//	"time"
 
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 	"google.golang.org/grpc"
@@ -59,8 +59,8 @@ type remote_muster struct {
 }
 
 func (r_m *remote_muster) HeartBeat(ctx context.Context, in *pb.HeartbeatRequest) (*pb.HeartbeatReply, error) {
-	fmt.Printf("-- Muster %s received: %v\n", r_m.id, in)
-	return &pb.HeartbeatReply{MusterReply: r_m.id}, nil
+	fmt.Printf("-- Muster %s received: %v\n", r_m.id, in.GetShepRequest())
+	return &pb.HeartbeatReply{MusterReply: r_m.id, ShepRequest: in.GetShepRequest()}, nil
 }
 
 func main() {

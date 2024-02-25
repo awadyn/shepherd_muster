@@ -56,10 +56,6 @@ type local_muster struct {
 	remote_muster_addr *string
 }
 
-//type remote_muster struct {
-//	muster
-//}
-
 type cat struct {
 	id string
 	chaos uint8
@@ -67,7 +63,13 @@ type cat struct {
 
 type shepherd struct {
 	musters map[string]*muster
-	hb_chan chan string
+	hb_chan chan *pb.HeartbeatReply
+
+	pulsers map[string]pb.PulseClient
+	conn_remotes map[string]*grpc.ClientConn
+	ctx_remotes map[string]context.Context
+	cancel_remotes map[string]context.CancelFunc
+
 	id string
 	/* e.g. {"sheperd-ep", {"muster-10.0.0.1": &muster{..}, "muster-10.0.0.2": &muster{..} ...}} */
 }
@@ -119,7 +121,7 @@ func (s_ptr *shepherd) show() {
 */
 func (s *shepherd) init(nodes []node) {
 	s.musters = make(map[string]*muster)
-	s.hb_chan = make(chan string)
+	s.hb_chan = make(chan *pb.HeartbeatReply)
 	for n := 0; n < len(nodes); n++ {
 		m_id := "muster-" + nodes[n].ip
 		m_n := muster{id: m_id, node: nodes[n], 
@@ -130,35 +132,40 @@ func (s *shepherd) init(nodes []node) {
 	}
 }
 
-func (s *shepherd) listen_heartbeats(conn_remotes map[string]*grpc.ClientConn, pulsers map[string]*pb.PulseClient,
-				     ctx_remotes map[string]*context.Context, cancel_remotes map[string]*context.CancelFunc) {
+func (s *shepherd) listen_heartbeats() {
+	fmt.Println("-- Starting listen_heartbeats: ", s.id)
+	for {
+		select {
+		case r := <- s.hb_chan:
+			fmt.Println("-- Remote muster heartbeat reply: ", r.GetMusterReply(), r.GetShepRequest())
+		}
+	}
+}
 
-	fmt.Println("-- Starting listen_heartbeat for ", s.id, " on channel ", s.hb_chan)
-	fmt.Println("-- -- Connections: ", conn_remotes)
-	fmt.Println("-- -- Contexts:: ", ctx_remotes)
-	fmt.Println("-- -- Cancel funcs: ", cancel_remotes)
-	fmt.Println("-- -- Pulsers: ", pulsers)
-
+func (s *shepherd) send_heartbeats() {
+	fmt.Println("-- Starting send_heartbeats: ", s.id)
 	for m_id, _ := range(s.musters) {
-		conn := conn_remotes[m_id]
-		cancel := *cancel_remotes[m_id]
+		conn := s.conn_remotes[m_id]
+		cancel := s.cancel_remotes[m_id]
 		defer conn.Close()
 		defer cancel()
 	}
+	var counter uint32 = 0
 	for {
 		for m_id, _ := range(s.musters) {
-			select {
-			default:
-				c := *pulsers[m_id]
-				ctx := *ctx_remotes[m_id]
-				r, err := c.HeartBeat(ctx, &pb.HeartbeatRequest{ShepRequest: true})
+			counter += 1
+			fmt.Println(counter, m_id)
+			c := s.pulsers[m_id]
+			ctx := s.ctx_remotes[m_id]
+			go func(counter uint32) {
+				r, err := c.HeartBeat(ctx, &pb.HeartbeatRequest{ShepRequest: counter})  
 				if err != nil {
 					fmt.Printf("** ** ** Shepherd could not send heartbeat request: %v\n", err)
 				}
-				fmt.Println("-- Remote muster heartbeat reply: ", r.GetMusterReply())
-				time.Sleep(time.Second/5)
-			}
-		}
+				s.hb_chan <- r
+			} (counter)
+			time.Sleep(time.Second/10)
+		}	
 	}
 }
 
@@ -173,37 +180,30 @@ func (s *shepherd) start_local_muster(m local_muster) (*grpc.ClientConn, *pb.Pul
 		fmt.Printf("** ** ** Shepherd could not connect to remote muster %s: %v\n", m.id, err)
 	}
 	c := pb.NewPulseClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	return conn, &c, &ctx, &cancel
 }
-
-//func (s *shepherd) start_remote_muster(m remote_muster) {
-//	fmt.Println("-------------------------------------------------------------")
-//	fmt.Printf("-- Starting remote muster %p\n", &m)
-//	m.show()
-//	fmt.Println("-------------------------------------------------------------")
-//      	go m.heartbeat(s.hb_chan)
-//}
 
 func (s *shepherd) deploy_musters() {
 	flag.Parse()
 	port_ctr := 1
-	conn_remotes := make(map[string]*grpc.ClientConn)
-	pulsers := make(map[string]*pb.PulseClient)
-	ctx_remotes := make(map[string]*context.Context)
-	cancel_remotes := make(map[string]*context.CancelFunc)
+	s.conn_remotes = make(map[string]*grpc.ClientConn)
+	s.pulsers = make(map[string]pb.PulseClient)
+	s.ctx_remotes = make(map[string]context.Context)
+	s.cancel_remotes = make(map[string]context.CancelFunc)
 	for _, m := range(s.musters) {	
 		l_m := local_muster{muster: *m, remote_muster_addr: flag.String("remote_muster_addr_"+m.id, 
 					"localhost:5005" + strconv.Itoa(port_ctr), 
 					"address of one remote muster for shepherd to connect to")}
 		conn, c, ctx, cancel := s.start_local_muster(l_m)
-		conn_remotes[l_m.id] = conn
-		pulsers[l_m.id] = c
-		ctx_remotes[l_m.id] = ctx
-		cancel_remotes[l_m.id] = cancel
+		s.conn_remotes[l_m.id] = conn
+		s.pulsers[l_m.id] = *c
+		s.ctx_remotes[l_m.id] = *ctx
+		s.cancel_remotes[l_m.id] = *cancel
 		port_ctr ++
-	}	
-	go s.listen_heartbeats(conn_remotes, pulsers, ctx_remotes, cancel_remotes)
+	}
+	go s.send_heartbeats()	
+	go s.listen_heartbeats()
 }
 /************************************/
 /* 
@@ -236,19 +236,6 @@ func (ep_s ep_shepherd) init() {
 		}
 	}
 }
-/************************************/
-//func (r_m *remote_muster) heartbeat(shep_hb_chan chan string) {
-//	fmt.Println("-- Starting heartbeat for muster ", r_m.id, " to ", shep_hb_chan)
-//	for {
-//		select {
-//		case <- r_m.hb_chan:
-//			fmt.Println("-- Received heartbeat request at ", r_m.id, r_m.hb_chan)
-//			shep_hb_chan <- r_m.id
-//		}
-//		time.Sleep(time.Second/5)
-//	}	
-//}
-
 /************************************/
 func main() {
 	nodes := []node{{ip: "10.0.0.1", ncores: 4}, 
