@@ -117,7 +117,7 @@ func main() {
 	// start local musters and heartbeats
 	ep_s.deploy_musters()
 	// start shepherd log processing loop
-	go ep_s.process_logs()
+//	go ep_s.process_logs()
 
 	time.Sleep(time.Second*60)
 }

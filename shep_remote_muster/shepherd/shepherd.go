@@ -97,18 +97,37 @@ func (s *shepherd) send_heartbeats() {
 /* This function establishes a connection between local
    muster 'm' and its remote muster mirror.
 */
-func (s *shepherd) start_local_pulser(m local_muster) (*grpc.ClientConn, *pb.PulseClient, *context.Context, *context.CancelFunc) {
+//func (s *shepherd) start_local_pulser(m local_muster) (*grpc.ClientConn, *pb.PulseClient, *context.Context, *context.CancelFunc) {
+//	fmt.Println("-------------------------------------------------------------")
+//	fmt.Printf("-- %v -- STARTING LOCAL MUSTER %v\n", s.id, m.id)
+//	fmt.Println("-------------------------------------------------------------")
+//
+//	conn, err := grpc.Dial(*m.remote_muster_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+//	if err != nil {
+//		fmt.Printf("** ** ** ERROR: %v could not create local connection to remote muster %s:\n** ** ** %v\n", s.id, m.id, err)
+//	}
+//	c := pb.NewPulseClient(conn)
+//	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+//	return conn, &c, &ctx, &cancel
+//}
+
+/* This function establishes a connection between local
+   muster 'm' and its remote muster mirror.
+*/
+func (s *shepherd) start_local_muster(l_m local_muster) {
 	fmt.Println("-------------------------------------------------------------")
-	fmt.Printf("-- %v -- STARTING LOCAL MUSTER %v\n", s.id, m.id)
+	fmt.Printf("-- %v -- STARTING LOCAL MUSTER %v\n", s.id, l_m.id)
 	fmt.Println("-------------------------------------------------------------")
 
-	conn, err := grpc.Dial(*m.remote_muster_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(*l_m.remote_muster_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		fmt.Printf("** ** ** ERROR: %v could not create local connection to remote muster %s:\n** ** ** %v\n", s.id, m.id, err)
+		fmt.Printf("** ** ** ERROR: %v could not create local connection to remote muster %s:\n** ** ** %v\n", s.id, l_m.id, err)
 	}
 	c := pb.NewPulseClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
-	return conn, &c, &ctx, &cancel
+
+	go l_m.start_pulser(conn, c, ctx, cancel)
+//	return conn, &c, &ctx, &cancel
 }
 
 /* This function starts all local threads relevant to 
@@ -130,17 +149,18 @@ func (s *shepherd) deploy_musters() {
 					remote_muster_addr: flag.String("remote_muster_addr_"+m.id, 
 									"localhost:5005" + strconv.Itoa(port_ctr), 
 									"address of one remote muster")}
-		conn, c, ctx, cancel := s.start_local_pulser(l_m)
-		s.local_musters[l_m.id] = &l_m
-		s.conn_remotes[l_m.id] = conn
-		s.pulsers[l_m.id] = *c
-		s.ctx_remotes[l_m.id] = *ctx
-		s.cancel_remotes[l_m.id] = *cancel
+		s.start_local_muster(l_m)
+//		conn, c, ctx, cancel := s.start_local_pulser(l_m)
+//		s.local_musters[l_m.id] = &l_m
+//		s.conn_remotes[l_m.id] = conn
+//		s.pulsers[l_m.id] = *c
+//		s.ctx_remotes[l_m.id] = *ctx
+//		s.cancel_remotes[l_m.id] = *cancel
 		port_ctr ++
-		go l_m.log()
-		go l_m.control()
+//		go l_m.log()
+//		go l_m.control()
 	}
-	go s.send_heartbeats()	
+//	go s.send_heartbeats()	
 	go s.listen_heartbeats()
 }
 

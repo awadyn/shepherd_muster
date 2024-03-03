@@ -15,6 +15,34 @@ import (
 )
 
 /*********************************************/
+func (r_m *remote_muster) init(n_ip string, n_cores int, n_port int, local_muster_port string) {
+	n := node{ip:n_ip, ncores: uint8(n_cores)}
+	m := muster{node:n, 
+		    id: "muster-" + n.ip,
+		    logs: make(map[string]*log), 
+		    controls: make(map[string]*control), 
+		    hb_chan: make(chan bool),
+		    full_buff_chan: make(chan string)}
+	r_m.muster = m
+	r_m.port = flag.Int("port", n_port, "remote_muster_port")
+	r_m.local_muster_addr = flag.String("local_muster_addr_" + m.id, 
+					    "localhost:" + local_muster_port, 
+					    "address of mirror local_muster of this remote_muster")
+	r_m.show()
+	var core uint8
+	for core = 0; core < n.ncores; core ++ {
+		log_id := "log-" + strconv.Itoa(int(core)) + "-" + r_m.ip
+		var max_size uint64 = 1024
+		mem_buff := make([][]uint64, max_size)
+		r_m.logs[log_id] = &log{id: log_id,
+					metrics: []string{"timestamp", "joules"},
+					max_size: max_size,
+					r_buff: &mem_buff,
+					core: core,
+					ready_chan: make(chan bool, 1)}
+		r_m.logs[log_id].show()
+	}
+}
 
 /* This function represents a single remote_muster logger thread
    which is a client of the shepherd server, which in turn performs
@@ -57,34 +85,6 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 func (r_m *remote_muster) control() {
 }
 
-func (r_m *remote_muster) init(n_ip string, n_cores int, n_port int, local_muster_port string) {
-	n := node{ip:n_ip, ncores: uint8(n_cores)}
-	m := muster{node:n, 
-		    id: "muster-" + n.ip,
-		    logs: make(map[string]*log), 
-		    controls: make(map[string]*control), 
-		    hb_chan: make(chan bool),
-		    full_buff_chan: make(chan string)}
-	r_m.muster = m
-	r_m.port = flag.Int("port", n_port, "remote_muster_port")
-	r_m.local_muster_addr = flag.String("local_muster_addr_" + m.id, 
-					    "localhost:" + local_muster_port, 
-					    "address of mirror local_muster of this remote_muster")
-	r_m.show()
-	var core uint8
-	for core = 0; core < n.ncores; core ++ {
-		log_id := "log-" + strconv.Itoa(int(core)) + "-" + r_m.ip
-		var max_size uint64 = 1024
-		mem_buff := make([][]uint64, max_size)
-		r_m.logs[log_id] = &log{id: log_id,
-					metrics: []string{"timestamp", "joules"},
-					max_size: max_size,
-					r_buff: &mem_buff,
-					core: core,
-					ready_chan: make(chan bool, 1)}
-		r_m.logs[log_id].show()
-	}
-}
 
 /*****************/
 /* REMOTE PULSER */
@@ -153,8 +153,8 @@ func main() {
 
 	go r_m.start_remote_pulser()
 
-	conn, c, ctx, cancel := r_m.start_remote_logger()
-	go r_m.log(conn, c, ctx, cancel)
+//	conn, c, ctx, cancel := r_m.start_remote_logger()
+//	go r_m.log(conn, c, ctx, cancel)
 
 	time.Sleep(time.Second*50)
 }

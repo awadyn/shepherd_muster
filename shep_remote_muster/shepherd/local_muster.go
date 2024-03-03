@@ -2,17 +2,39 @@ package main
 
 import (
 	"fmt"
-//	"context"
+	"context"
 	"flag"
 	"net"
 	"io"
-//	"time"
+	"time"
 
 	"google.golang.org/grpc"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 )
 
 /************************************/
+
+func (l_m *local_muster) start_pulser(conn *grpc.ClientConn, c pb.PulseClient, ctx context.Context, cancel context.CancelFunc) {
+	defer conn.Close()
+	defer cancel()
+
+	var counter uint32 = 0
+	for {
+		counter += 1
+		r, err := c.HeartBeat(ctx, &pb.HeartbeatRequest{ShepRequest: counter})  
+		if err != nil {
+//			fmt.Printf("** ** ** ERROR: %v could not send heartbeat request to remote:\n** ** ** %v\n", l_m.id, err)
+			time.Sleep(time.Second/5)
+			continue
+		}
+		select {
+		case l_m.hb_chan <- r:
+//		default:
+		}
+		time.Sleep(time.Second/5)
+	}
+	
+}
 
 func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) error {
 	<- l_m.hb_chan
