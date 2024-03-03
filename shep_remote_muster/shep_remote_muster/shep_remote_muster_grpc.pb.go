@@ -103,3 +103,123 @@ var Pulse_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "shep_remote_muster/shep_remote_muster.proto",
 }
+
+// LogClient is the client API for Log service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LogClient interface {
+	SyncLogBuffers(ctx context.Context, opts ...grpc.CallOption) (Log_SyncLogBuffersClient, error)
+}
+
+type logClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLogClient(cc grpc.ClientConnInterface) LogClient {
+	return &logClient{cc}
+}
+
+func (c *logClient) SyncLogBuffers(ctx context.Context, opts ...grpc.CallOption) (Log_SyncLogBuffersClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Log_ServiceDesc.Streams[0], "/muster.Log/SyncLogBuffers", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &logSyncLogBuffersClient{stream}
+	return x, nil
+}
+
+type Log_SyncLogBuffersClient interface {
+	Send(*SyncLogRequest) error
+	CloseAndRecv() (*SyncLogReply, error)
+	grpc.ClientStream
+}
+
+type logSyncLogBuffersClient struct {
+	grpc.ClientStream
+}
+
+func (x *logSyncLogBuffersClient) Send(m *SyncLogRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *logSyncLogBuffersClient) CloseAndRecv() (*SyncLogReply, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(SyncLogReply)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// LogServer is the server API for Log service.
+// All implementations must embed UnimplementedLogServer
+// for forward compatibility
+type LogServer interface {
+	SyncLogBuffers(Log_SyncLogBuffersServer) error
+	mustEmbedUnimplementedLogServer()
+}
+
+// UnimplementedLogServer must be embedded to have forward compatible implementations.
+type UnimplementedLogServer struct {
+}
+
+func (UnimplementedLogServer) SyncLogBuffers(Log_SyncLogBuffersServer) error {
+	return status.Errorf(codes.Unimplemented, "method SyncLogBuffers not implemented")
+}
+func (UnimplementedLogServer) mustEmbedUnimplementedLogServer() {}
+
+// UnsafeLogServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LogServer will
+// result in compilation errors.
+type UnsafeLogServer interface {
+	mustEmbedUnimplementedLogServer()
+}
+
+func RegisterLogServer(s grpc.ServiceRegistrar, srv LogServer) {
+	s.RegisterService(&Log_ServiceDesc, srv)
+}
+
+func _Log_SyncLogBuffers_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(LogServer).SyncLogBuffers(&logSyncLogBuffersServer{stream})
+}
+
+type Log_SyncLogBuffersServer interface {
+	SendAndClose(*SyncLogReply) error
+	Recv() (*SyncLogRequest, error)
+	grpc.ServerStream
+}
+
+type logSyncLogBuffersServer struct {
+	grpc.ServerStream
+}
+
+func (x *logSyncLogBuffersServer) SendAndClose(m *SyncLogReply) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *logSyncLogBuffersServer) Recv() (*SyncLogRequest, error) {
+	m := new(SyncLogRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Log_ServiceDesc is the grpc.ServiceDesc for Log service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Log_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "muster.Log",
+	HandlerType: (*LogServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "SyncLogBuffers",
+			Handler:       _Log_SyncLogBuffers_Handler,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "shep_remote_muster/shep_remote_muster.proto",
+}

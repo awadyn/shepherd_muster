@@ -8,6 +8,10 @@ service Pulse {
 	rpc HeartBeat (HeartbeatRequest) returns (HeartbeatReply) {}
 }
 
+service Log {
+	rpc SyncLogBuffers (stream SyncLogRequest) returns (SyncLogReply) {}
+}
+
 message HeartbeatRequest {
 	uint32 shep_request = 1;
 }
@@ -16,3 +20,20 @@ message HeartbeatReply {
 	uint32 shep_request = 1;
 	string muster_reply = 2;
 }
+
+message LogEntry {
+	repeated uint64 vals = 1;
+}
+
+message SyncLogRequest {
+	string log_id = 1;
+	LogEntry log_entry = 2;
+}
+
+message SyncLogReply {
+	bool sync_complete = 1;
+}
+
+
+
+
