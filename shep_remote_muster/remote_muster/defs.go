@@ -16,7 +16,7 @@ type node struct {
 
 type log struct {
 	core uint8
-	ready_chan chan bool
+	ready_buff_chan chan bool
 	l_buff *[][]uint64
 	r_buff *[][]uint64
 	max_size uint64

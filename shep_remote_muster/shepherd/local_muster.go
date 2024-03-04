@@ -37,37 +37,36 @@ func (l_m *local_muster) start_pulser(conn *grpc.ClientConn, c pb.PulseClient, c
 }
 
 func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) error {
-	<- l_m.hb_chan
+//	<- l_m.hb_chan
 
 	l_buff_ctr := 0
 	var log_id string
-	var log_ptr *log
+//	var log_ptr *log
+
 	for {
 		log_sync_req, err := stream.Recv()
 		switch {
 		case err == io.EOF:
 			fmt.Printf("------------COMPLETED-SYNC-REQ-- %v -- %v\n", l_m.id, log_id)
-			// signal shepherd to start processing synced log
-			l_m.process_chan <- log_id
+//			// signal shepherd to start processing synced log
+//			l_m.process_chan <- log_id
 			// signal remote muster OK to flush remote buff
 			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:true})
 		case err != nil:
 			fmt.Printf("** ** ** ERROR: could not receive sync log request from stream\n")
-			// signal remote muster that sync request has failed
-			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:false})
-//			panic(err)
-//			return err
+//			// signal remote muster that sync request has failed
+//			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:false})
+			return err
 		default:
 			log_id = log_sync_req.GetLogId()
-			log_ptr = l_m.logs[log_id]
-			buff_ptr := log_ptr.l_buff
+			mem_buff := l_m.logs[log_id].l_buff
 			if l_buff_ctr == 0 { 
 				fmt.Printf("------------SYNC-REQ-- %v\n", log_id) 
-				// confirm that requested sync local log buffer is not in use by shepherd's log processing thread
-				<- log_ptr.ready_chan
+//				// confirm that requested sync local log buffer is not in use by shepherd's log processing thread
+//				<- log_ptr.ready_chan
 			}	
 			// copy sync log data into local log memory buffer 
-			(*buff_ptr)[l_buff_ctr] = log_sync_req.GetLogEntry().GetVals()
+			(*mem_buff)[l_buff_ctr] = log_sync_req.GetLogEntry().GetVals()
 			l_buff_ctr++
 		}
 	}

@@ -103,9 +103,9 @@ func (ep_s ep_shepherd) process_logs() {
 
 func main() {
 	// assume that a list of nodes is known apriori
-	nodes := []node{{ip: "10.0.0.1", ncores: 4},
+	nodes := []node{{ip: "10.0.0.1", ncores: 8},
 			{ip: "10.0.0.2", ncores: 8},
-			{ip: "10.0.0.3", ncores: 4},
+			{ip: "10.0.0.3", ncores: 16},
 			{ip: "10.0.0.4", ncores: 16}}
 	// initialize generic shepherd
 	s := shepherd{id: "sheperd-ep"}
