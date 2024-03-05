@@ -27,7 +27,7 @@ func (ep_s ep_shepherd) init() {
 			log_c := log{id: log_id, n_ip: m.ip, core: uint8(c),
 					metrics: []string{"joules", "timestamp"}, 
 					max_size: max_size, 
-					ready_chan: make(chan bool, 1)}
+					ready_buff_chan: make(chan bool, 1)}
 			l_buff := make([][]uint64, log_c.max_size)
 			log_c.l_buff = &l_buff
 			ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
@@ -39,7 +39,7 @@ func (ep_s ep_shepherd) init() {
 			ep_s.musters[m_id].controls[ctrl_dvfs_c.id] = &ctrl_dvfs_c
 			ep_s.musters[m_id].controls[ctrl_itr_c.id] = &ctrl_itr_c
 
-			ep_s.musters[m_id].logs[log_c.id].ready_chan <- true
+			ep_s.musters[m_id].logs[log_c.id].ready_buff_chan <- true
 		}
 	}
 }
@@ -58,43 +58,42 @@ func (ep_s *ep_shepherd) init_out_files(out_dir string) map[string](map[string]*
 	return out_f_map
 }
 
+func (ep_s ep_shepherd) setup_process_logs() map[string](map[string]*os.File) {
+	// output log files that ep_s will populate with remote-log data
+	out_dir := "/home/tanneen/shepherd_muster/shep_reproduced_mcd_logs/" 
+	out_f_map := ep_s.init_out_files(out_dir)
+	return out_f_map
+}
+
 /* This function implements the log processing loop of an ep-shepherd.
    Currently, an ep-shepherd processing loop re-generates logs read
    by all of its remote musters. This is a test implementation to
    confirm the correctness of the log syncing mechanism.
 */
-func (ep_s ep_shepherd) process_logs() {
-	// output log files that ep_s will populate with remote-log data
-	out_dir := "/home/tanneen/shepherd_muster/shep_reproduced_mcd_logs/" 
-	out_f_map := ep_s.init_out_files(out_dir)
-	for m_id, _ := range(out_f_map) {
-		for _, f := range(out_f_map[m_id]) { defer f.Close() }
-	}
-
+func (ep_s ep_shepherd) process_full_buffers(m_id string, out_f_map map[string]*os.File) {
+	for _, f := range(out_f_map) { defer f.Close() }
+	m := ep_s.musters[m_id]
 	for {
-		for _, m := range(ep_s.musters) {
-			select {
-			case log_id := <- m.process_chan:
-				fmt.Println("-- -- -- RECEIVED PROCESS LOG SIGNAL FOR ", log_id)
-				log := *(m.logs[log_id])
-				mem_buff := *(log.l_buff)
-				str_mem_buff := make([][]string,0)
-				for _, row := range(mem_buff) {
-					if len(row) == 0 { break }
-					str_row := []string{strconv.Itoa(int(row[0])),
-							     strconv.Itoa(int(row[1]))}
-					str_mem_buff = append(str_mem_buff, str_row)
-				}
-				f := out_f_map[m.id][log_id]
-				writer := csv.NewWriter(f)
-				writer.Comma = ' '
-				writer.WriteAll(str_mem_buff)
-
-				fmt.Println("-- -- -- COMPLETED PROCESSING LOG ", log_id)
-				m.logs[log_id].ready_chan <- true
-				// NOTE: local muster can now start new sync request for this log
-			default:
+		select {
+		case log_id := <- m.process_buff_chan:
+			fmt.Println("-- -- -- RECEIVED PROCESS LOG SIGNAL FOR ", log_id)
+			log := *(m.logs[log_id])
+			mem_buff := *(log.l_buff)
+			str_mem_buff := make([][]string,0)
+			for _, row := range(mem_buff) {
+				if len(row) == 0 { break }
+				str_row := []string{strconv.Itoa(int(row[0])),
+						     strconv.Itoa(int(row[1]))}
+				str_mem_buff = append(str_mem_buff, str_row)
 			}
+			f := out_f_map[log_id]
+			writer := csv.NewWriter(f)
+			writer.Comma = ' '
+			writer.WriteAll(str_mem_buff)
+
+			fmt.Println("-- -- -- COMPLETED PROCESSING LOG ", log_id)
+			// NOTE: local muster can now start new sync request for this log
+			m.logs[log_id].ready_buff_chan <- true
 		}
 	}
 }
@@ -103,10 +102,10 @@ func (ep_s ep_shepherd) process_logs() {
 
 func main() {
 	// assume that a list of nodes is known apriori
-	nodes := []node{{ip: "10.0.0.1", ncores: 8},
-			{ip: "10.0.0.2", ncores: 8},
-			{ip: "10.0.0.3", ncores: 16},
-			{ip: "10.0.0.4", ncores: 16}}
+	nodes := []node{{ip: "10.0.0.1", ncores: 8, pulse_port: 50051, log_sync_port:50061},
+			{ip: "10.0.0.2", ncores: 8, pulse_port: 50052, log_sync_port:50062},
+			{ip: "10.0.0.3", ncores: 16, pulse_port: 50053, log_sync_port:50063},
+			{ip: "10.0.0.4", ncores: 16, pulse_port: 50054, log_sync_port:50064}}
 	// initialize generic shepherd
 	s := shepherd{id: "sheperd-ep"}
 	s.init(nodes)
@@ -117,7 +116,10 @@ func main() {
 	// start local musters and heartbeats
 	ep_s.deploy_musters()
 	// start shepherd log processing loop
-//	go ep_s.process_logs()
+	out_f_map := ep_s.setup_process_logs()
+	for m_id, _ := range(ep_s.musters) {
+		go ep_s.process_full_buffers(m_id, out_f_map[m_id])
+	}
 
 	time.Sleep(time.Second*60)
 }

@@ -29,7 +29,13 @@ func (s *shepherd) init(nodes []node) {
 				logs: make(map[string]*log), 
 				controls: make(map[string]*control),
 				hb_chan: make(chan *pb.HeartbeatReply),
-				process_chan: make(chan string)}
+				process_buff_chan: make(chan string),
+				log_sync_port: flag.Int("log_sync_port_" + m_id, 
+							nodes[n].log_sync_port,
+							"local muster log syncing server port"),
+				remote_muster_addr: flag.String("remote_muster_addr_" + m_id,
+								"localhost:" + strconv.Itoa(nodes[n].pulse_port),
+								"address of one remote muster pulse server")}
 		s.musters[m_id] = &m_n
 	}
 }
@@ -53,59 +59,6 @@ func (s *shepherd) listen_heartbeats() {
 	}
 }
 
-//func (s *shepherd) heartbeat(m muster, conn *grpc.ClientConn, cancel context.CancelFunc) {
-//	// all of this shepherd's open connections (one per remote muster)
-//	// can be closed when the heartbeat protocol terminates
-//	defer conn.Close()
-//	defer cancel()
-//
-//	var counter uint32 = 0
-//	for {
-//		counter += 1
-//		c := s.pulsers[m.id]
-//		ctx := s.ctx_remotes[m.id]
-//		r, err := c.HeartBeat(ctx, &pb.HeartbeatRequest{ShepRequest: counter})  
-//		if err != nil {
-//			//fmt.Printf("** ** ** ERROR: %v could not send heartbeat request to remote %v:\n** ** ** %v\n", s.id, m.id, err)
-//			time.Sleep(time.Second/5)
-//			continue
-//		}
-//		select {
-//		case s.musters[m.id].hb_chan <- r:
-//		}
-//		time.Sleep(time.Second/5)
-//	}
-//}
-/* This function sends heartbeat RPC requests in a round-robin
-   fashion to all musters under this shepherd's supervision.
-   Upon RPC reply, it signals the reply heartbeat back 
-   to its calling shepherd.
-*/
-//func (s *shepherd) send_heartbeats() {
-//	fmt.Printf("-- %v -- START SENDING HEARTBEAT RPC\n", s.id)
-//	for m_id, m := range(s.musters) {
-//		conn := s.conn_remotes[m_id]
-//		cancel := s.cancel_remotes[m_id]
-//		go s.heartbeat(*m, conn, cancel)
-//	}
-//}
-
-/* This function establishes a connection between local
-   muster 'm' and its remote muster mirror.
-*/
-//func (s *shepherd) start_local_pulser(m local_muster) (*grpc.ClientConn, *pb.PulseClient, *context.Context, *context.CancelFunc) {
-//	fmt.Println("-------------------------------------------------------------")
-//	fmt.Printf("-- %v -- STARTING LOCAL MUSTER %v\n", s.id, m.id)
-//	fmt.Println("-------------------------------------------------------------")
-//
-//	conn, err := grpc.Dial(*m.remote_muster_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-//	if err != nil {
-//		fmt.Printf("** ** ** ERROR: %v could not create local connection to remote muster %s:\n** ** ** %v\n", s.id, m.id, err)
-//	}
-//	c := pb.NewPulseClient(conn)
-//	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
-//	return conn, &c, &ctx, &cancel
-//}
 
 /* This function establishes a connection between local
    muster 'm' and its remote muster mirror.
@@ -139,11 +92,12 @@ func (s *shepherd) deploy_musters() {
 	s.ctx_remotes = make(map[string]context.Context)
 	s.cancel_remotes = make(map[string]context.CancelFunc)
 	for _, m := range(s.musters) {	
-		l_m := local_muster{muster: *m, 
-					log_sync_port: flag.Int("sync_port_"+m.id, 50060 + port_ctr, "local muster log syncing port"),
-					remote_muster_addr: flag.String("remote_muster_addr_"+m.id, 
-									"localhost:5005" + strconv.Itoa(port_ctr), 
-									"address of one remote muster")}
+		l_m := local_muster{muster: *m}
+//					log_sync_port: flag.Int("sync_port_"+m.id, 50060 + port_ctr, "local muster log syncing port"),
+//					remote_muster_addr: flag.String("remote_muster_addr_"+m.id, 
+//									"localhost:5005" + strconv.Itoa(port_ctr), 
+//									"address of one remote muster")
+//}
 		s.start_local_muster(l_m)
 		port_ctr ++
 		go l_m.log()
@@ -151,6 +105,7 @@ func (s *shepherd) deploy_musters() {
 	}
 	go s.listen_heartbeats()
 }
+
 
 
 

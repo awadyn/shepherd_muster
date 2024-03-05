@@ -11,12 +11,14 @@ import (
 
 type node struct {
 	ncores uint8
+	pulse_port int
+	log_sync_port int
 	ip string
 }
 
 type log struct {
 	core uint8
-	ready_chan chan bool
+	ready_buff_chan chan bool
 	l_buff *[][]uint64
 	max_size uint64
 	metrics []string
@@ -39,9 +41,10 @@ type control struct {
 
 type muster struct {
 	node
-	//hb_chan chan bool
+	log_sync_port *int
+	remote_muster_addr *string
 	hb_chan chan *pb.HeartbeatReply
-	process_chan chan string
+	process_buff_chan chan string
 	logs map[string]*log
 	controls map[string]*control
 	id string
@@ -50,8 +53,8 @@ type muster struct {
 
 type local_muster struct {
 	muster
-	log_sync_port *int
-	remote_muster_addr *string
+//	log_sync_port *int
+//	remote_muster_addr *string
 	pb.UnimplementedLogServer
 }
 
@@ -65,7 +68,7 @@ type shepherd struct {
 	local_musters map[string]*local_muster
 
 	hb_chan chan *pb.HeartbeatReply
-	process_chan chan string
+//	process_chan chan string
 
 	pulsers map[string]pb.PulseClient
 	conn_remotes map[string]*grpc.ClientConn
