@@ -22,7 +22,7 @@ func (ep_s ep_shepherd) init() {
 		var c uint8
 		for c = 0; c < m.ncores; c++ {
 			c_str := strconv.Itoa(int(c))
-			var max_size uint64 = 1024
+			var max_size uint64 = 4096
 			log_id := "log-" + c_str + "-" + m.ip 
 			log_c := log{id: log_id, n_ip: m.ip, core: uint8(c),
 					metrics: []string{"joules", "timestamp"}, 
@@ -32,8 +32,8 @@ func (ep_s ep_shepherd) init() {
 			log_c.l_buff = &l_buff
 			ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
 			ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
-			ctrl_dvfs_c := control{id: ctrl_dvfs_id, n_ip: m.ip, core: c, knob: "dvfs", value: 0xffff}
-			ctrl_itr_c := control{id: ctrl_itr_id, n_ip: m.ip, core: c, knob: "itr-delay", value: 1}
+			ctrl_dvfs_c := control{id: ctrl_dvfs_id, n_ip: m.ip, core: c, knob: "dvfs", value: 0xffff, dirty: false}
+			ctrl_itr_c := control{id: ctrl_itr_id, n_ip: m.ip, core: c, knob: "itr-delay", value: 1, dirty: false}
 
 			ep_s.musters[m_id].logs[log_c.id] = &log_c
 			ep_s.musters[m_id].controls[ctrl_dvfs_c.id] = &ctrl_dvfs_c
@@ -58,6 +58,10 @@ func (ep_s *ep_shepherd) init_out_files(out_dir string) map[string](map[string]*
 	return out_f_map
 }
 
+/**************************/
+/***** LOG PROCESSING *****/
+/**************************/
+
 func (ep_s ep_shepherd) setup_process_logs() map[string](map[string]*os.File) {
 	// output log files that ep_s will populate with remote-log data
 	out_dir := "/home/tanneen/shepherd_muster/shep_reproduced_mcd_logs/" 
@@ -71,7 +75,6 @@ func (ep_s ep_shepherd) setup_process_logs() map[string](map[string]*os.File) {
    confirm the correctness of the log syncing mechanism.
 */
 func (ep_s ep_shepherd) process_full_buffers(m_id string, out_f_map map[string]*os.File) {
-	for _, f := range(out_f_map) { defer f.Close() }
 	m := ep_s.musters[m_id]
 	for {
 		select {
@@ -94,6 +97,35 @@ func (ep_s ep_shepherd) process_full_buffers(m_id string, out_f_map map[string]*
 			fmt.Println("-- -- -- COMPLETED PROCESSING LOG ", log_id)
 			// NOTE: local muster can now start new sync request for this log
 			m.logs[log_id].ready_buff_chan <- true
+			m.compute_ctrl_chan <- log_id
+		}
+	}
+}
+
+/***************************/
+/********* CONTROL *********/
+/***************************/
+
+func (ep_s ep_shepherd) compute_control(m_id string, out_f_map map[string]*os.File) {
+	m := ep_s.musters[m_id]
+	for {
+		select {
+		case log_id := <- m.compute_ctrl_chan:
+			fmt.Println("-- -- -- RECEIVED COMPUTE CONTROL SIGNAL FOR ", log_id)
+			c_str := strconv.Itoa(int(m.logs[log_id].core))
+			ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
+			ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
+			m.controls[ctrl_dvfs_id].value = 0xbeef
+			m.controls[ctrl_dvfs_id].dirty = true
+			m.controls[ctrl_itr_id].value = 10
+			m.controls[ctrl_itr_id].dirty = true
+			n_dirty := 0
+			for _, ctrl := range(m.controls) {
+				if ctrl.dirty { n_dirty ++ }
+			}
+			if n_dirty == len(m.controls) {
+				m.ready_ctrl_chan <- log_id
+			}
 		}
 	}
 }
@@ -102,10 +134,10 @@ func (ep_s ep_shepherd) process_full_buffers(m_id string, out_f_map map[string]*
 
 func main() {
 	// assume that a list of nodes is known apriori
-	nodes := []node{{ip: "10.0.0.1", ncores: 8, pulse_port: 50051, log_sync_port:50061},
-			{ip: "10.0.0.2", ncores: 8, pulse_port: 50052, log_sync_port:50062},
-			{ip: "10.0.0.3", ncores: 16, pulse_port: 50053, log_sync_port:50063},
-			{ip: "10.0.0.4", ncores: 16, pulse_port: 50054, log_sync_port:50064}}
+	nodes := []node{{ip: "10.0.0.1", ncores: 8, pulse_port: 50051, log_sync_port:50061, ctrl_port: 50071},
+			{ip: "10.0.0.2", ncores: 8, pulse_port: 50052, log_sync_port:50062, ctrl_port: 50072},
+			{ip: "10.0.0.3", ncores: 16, pulse_port: 50053, log_sync_port:50063, ctrl_port: 50073},
+			{ip: "10.0.0.4", ncores: 16, pulse_port: 50054, log_sync_port:50064, ctrl_port: 50074}}
 	// initialize generic shepherd
 	s := shepherd{id: "sheperd-ep"}
 	s.init(nodes)
@@ -115,11 +147,19 @@ func main() {
 	ep_s.show()
 	// start local musters and heartbeats
 	ep_s.deploy_musters()
-	// start shepherd log processing loop
 	out_f_map := ep_s.setup_process_logs()
 	for m_id, _ := range(ep_s.musters) {
+		// start shepherd log processing loop
 		go ep_s.process_full_buffers(m_id, out_f_map[m_id])
+		// start shepherd control computation loop
+		go ep_s.compute_control(m_id, out_f_map[m_id])
+		for _, f := range(out_f_map[m_id]) { defer f.Close() }
 	}
 
 	time.Sleep(time.Second*60)
 }
+
+
+
+
+

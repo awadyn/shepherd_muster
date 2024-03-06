@@ -58,9 +58,11 @@ type muster struct {
 
 type remote_muster struct {
 	muster
-	port *int
+	pulse_port *int
+	ctrl_port *int
 	local_muster_addr *string
 	pb.UnimplementedPulseServer
+	pb.UnimplementedControlServer
 }
 
 /*****************************************/

@@ -223,3 +223,123 @@ var Log_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "shep_remote_muster/shep_remote_muster.proto",
 }
+
+// ControlClient is the client API for Control service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ControlClient interface {
+	ApplyControl(ctx context.Context, opts ...grpc.CallOption) (Control_ApplyControlClient, error)
+}
+
+type controlClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewControlClient(cc grpc.ClientConnInterface) ControlClient {
+	return &controlClient{cc}
+}
+
+func (c *controlClient) ApplyControl(ctx context.Context, opts ...grpc.CallOption) (Control_ApplyControlClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Control_ServiceDesc.Streams[0], "/muster.Control/ApplyControl", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &controlApplyControlClient{stream}
+	return x, nil
+}
+
+type Control_ApplyControlClient interface {
+	Send(*ControlRequest) error
+	CloseAndRecv() (*ControlReply, error)
+	grpc.ClientStream
+}
+
+type controlApplyControlClient struct {
+	grpc.ClientStream
+}
+
+func (x *controlApplyControlClient) Send(m *ControlRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *controlApplyControlClient) CloseAndRecv() (*ControlReply, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(ControlReply)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// ControlServer is the server API for Control service.
+// All implementations must embed UnimplementedControlServer
+// for forward compatibility
+type ControlServer interface {
+	ApplyControl(Control_ApplyControlServer) error
+	mustEmbedUnimplementedControlServer()
+}
+
+// UnimplementedControlServer must be embedded to have forward compatible implementations.
+type UnimplementedControlServer struct {
+}
+
+func (UnimplementedControlServer) ApplyControl(Control_ApplyControlServer) error {
+	return status.Errorf(codes.Unimplemented, "method ApplyControl not implemented")
+}
+func (UnimplementedControlServer) mustEmbedUnimplementedControlServer() {}
+
+// UnsafeControlServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ControlServer will
+// result in compilation errors.
+type UnsafeControlServer interface {
+	mustEmbedUnimplementedControlServer()
+}
+
+func RegisterControlServer(s grpc.ServiceRegistrar, srv ControlServer) {
+	s.RegisterService(&Control_ServiceDesc, srv)
+}
+
+func _Control_ApplyControl_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ControlServer).ApplyControl(&controlApplyControlServer{stream})
+}
+
+type Control_ApplyControlServer interface {
+	SendAndClose(*ControlReply) error
+	Recv() (*ControlRequest, error)
+	grpc.ServerStream
+}
+
+type controlApplyControlServer struct {
+	grpc.ServerStream
+}
+
+func (x *controlApplyControlServer) SendAndClose(m *ControlReply) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *controlApplyControlServer) Recv() (*ControlRequest, error) {
+	m := new(ControlRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Control_ServiceDesc is the grpc.ServiceDesc for Control service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Control_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "muster.Control",
+	HandlerType: (*ControlServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ApplyControl",
+			Handler:       _Control_ApplyControl_Handler,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "shep_remote_muster/shep_remote_muster.proto",
+}

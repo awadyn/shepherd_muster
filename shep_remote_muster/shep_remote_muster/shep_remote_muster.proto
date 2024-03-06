@@ -4,12 +4,9 @@ option go_package = "github.com/awadyn/shep_remote_muster";
 
 package muster;
 
+
 service Pulse {
 	rpc HeartBeat (HeartbeatRequest) returns (HeartbeatReply) {}
-}
-
-service Log {
-	rpc SyncLogBuffers (stream SyncLogRequest) returns (SyncLogReply) {}
 }
 
 message HeartbeatRequest {
@@ -19,6 +16,11 @@ message HeartbeatRequest {
 message HeartbeatReply {
 	uint32 shep_request = 1;
 	string muster_reply = 2;
+}
+
+
+service Log {
+	rpc SyncLogBuffers (stream SyncLogRequest) returns (SyncLogReply) {}
 }
 
 message LogEntry {
@@ -32,6 +34,25 @@ message SyncLogRequest {
 
 message SyncLogReply {
 	bool sync_complete = 1;
+}
+
+
+service Control {
+	rpc ApplyControl (stream ControlRequest) returns (ControlReply) {}
+}
+
+message ControlEntry {
+	string control_knob = 1;
+	uint64 val = 2;
+}
+
+message ControlRequest {
+	string log_id = 1;
+	ControlEntry ctrl_entry = 2;
+}
+
+message ControlReply {
+	bool ctrl_complete = 1;
 }
 
 

@@ -13,6 +13,7 @@ type node struct {
 	ncores uint8
 	pulse_port int
 	log_sync_port int
+	ctrl_port int
 	ip string
 }
 
@@ -32,6 +33,7 @@ type log struct {
 
 type control struct {
 	core uint8
+	dirty bool
 	value uint64
 	knob string
 	n_ip string
@@ -42,9 +44,14 @@ type control struct {
 type muster struct {
 	node
 	log_sync_port *int
+	remote_ctrl_addr *string
 	remote_muster_addr *string
+
 	hb_chan chan *pb.HeartbeatReply
 	process_buff_chan chan string
+	compute_ctrl_chan chan string
+	ready_ctrl_chan chan string
+
 	logs map[string]*log
 	controls map[string]*control
 	id string
@@ -53,8 +60,6 @@ type muster struct {
 
 type local_muster struct {
 	muster
-//	log_sync_port *int
-//	remote_muster_addr *string
 	pb.UnimplementedLogServer
 }
 
@@ -68,7 +73,6 @@ type shepherd struct {
 	local_musters map[string]*local_muster
 
 	hb_chan chan *pb.HeartbeatReply
-//	process_chan chan string
 
 	pulsers map[string]pb.PulseClient
 	conn_remotes map[string]*grpc.ClientConn
@@ -97,7 +101,6 @@ func (l_ptr *log) show() {
 	fmt.Println(*l_ptr.l_buff)
 	//fmt.Printf("    -- %p R_BUFF:", l_ptr.r_buff)
 	//fmt.Println(*l_ptr.r_buff)
-
 }
 func (c_ptr *control) show() {
 	fmt.Printf("    ADDR %p ", c_ptr)

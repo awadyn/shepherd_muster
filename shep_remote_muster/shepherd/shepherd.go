@@ -30,15 +30,21 @@ func (s *shepherd) init(nodes []node) {
 				controls: make(map[string]*control),
 				hb_chan: make(chan *pb.HeartbeatReply),
 				process_buff_chan: make(chan string),
+				compute_ctrl_chan: make(chan string),
+				ready_ctrl_chan: make(chan string),
 				log_sync_port: flag.Int("log_sync_port_" + m_id, 
 							nodes[n].log_sync_port,
 							"local muster log syncing server port"),
+				remote_ctrl_addr: flag.String("remote_ctrl_addr_" + m_id,
+							      "localhost:" + strconv.Itoa(nodes[n].ctrl_port),
+							      "address of one remote muster control server"),
 				remote_muster_addr: flag.String("remote_muster_addr_" + m_id,
 								"localhost:" + strconv.Itoa(nodes[n].pulse_port),
 								"address of one remote muster pulse server")}
 		s.musters[m_id] = &m_n
 	}
 }
+
 
 /* This function receives and processes incoming messages
    on a shepherd's heartbeat channel. This channel is unbuffered.
@@ -78,6 +84,23 @@ func (s *shepherd) start_local_muster(l_m local_muster) {
 	go l_m.start_pulser(conn, c, ctx, cancel)
 }
 
+
+func (s *shepherd) start_local_controller(l_m local_muster) {
+	fmt.Println("-------------------------------------------------------------")
+	fmt.Printf("-- %v -- STARTING LOCAL CONTROLLER %v\n", s.id, l_m.id)
+	fmt.Println("-------------------------------------------------------------")
+
+	conn, err := grpc.Dial(*l_m.remote_ctrl_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Printf("** ** ** ERROR: %v could not create local connection to remote controller %s:\n** ** ** %v\n", s.id, l_m.id, err)
+	}
+	c := pb.NewControlClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+
+	go l_m.control(conn, c, ctx, cancel)
+}
+
+
 /* This function starts all local threads relevant to 
    a shepherd's musters. It also establishes a connection
    between every local-remote muster pair. These connections
@@ -86,22 +109,15 @@ func (s *shepherd) start_local_muster(l_m local_muster) {
 */
 func (s *shepherd) deploy_musters() {
 	flag.Parse()
-	port_ctr := 1
 	s.conn_remotes = make(map[string]*grpc.ClientConn)
 	s.pulsers = make(map[string]pb.PulseClient)
 	s.ctx_remotes = make(map[string]context.Context)
 	s.cancel_remotes = make(map[string]context.CancelFunc)
 	for _, m := range(s.musters) {	
 		l_m := local_muster{muster: *m}
-//					log_sync_port: flag.Int("sync_port_"+m.id, 50060 + port_ctr, "local muster log syncing port"),
-//					remote_muster_addr: flag.String("remote_muster_addr_"+m.id, 
-//									"localhost:5005" + strconv.Itoa(port_ctr), 
-//									"address of one remote muster")
-//}
 		s.start_local_muster(l_m)
-		port_ctr ++
 		go l_m.log()
-//		go l_m.control()
+		s.start_local_controller(l_m)
 	}
 	go s.listen_heartbeats()
 }
