@@ -28,8 +28,9 @@ message LogEntry {
 }
 
 message SyncLogRequest {
-	string log_id = 1;
-	LogEntry log_entry = 2;
+	string sheep_id = 1;
+	string log_id = 2;
+	LogEntry log_entry = 3;
 }
 
 message SyncLogReply {
@@ -42,7 +43,8 @@ service Control {
 }
 
 message ControlEntry {
-	string control_knob = 1;
+	string ctrl_id = 1;
+//	string ctrl_knob = 2;
 	uint64 val = 2;
 }
 

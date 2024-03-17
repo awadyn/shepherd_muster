@@ -8,6 +8,7 @@ import (
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 )
 
+/************************************/
 
 type node struct {
 	ncores uint8
@@ -15,9 +16,10 @@ type node struct {
 }
 
 type log struct {
-	core uint8
 	ready_buff_chan chan bool
-	l_buff *[][]uint64
+	kill_log_chan chan bool
+	done_chan chan bool
+
 	r_buff *[][]uint64
 	max_size uint64
 	metrics []string
@@ -30,7 +32,7 @@ type log struct {
 }
 
 type control struct {
-	core uint8
+	dirty bool
 	value uint64
 	knob string
 	n_ip string
@@ -38,26 +40,35 @@ type control struct {
 	/* e.g. { "ctrl-dvfs-i", "10.0.0.1", "dvfs", 0x1234, i }*/
 }
 
-type muster struct {
-	node
-	pulsing chan bool
+type sheep struct {
+	core uint8
 
 	logs map[string]*log
 	controls map[string]*control
 
+	id string
+}
+
+type muster struct {
+	node
+
 	hb_chan chan bool
-	full_buff_chan chan string
+	full_buff_chan chan []string
 
 	logger pb.LogClient
 	conn_local *grpc.ClientConn
 	ctx_local context.Context
 	cancel_local context.CancelFunc 
 
+	pasture map[string]*sheep
 	id string
 }
 
 type remote_muster struct {
 	muster
+
+//	done_chan chan bool
+
 	pulse_port *int
 	ctrl_port *int
 	local_muster_addr *string
@@ -66,21 +77,39 @@ type remote_muster struct {
 }
 
 /*****************************************/
+
 func (l_ptr *log) show() {
 	fmt.Printf("    ADDR %p ", l_ptr)
 	fmt.Println("ID:", l_ptr.id, "  --  MAX_SIZE:", l_ptr.max_size, "  --  METRICS:", l_ptr.metrics)
-	//fmt.Printf("    -- %p L_BUFF:", l_ptr.l_buff)
-	//fmt.Println(*l_ptr.l_buff)
 	fmt.Printf("    -- %p R_BUFF:", l_ptr.r_buff)
 	fmt.Println(*l_ptr.r_buff)
 
 }
-func (m_ptr *muster) show() {
-	fmt.Println()
-	fmt.Printf("ADDR %p ", m_ptr)
-	fmt.Println("ID:", m_ptr.id, "HB_CHAN:", m_ptr.hb_chan)
-	fmt.Println("------ LOGS:", m_ptr.logs)
-	//fmt.Println("-- CONTROLS:", m_ptr.controls) 
+
+func (m *muster) show() {
+	fmt.Printf("-- MUSTER %v --\n", m.id)
+	fmt.Printf("-- -- NODE -- -- %v\n", m.node)
+	fmt.Printf("-- -- PASTURE -- -- %v\n", m.pasture)
 }
 
+func (r_m *remote_muster) show() {
+	fmt.Printf("-- REMOTE MUSTER :  %v \n", r_m.id)
+	fmt.Printf("-- NODE :  %v \n", r_m.node)
+	fmt.Printf("   -- PULSE SERVE PORT :  %v \n", *r_m.pulse_port)
+	fmt.Printf("   -- LOG CLIENT PORT :  %v \n", *r_m.local_muster_addr)
+	fmt.Printf("   -- CONTROL SERVE PORT :  %v \n", *r_m.ctrl_port)
+	fmt.Printf("   -- PASTURE :  \n")
+	for sheep_id, _ := range(r_m.pasture) {
+		fmt.Printf("      -- SHEEP %v \n", sheep_id)
+		fmt.Printf("         -- LOGS :  \n")
+		for log_id, _ := range(r_m.pasture[sheep_id].logs) {
+			fmt.Printf("            %v \n", r_m.pasture[sheep_id].logs[log_id])
+		} 
+		fmt.Printf("         -- CONTROLS :  \n")
+		for ctrl_id, _ := range(r_m.pasture[sheep_id].controls) {
+			fmt.Printf("            %v \n", r_m.pasture[sheep_id].controls[ctrl_id])
+		}
+	}
+	fmt.Println()
+}
 
