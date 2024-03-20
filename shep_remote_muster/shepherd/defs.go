@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"context"
+	"os"
 
 	"google.golang.org/grpc"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
@@ -14,11 +15,11 @@ type node struct {
 	pulse_port int
 	log_sync_port int
 	ctrl_port int
+	coordinate_port int
 	ip string
 }
 
 type log struct {
-//	core uint8
 	ready_buff_chan chan bool
 	l_buff *[][]uint64
 	max_size uint64
@@ -32,7 +33,6 @@ type log struct {
 }
 
 type control struct {
-//	core uint8
 	dirty bool
 	value uint64
 	knob string
@@ -43,11 +43,9 @@ type control struct {
 
 type sheep struct {
 	core uint8
-//	ready_buff_chan chan bool
-
+	finish_run_chan chan bool
 	logs map[string]*log
 	controls map[string]*control
-
 	id string
 }
 
@@ -59,13 +57,10 @@ type muster struct {
 
 	hb_chan chan *pb.HeartbeatReply
 	process_buff_chan chan []string
-	compute_ctrl_chan chan string
+	compute_ctrl_chan chan []string
 	ready_ctrl_chan chan string
 
 	pasture map[string]*sheep
-
-//	logs map[string]*log
-//	controls map[string]*control
 	id string
 	/* e.g. {"muster_n", {"ctrl-dvfs-i": {..}, "ctrl-itr-i": {..} ...}, {"log-ep-i": {..}, "log-ep-j": {..}, ...}, node{"10.0.0.1", 24}} */
 }
@@ -85,11 +80,15 @@ type shepherd struct {
 	local_musters map[string]*local_muster
 
 	hb_chan chan *pb.HeartbeatReply
+	complete_run_chan chan []string
 
 	pulsers map[string]pb.PulseClient
 	conn_remotes map[string]*grpc.ClientConn
 	ctx_remotes map[string]context.Context
 	cancel_remotes map[string]context.CancelFunc
+
+	coordinate_port *int
+	pb.UnimplementedCoordinateServer
 
 	id string
 	/* e.g. {"sheperd-ep", {"muster-10.0.0.1": &muster{..}, "muster-10.0.0.2": &muster{..} ...}} */
@@ -97,12 +96,14 @@ type shepherd struct {
 
 type ep_shepherd struct {
 	shepherd
+	out_f_map map[string](map[string]*os.File)
 }
 
 type Shepherd interface {
 	init()
 	process_logs()
 	compute_control()
+	complete_run()
 }
 
 
@@ -112,8 +113,6 @@ func (l_ptr *log) show() {
 	fmt.Println("ID:", l_ptr.id, "  --  MAX_SIZE:", l_ptr.max_size, "  --  METRICS:", l_ptr.metrics)
 	fmt.Printf("    -- %p L_BUFF:", l_ptr.l_buff)
 	fmt.Println(*l_ptr.l_buff)
-	//fmt.Printf("    -- %p R_BUFF:", l_ptr.r_buff)
-	//fmt.Println(*l_ptr.r_buff)
 }
 func (c_ptr *control) show() {
 	fmt.Printf("    ADDR %p ", c_ptr)
@@ -123,18 +122,12 @@ func (m_ptr *muster) show() {
 	fmt.Println()
 	fmt.Printf("ADDR %p ", m_ptr)
 	fmt.Println("ID:", m_ptr.id, "HB_CHAN:", m_ptr.hb_chan)
-//	fmt.Println("------ LOGS:", m_ptr.logs)
-//	fmt.Println("-- CONTROLS:", m_ptr.controls) 
 }
 func (s_ptr *shepherd) show() {
 	fmt.Printf("ADDR %p ", s_ptr)
 	fmt.Println("ID:", s_ptr.id, "HB_CHAN:", s_ptr.hb_chan)
 	fmt.Println("-- MUSTERS:", s_ptr.musters)
-	for _, m := range(s_ptr.musters) {
-		m.show()
-//		for _, l := range(m.logs) {l.show()}
-//		for _, c := range(m.controls) {c.show()}
-	}
+	for _, m := range(s_ptr.musters) { m.show() }
 	fmt.Println()
 }
 

@@ -97,45 +97,43 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 /*** LOCAL CONTROLLER ***/
 /************************/
 
-//func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx context.Context, cancel context.CancelFunc) {
-//	// begin control protocol once heartbeats are established
-//	<- l_m.hb_chan
-//	defer conn.Close()
-//	defer cancel()
-//	for {
-//		select {
-//		case log_id := <- l_m.ready_ctrl_chan:
-//			for {
-//				fmt.Printf("-- -- -- -- -- -- CTRL RPC -- -- -- -- -- -- %v\n", log_id)
-//				stream, err := c.ApplyControl(ctx)
-//				if err != nil { 
-//					fmt.Printf("** ** ** ERROR: %v could not send control request for %v:\n** ** ** %v\n", l_m.id, log_id, err)
-//					time.Sleep(time.Second/20)
-//					continue 
-//				}
-//				for _, ctrl := range(l_m.controls) {
-//					if !ctrl.dirty { continue }
-//					err = stream.Send(&pb.ControlRequest{LogId: log_id, CtrlEntry: &pb.ControlEntry{CtrlId: ctrl.id, Val: ctrl.value}})
-//					if err != nil { 
-//						fmt.Printf("** ** ** ERROR: %v %v could not send dvfs control entry:\n** ** **%v\n", l_m.id, log_id, err)
-//						continue 
-//					}
-//				}
-//				r, err := stream.CloseAndRecv()
-//				if err != nil { 
-//					fmt.Printf("** ** ** ERROR: %v problem receiving control reply %v:\n** ** ** %v\n", l_m.id, log_id, err)
-//					time.Sleep(time.Second/20)
-//					continue
-//				}
-//				fmt.Printf("-- -- -- -- -- -- DONE CTRL RPC -- -- -- -- -- -- %v %v \n", log_id, r.GetCtrlComplete())
-//				// reset dirty bit of applied controls
-//				for _, ctrl := range(l_m.controls) {
-//					if ctrl.dirty { ctrl.dirty = false }
-//				}
-//				break
-//			}
-//		}
-//	}
-//}
+func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx context.Context, cancel context.CancelFunc) {
+	// begin control protocol once heartbeats are established
+	<- l_m.hb_chan
+	defer conn.Close()
+	defer cancel()
+	for {
+		select {
+		case sheep_id := <- l_m.ready_ctrl_chan:
+			for {
+				stream, err := c.ApplyControl(ctx)
+				if err != nil { 
+					fmt.Printf("** ** ** ERROR: %v could not send control request for %v:\n** ** ** %v\n", l_m.id, sheep_id, err)
+					time.Sleep(time.Second/20)
+					continue 
+				}
+				for _, ctrl := range(l_m.pasture[sheep_id].controls) {
+					if !ctrl.dirty { continue }
+					err = stream.Send(&pb.ControlRequest{SheepId: sheep_id, CtrlEntry: &pb.ControlEntry{CtrlId: ctrl.id, Val: ctrl.value}})
+					if err != nil { 
+						fmt.Printf("** ** ** ERROR: %v %v could not send dvfs control entry:\n** ** **%v\n", l_m.id, sheep_id, err)
+						continue 
+					}
+				}
+				_, err = stream.CloseAndRecv()
+				if err != nil { 
+					fmt.Printf("** ** ** ERROR: %v problem receiving control reply %v:\n** ** ** %v\n", l_m.id, sheep_id, err)
+					time.Sleep(time.Second/20)
+					continue
+				}
+				// reset dirty bit of applied controls
+				for _, ctrl := range(l_m.pasture[sheep_id].controls) {
+					if ctrl.dirty { ctrl.dirty = false }
+				}
+				break
+			}
+		}
+	}
+}
 
 

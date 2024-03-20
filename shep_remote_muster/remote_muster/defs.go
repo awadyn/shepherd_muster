@@ -15,11 +15,15 @@ type node struct {
 	ip string
 }
 
-type log struct {
-	ready_buff_chan chan bool
-	kill_log_chan chan bool
-	done_chan chan bool
+type remote_logger struct {
+	stop_log_chan chan bool		// signal stop current logging ==> stop appending to r_buff
+	done_log_chan chan bool		// signal logging is complete
+}
 
+type log struct {
+	remote_logger
+
+	ready_buff_chan chan bool
 	r_buff *[][]uint64
 	max_size uint64
 	metrics []string
@@ -42,36 +46,29 @@ type control struct {
 
 type sheep struct {
 	core uint8
-
 	logs map[string]*log
 	controls map[string]*control
-
 	id string
 }
 
 type muster struct {
 	node
-
-	hb_chan chan bool
-	full_buff_chan chan []string
-
 	logger pb.LogClient
 	conn_local *grpc.ClientConn
 	ctx_local context.Context
 	cancel_local context.CancelFunc 
-
+	hb_chan chan bool
+	full_buff_chan chan []string
 	pasture map[string]*sheep
 	id string
 }
 
 type remote_muster struct {
 	muster
-
-//	done_chan chan bool
-
 	pulse_port *int
 	ctrl_port *int
 	local_muster_addr *string
+	coordinate_addr *string
 	pb.UnimplementedPulseServer
 	pb.UnimplementedControlServer
 }

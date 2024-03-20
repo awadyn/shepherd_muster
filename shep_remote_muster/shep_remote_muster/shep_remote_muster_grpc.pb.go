@@ -343,3 +343,89 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "shep_remote_muster/shep_remote_muster.proto",
 }
+
+// CoordinateClient is the client API for Coordinate service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type CoordinateClient interface {
+	CompleteRun(ctx context.Context, in *CompleteRunRequest, opts ...grpc.CallOption) (*CompleteRunReply, error)
+}
+
+type coordinateClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCoordinateClient(cc grpc.ClientConnInterface) CoordinateClient {
+	return &coordinateClient{cc}
+}
+
+func (c *coordinateClient) CompleteRun(ctx context.Context, in *CompleteRunRequest, opts ...grpc.CallOption) (*CompleteRunReply, error) {
+	out := new(CompleteRunReply)
+	err := c.cc.Invoke(ctx, "/muster.Coordinate/CompleteRun", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CoordinateServer is the server API for Coordinate service.
+// All implementations must embed UnimplementedCoordinateServer
+// for forward compatibility
+type CoordinateServer interface {
+	CompleteRun(context.Context, *CompleteRunRequest) (*CompleteRunReply, error)
+	mustEmbedUnimplementedCoordinateServer()
+}
+
+// UnimplementedCoordinateServer must be embedded to have forward compatible implementations.
+type UnimplementedCoordinateServer struct {
+}
+
+func (UnimplementedCoordinateServer) CompleteRun(context.Context, *CompleteRunRequest) (*CompleteRunReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompleteRun not implemented")
+}
+func (UnimplementedCoordinateServer) mustEmbedUnimplementedCoordinateServer() {}
+
+// UnsafeCoordinateServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CoordinateServer will
+// result in compilation errors.
+type UnsafeCoordinateServer interface {
+	mustEmbedUnimplementedCoordinateServer()
+}
+
+func RegisterCoordinateServer(s grpc.ServiceRegistrar, srv CoordinateServer) {
+	s.RegisterService(&Coordinate_ServiceDesc, srv)
+}
+
+func _Coordinate_CompleteRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinateServer).CompleteRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/muster.Coordinate/CompleteRun",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinateServer).CompleteRun(ctx, req.(*CompleteRunRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// Coordinate_ServiceDesc is the grpc.ServiceDesc for Coordinate service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Coordinate_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "muster.Coordinate",
+	HandlerType: (*CoordinateServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CompleteRun",
+			Handler:    _Coordinate_CompleteRun_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "shep_remote_muster/shep_remote_muster.proto",
+}

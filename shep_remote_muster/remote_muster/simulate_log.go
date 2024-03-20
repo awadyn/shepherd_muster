@@ -7,6 +7,7 @@ import (
 	"os"
 	"encoding/csv"
 	"io"
+//	"bufio"
 )
 
 var mcd_cols = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
@@ -58,8 +59,14 @@ func (r_m *remote_muster) simulate_remote_log(sheep_id string, log_id string, co
 			*log.r_buff = make([][]uint64, log.max_size)
 			counter = 0
 		}
+		select {
+		case <- r_m.pasture[sheep_id].logs[log_id].stop_log_chan:
+			fmt.Printf("************** KILLING CORE %v LOG %v AFTER CTRL CHANGE\n************** DISCARDING %v LOG ENTRIES\n", sheep_id, log_id, counter)
+			return
+		default:
+		}
 	}
-	r_m.pasture[sheep_id].logs[log_id].done_chan <- true
+	r_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
 }
 
 

@@ -44,12 +44,11 @@ service Control {
 
 message ControlEntry {
 	string ctrl_id = 1;
-//	string ctrl_knob = 2;
 	uint64 val = 2;
 }
 
 message ControlRequest {
-	string log_id = 1;
+	string sheep_id = 1;
 	ControlEntry ctrl_entry = 2;
 }
 
@@ -58,5 +57,15 @@ message ControlReply {
 }
 
 
+service Coordinate {
+	rpc CompleteRun(CompleteRunRequest) returns (CompleteRunReply) {}
+}
 
+message CompleteRunRequest {
+	string sheep_id = 1;
+	string muster_id = 2;
+}
 
+message CompleteRunReply {
+	bool run_complete = 1;
+}
