@@ -148,9 +148,7 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 					time.Sleep(time.Second/5)
 					continue 
 				}
-//				for _, ctrl := range(l_m.pasture[sheep_id].controls) {
 				for ctrl_id, ctrl_val := range(new_ctrls) {
-					//if !ctrl.dirty { continue }
 					err = stream.Send(&pb.ControlRequest{SheepId: sheep_id, CtrlEntry: &pb.ControlEntry{CtrlId: ctrl_id, Val: ctrl_val}})
 					if err != nil { 
 						time.Sleep(time.Second/5)
@@ -164,9 +162,6 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 					time.Sleep(time.Second/5)
 					continue
 				}
-				//for _, ctrl := range(l_m.pasture[sheep_id].controls) {
-				//	if ctrl.dirty { ctrl.dirty = false }
-				//}
 				break
 			}
 			new_ctrl_reply := control_reply{ctrls: new_ctrls, done: done_ctrl}
