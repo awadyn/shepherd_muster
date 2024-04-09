@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"context"
+	"os"
+	"encoding/csv"
 
 	"google.golang.org/grpc"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
@@ -15,24 +17,15 @@ type node struct {
 	ip string
 }
 
-type remote_logger struct {
-	stop_log_chan chan bool		// signal stop current logging ==> stop appending to r_buff
-	done_log_chan chan bool		// signal logging is complete
-}
-
 type log struct {
-	remote_logger
-
 	ready_buff_chan chan bool
-	r_buff *[][]uint64
+
+	mem_buff *[][]uint64
 	max_size uint64
 	metrics []string
+
 	n_ip string
 	id string
-	/* e.g. { "log-ep-i", "10.0.0.1", ["joules", "timestamp"], 64KB, 0xdeadbeef, 0x12345678:PORT(i):10.0.0.1, i}
-		0xdeadbeef: l_buff  ->  [  [x, 0]
-					   [y, 1]
-		   			   [z, 2], ...]  */
 }
 
 type control struct {
@@ -41,36 +34,66 @@ type control struct {
 	knob string
 	n_ip string
 	id string
-	/* e.g. { "ctrl-dvfs-i", "10.0.0.1", "dvfs", 0x1234, i }*/
+}
+
+type ctrl_req struct {
+	sheep_id string
+	ctrls map[string]uint64
 }
 
 type sheep struct {
 	core uint8
 	logs map[string]*log
 	controls map[string]*control
+
+	ready_ctrl_chan chan bool
+	done_ctrl_chan chan bool
+
+	kill_log_chan chan bool
+	done_kill_chan chan bool
+
 	id string
 }
 
 type muster struct {
 	node
+	pasture map[string]*sheep
+
+	hb_chan chan bool
+	full_buff_chan chan []string
+	new_ctrl_chan chan ctrl_req
+
+	done_chan chan []string
+	exit_chan chan bool
+
+	id string
+}
+
+type remote_muster struct {	// i.e. 1st level specialization of a muster
+	muster
+
+	pulse_server_port *int
+	ctrl_server_port *int
+	log_server_addr *string
+	coordinate_server_addr *string
+
+	pb.UnimplementedPulseServer
+
 	logger pb.LogClient
 	conn_local *grpc.ClientConn
 	ctx_local context.Context
 	cancel_local context.CancelFunc 
-	hb_chan chan bool
-	full_buff_chan chan []string
-	pasture map[string]*sheep
-	id string
 }
 
-type remote_muster struct {
-	muster
-	pulse_port *int
-	ctrl_port *int
-	local_muster_addr *string
-	coordinate_addr *string
-	pb.UnimplementedPulseServer
+type test_muster struct {	// 2nd level specialization of a muster
+	remote_muster
+
 	pb.UnimplementedControlServer
+
+	log_f_map map[string](map[string]*os.File)
+	log_reader_map map[string](map[string]*csv.Reader)
+
+	done_log_map map[string](map[string]chan bool)
 }
 
 /*****************************************/
@@ -78,8 +101,8 @@ type remote_muster struct {
 func (l_ptr *log) show() {
 	fmt.Printf("    ADDR %p ", l_ptr)
 	fmt.Println("ID:", l_ptr.id, "  --  MAX_SIZE:", l_ptr.max_size, "  --  METRICS:", l_ptr.metrics)
-	fmt.Printf("    -- %p R_BUFF:", l_ptr.r_buff)
-	fmt.Println(*l_ptr.r_buff)
+	fmt.Printf("    -- %p R_BUFF:", l_ptr.mem_buff)
+	fmt.Println(*l_ptr.mem_buff)
 
 }
 
@@ -92,9 +115,9 @@ func (m *muster) show() {
 func (r_m *remote_muster) show() {
 	fmt.Printf("-- REMOTE MUSTER :  %v \n", r_m.id)
 	fmt.Printf("-- NODE :  %v \n", r_m.node)
-	fmt.Printf("   -- PULSE SERVE PORT :  %v \n", *r_m.pulse_port)
-	fmt.Printf("   -- LOG CLIENT PORT :  %v \n", *r_m.local_muster_addr)
-	fmt.Printf("   -- CONTROL SERVE PORT :  %v \n", *r_m.ctrl_port)
+	fmt.Printf("   -- PULSE SERVE PORT :  %v \n", *r_m.pulse_server_port)
+	fmt.Printf("   -- LOG CLIENT PORT :  %v \n", *r_m.log_server_addr)
+	fmt.Printf("   -- CONTROL SERVE PORT :  %v \n", *r_m.ctrl_server_port)
 	fmt.Printf("   -- PASTURE :  \n")
 	for sheep_id, _ := range(r_m.pasture) {
 		fmt.Printf("      -- SHEEP %v \n", sheep_id)

@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"context"
+//	"context"
 	"os"
+	"encoding/csv"
 
-	"google.golang.org/grpc"
+//	"google.golang.org/grpc"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 )
 /************************************/
@@ -21,7 +22,9 @@ type node struct {
 
 type log struct {
 	ready_buff_chan chan bool
-	l_buff *[][]uint64
+	done_process_chan chan bool
+
+	mem_buff *[][]uint64
 	max_size uint64
 	metrics []string
 	n_ip string
@@ -30,6 +33,16 @@ type log struct {
 		0xdeadbeef: l_buff  ->  [  [x, 0]
 					   [y, 1]
 		   			   [z, 2], ...]  */
+}
+
+type control_request struct {
+	sheep_id string
+	ctrls map[string]uint64
+}
+
+type control_reply struct {
+	done bool
+	ctrls map[string]uint64
 }
 
 type control struct {
@@ -44,6 +57,8 @@ type control struct {
 type sheep struct {
 	core uint8
 	finish_run_chan chan bool
+//	done_ctrl_chan chan bool
+	done_ctrl_chan chan control_reply
 	logs map[string]*log
 	controls map[string]*control
 	id string
@@ -51,13 +66,13 @@ type sheep struct {
 
 type muster struct {
 	node
-	log_sync_port *int
-	remote_ctrl_addr *string
-	remote_muster_addr *string
+
+	pulsing bool
 
 	hb_chan chan *pb.HeartbeatReply
-	process_buff_chan chan []string
-	compute_ctrl_chan chan []string
+	full_buff_chan chan []string
+	new_ctrl_chan chan control_request
+
 	ready_ctrl_chan chan string
 
 	pasture map[string]*sheep
@@ -67,6 +82,16 @@ type muster struct {
 
 type local_muster struct {
 	muster
+
+	log_server_port *int
+	ctrl_server_addr *string
+	pulse_server_addr *string
+
+	out_f_map map[string](map[string]*os.File)
+	out_writer_map map[string](map[string]*csv.Writer)
+	out_f map[string]*os.File
+	out_writer map[string]*csv.Writer
+
 	pb.UnimplementedLogServer
 }
 
@@ -80,12 +105,10 @@ type shepherd struct {
 	local_musters map[string]*local_muster
 
 	hb_chan chan *pb.HeartbeatReply
-	complete_run_chan chan []string
+	process_buff_chan chan []string
+	compute_ctrl_chan chan []string
 
-	pulsers map[string]pb.PulseClient
-	conn_remotes map[string]*grpc.ClientConn
-	ctx_remotes map[string]context.Context
-	cancel_remotes map[string]context.CancelFunc
+	complete_run_chan chan []string
 
 	coordinate_port *int
 	pb.UnimplementedCoordinateServer
@@ -96,7 +119,6 @@ type shepherd struct {
 
 type ep_shepherd struct {
 	shepherd
-	out_f_map map[string](map[string]*os.File)
 }
 
 type Shepherd interface {
@@ -111,8 +133,8 @@ type Shepherd interface {
 func (l_ptr *log) show() {
 	fmt.Printf("    ADDR %p ", l_ptr)
 	fmt.Println("ID:", l_ptr.id, "  --  MAX_SIZE:", l_ptr.max_size, "  --  METRICS:", l_ptr.metrics)
-	fmt.Printf("    -- %p L_BUFF:", l_ptr.l_buff)
-	fmt.Println(*l_ptr.l_buff)
+	fmt.Printf("    -- %p L_BUFF:", l_ptr.mem_buff)
+	fmt.Println(*l_ptr.mem_buff)
 }
 func (c_ptr *control) show() {
 	fmt.Printf("    ADDR %p ", c_ptr)
