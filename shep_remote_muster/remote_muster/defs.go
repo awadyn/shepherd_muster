@@ -96,6 +96,16 @@ type test_muster struct {	// 2nd level specialization of a muster
 	done_log_map map[string](map[string]chan bool)
 }
 
+type intlog_muster struct {	// 2nd level specialization of a muster
+	remote_muster
+
+	pb.UnimplementedControlServer
+
+	log_f_map map[string](map[string]*os.File)
+	log_reader_map map[string](map[string]*csv.Reader)
+
+	done_log_map map[string](map[string]chan bool)
+}
 /*****************************************/
 
 func (l_ptr *log) show() {
