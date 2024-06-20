@@ -121,6 +121,10 @@ type ep_shepherd struct {
 	shepherd
 }
 
+type intlog_shepherd struct {
+	shepherd
+}
+
 type Shepherd interface {
 	init()
 	process_logs()
