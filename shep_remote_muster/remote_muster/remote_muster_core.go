@@ -3,8 +3,6 @@ package main
 import (
 //	"fmt"
 	"strconv"
-//	"time"
-
 )
 
 /*********************************************/
@@ -17,6 +15,7 @@ func (m *muster) init(n_ip string, n_cores int) {
 	m.pasture = make(map[string]*sheep)
 
 	m.hb_chan = make(chan bool)
+
 	m.exit_chan = make(chan bool, 1)
 	m.full_buff_chan = make(chan []string)
 	m.new_ctrl_chan = make(chan ctrl_req)

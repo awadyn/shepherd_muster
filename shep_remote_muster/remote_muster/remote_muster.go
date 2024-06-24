@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"flag"
 	"context"
-	"strconv"
+//	"strconv"
 	"time"
 	"net"
-	"io"
+//	"io"
 
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 	"google.golang.org/grpc"
@@ -24,33 +24,11 @@ func (r_m *remote_muster) init(n_ip string, n_cores int, pulse_server_port int, 
 	r_m.pulse_server_port = flag.Int("pulse_port", pulse_server_port, "remote_muster pulse serving port")
 	r_m.ctrl_server_port = flag.Int("ctrl_port", ctrl_server_port, "remote_muster ctrl serving port")
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
-					  "localhost:" + log_server_port, 
+					  "128.110.96.52:" + log_server_port, 
 					  "address of mirror local_muster log sync server")
 	r_m.coordinate_server_addr = flag.String("coordinate_server_addr", 
 					         "localhost:" + coordinate_server_port, 
 					         "address of shepherd's coordinate server")
-	var core uint8
-	for core = 0; core < r_m.ncores; core ++ {
-		var max_size uint64 = 4096 * 4
-		mem_buff := make([][]uint64, max_size)
-		c_str := strconv.Itoa(int(core))
-		sheep_id := c_str + "-" + r_m.ip
-		log_id := "log-" + c_str + "-" + r_m.ip
-		log_c := log{id: log_id,
-			     metrics: []string{"timestamp", "joules"},
-			     max_size: max_size,
-			     mem_buff: &mem_buff,
-			     ready_buff_chan: make(chan bool, 1)}
-		ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + r_m.ip
-		ctrl_itr_id := "ctrl-itr-" + c_str + "-" + r_m.ip
-		ctrl_dvfs := control{id: ctrl_dvfs_id, n_ip: r_m.ip, //core: core, 
-				     knob: "dvfs", value: 0x1300, dirty: false} 
-		ctrl_itr := control{id: ctrl_itr_id, n_ip: r_m.ip, //core: core, 
-				    knob: "itr-delay", value: 100, dirty: false}  
-		r_m.pasture[sheep_id].logs[log_id] = &log_c
-		r_m.pasture[sheep_id].controls[ctrl_dvfs_id] = &ctrl_dvfs
-		r_m.pasture[sheep_id].controls[ctrl_itr_id] = &ctrl_itr
-	}
 }
 
 //func (r_m *remote_muster) wait_done() {
@@ -182,109 +160,109 @@ func (r_m *remote_muster) start_pulser() {
 	}
 }
 
-/*********************/
-/* REMOTE CONTROLLER */
-/*********************/
-
-func (r_m *test_muster) check_ctrl_alive(sheep_id string, ctrls map[string]uint64) bool {
-	fmt.Println(r_m.done_log_map[sheep_id])
-	sheep := r_m.pasture[sheep_id]
-	c_str := strconv.Itoa(int(sheep.core))
-	ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + r_m.ip
-	ctrl_itr_id := "ctrl-itr-" + c_str + "-" + r_m.ip
-	dvfs_val := ctrls[ctrl_dvfs_id]
-	itr_val := ctrls[ctrl_itr_id]
-	dvfs_str := fmt.Sprintf("0x%x", dvfs_val)
-	itr_str := strconv.Itoa(int(itr_val))
-	log_fname := "/home/tanneen/shepherd_muster/mcd_logs/linux.mcd.dmesg.0_" + c_str + "_" + itr_str + "_" + dvfs_str + "_135_200000.ep.csv.ep"
-	select {
-	case <- r_m.done_log_map[sheep_id][log_fname]:
-		fmt.Println("!!!!!!!!!!! SKIPPING NEW CTRL - ", sheep_id)
-		select {
-		case r_m.done_log_map[sheep_id][log_fname] <- true:
-		default:
-		}
-		return true 
-	default:
-		return false
-	}
-}
-
-
-func (r_m *test_muster) handle_new_ctrl() {
-	for {
-		select {
-		case new_ctrl_req := <- r_m.new_ctrl_chan:
-			sheep := r_m.pasture[new_ctrl_req.sheep_id]
-			new_ctrls := new_ctrl_req.ctrls
-			// check if new ctrl is not applicable - i.e. when logging for that ctrl is completed
-			skip_ctrl := r_m.check_ctrl_alive(sheep.id, new_ctrls)
-			if skip_ctrl {
-				sheep.done_kill_chan <- false
-				<- sheep.ready_ctrl_chan
-			} else {
-				// kill logging of current ctrl
-				sheep.kill_log_chan <- true
-				// once shepherd is told that new ctrl is acknowledged and old ctrl logging is killed..
-				<- sheep.ready_ctrl_chan
-				// apply new ctrls 
-				for ctrl_id, ctrl_val := range(new_ctrls) {
-					sheep.controls[ctrl_id].value = ctrl_val
-					//sheep.controls[ctrl_id].dirty = true
-				}
-				// then restart logging
-				for log_id, _ := range(sheep.logs) {
-					go r_m.simulate_remote_log(sheep.id, log_id, sheep.core)
-				}
-			}
-		}
-	}
-}
-
-func (r_m *test_muster) ApplyControl(stream pb.Control_ApplyControlServer) error {
-	var sheep_id string
-	new_ctrls := make(map[string]uint64)
-	for {
-		req, err := stream.Recv()
-		switch {
-		case err == io.EOF:
-			fmt.Println("NEW CTRL - ", sheep_id, new_ctrls)
-
-			r_m.new_ctrl_chan <- ctrl_req{sheep_id: sheep_id, ctrls: new_ctrls}
-			done_kill := <- r_m.pasture[sheep_id].done_kill_chan
-			r_m.pasture[sheep_id].ready_ctrl_chan <- true
-
-			fmt.Printf("------------ COMPLETED CTRL-REQ -- %v\n", sheep_id)
-			return stream.SendAndClose(&pb.ControlReply{CtrlComplete: done_kill})
-		case err != nil:
-			fmt.Printf("** ** ** ERROR: could not receive control request: %v\n", err)
-			return err
-		default:
-			fmt.Printf("------------ CTRL-REQ -- %v\n", sheep_id)
-			sheep_id = req.GetSheepId()
-			ctrl_id := req.GetCtrlEntry().GetCtrlId()
-			ctrl_val := req.GetCtrlEntry().GetVal()
-			new_ctrls[ctrl_id] = ctrl_val
-		}
-	}
-}
-
-func (r_m *test_muster) start_controller() {
-	fmt.Printf("-- %v :  Ctrl syncing client waiting for heartbeats.. \n", r_m.id)
-	<- r_m.hb_chan
-	fmt.Printf("-- STARTING REMOTE MUSTER CONTROLLER :  %v\n", r_m.id)
-	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.ctrl_server_port))
-	if err != nil {
-		fmt.Printf("** ** ** ERROR: %v failed to listen on control port: %v\n", r_m.id, err)
-	}
-	s := grpc.NewServer()
-	pb.RegisterControlServer(s, r_m)
-	fmt.Printf("-- %v -- Control server listening at %v ... ... ...\n", r_m.id, lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		fmt.Printf("** ** ** ERROR: failed to serve: %v\n", err)
-	}
-}
+///*********************/
+///* REMOTE CONTROLLER */
+///*********************/
+//
+//func (r_m *test_muster) check_ctrl_alive(sheep_id string, ctrls map[string]uint64) bool {
+//	fmt.Println(r_m.done_log_map[sheep_id])
+//	sheep := r_m.pasture[sheep_id]
+//	c_str := strconv.Itoa(int(sheep.core))
+//	ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + r_m.ip
+//	ctrl_itr_id := "ctrl-itr-" + c_str + "-" + r_m.ip
+//	dvfs_val := ctrls[ctrl_dvfs_id]
+//	itr_val := ctrls[ctrl_itr_id]
+//	dvfs_str := fmt.Sprintf("0x%x", dvfs_val)
+//	itr_str := strconv.Itoa(int(itr_val))
+//	log_fname := "/home/tanneen/shepherd_muster/mcd_logs/linux.mcd.dmesg.0_" + c_str + "_" + itr_str + "_" + dvfs_str + "_135_200000.ep.csv.ep"
+//	select {
+//	case <- r_m.done_log_map[sheep_id][log_fname]:
+//		fmt.Println("!!!!!!!!!!! SKIPPING NEW CTRL - ", sheep_id)
+//		select {
+//		case r_m.done_log_map[sheep_id][log_fname] <- true:
+//		default:
+//		}
+//		return true 
+//	default:
+//		return false
+//	}
+//}
+//
+//
+//func (r_m *test_muster) handle_new_ctrl() {
+//	for {
+//		select {
+//		case new_ctrl_req := <- r_m.new_ctrl_chan:
+//			sheep := r_m.pasture[new_ctrl_req.sheep_id]
+//			new_ctrls := new_ctrl_req.ctrls
+//			// check if new ctrl is not applicable - i.e. when logging for that ctrl is completed
+//			skip_ctrl := r_m.check_ctrl_alive(sheep.id, new_ctrls)
+//			if skip_ctrl {
+//				sheep.done_kill_chan <- false
+//				<- sheep.ready_ctrl_chan
+//			} else {
+//				// kill logging of current ctrl
+//				sheep.kill_log_chan <- true
+//				// once shepherd is told that new ctrl is acknowledged and old ctrl logging is killed..
+//				<- sheep.ready_ctrl_chan
+//				// apply new ctrls 
+//				for ctrl_id, ctrl_val := range(new_ctrls) {
+//					sheep.controls[ctrl_id].value = ctrl_val
+//					//sheep.controls[ctrl_id].dirty = true
+//				}
+//				// then restart logging
+//				for log_id, _ := range(sheep.logs) {
+//					go r_m.simulate_remote_log(sheep.id, log_id, sheep.core)
+//				}
+//			}
+//		}
+//	}
+//}
+//
+//func (r_m *test_muster) ApplyControl(stream pb.Control_ApplyControlServer) error {
+//	var sheep_id string
+//	new_ctrls := make(map[string]uint64)
+//	for {
+//		req, err := stream.Recv()
+//		switch {
+//		case err == io.EOF:
+//			fmt.Println("NEW CTRL - ", sheep_id, new_ctrls)
+//
+//			r_m.new_ctrl_chan <- ctrl_req{sheep_id: sheep_id, ctrls: new_ctrls}
+//			done_kill := <- r_m.pasture[sheep_id].done_kill_chan
+//			r_m.pasture[sheep_id].ready_ctrl_chan <- true
+//
+//			fmt.Printf("------------ COMPLETED CTRL-REQ -- %v\n", sheep_id)
+//			return stream.SendAndClose(&pb.ControlReply{CtrlComplete: done_kill})
+//		case err != nil:
+//			fmt.Printf("** ** ** ERROR: could not receive control request: %v\n", err)
+//			return err
+//		default:
+//			fmt.Printf("------------ CTRL-REQ -- %v\n", sheep_id)
+//			sheep_id = req.GetSheepId()
+//			ctrl_id := req.GetCtrlEntry().GetCtrlId()
+//			ctrl_val := req.GetCtrlEntry().GetVal()
+//			new_ctrls[ctrl_id] = ctrl_val
+//		}
+//	}
+//}
+//
+//func (r_m *test_muster) start_controller() {
+//	fmt.Printf("-- %v :  Ctrl syncing client waiting for heartbeats.. \n", r_m.id)
+//	<- r_m.hb_chan
+//	fmt.Printf("-- STARTING REMOTE MUSTER CONTROLLER :  %v\n", r_m.id)
+//	flag.Parse()
+//	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.ctrl_server_port))
+//	if err != nil {
+//		fmt.Printf("** ** ** ERROR: %v failed to listen on control port: %v\n", r_m.id, err)
+//	}
+//	s := grpc.NewServer()
+//	pb.RegisterControlServer(s, r_m)
+//	fmt.Printf("-- %v -- Control server listening at %v ... ... ...\n", r_m.id, lis.Addr())
+//	if err := s.Serve(lis); err != nil {
+//		fmt.Printf("** ** ** ERROR: failed to serve: %v\n", err)
+//	}
+//}
 
 
 

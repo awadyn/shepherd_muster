@@ -12,6 +12,13 @@ import (
 
 /************************************/
 
+var intlog_cols []string = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
+				    "instructions", "cycles", "ref_cycles", "llc_miss", 
+				    "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
+var max_rows uint64 = 1
+var max_bytes uint64 = uint64(len(intlog_cols) * 64) * max_rows
+
+
 type node struct {
 	ncores uint8
 	ip string
@@ -96,6 +103,14 @@ type test_muster struct {	// 2nd level specialization of a muster
 	done_log_map map[string](map[string]chan bool)
 }
 
+type intlog_muster struct {	// 2nd level specialization of a muster
+	remote_muster
+
+	pb.UnimplementedControlServer
+
+	log_f_map map[string]*os.File
+	log_reader_map map[string]*csv.Reader
+}
 /*****************************************/
 
 func (l_ptr *log) show() {
