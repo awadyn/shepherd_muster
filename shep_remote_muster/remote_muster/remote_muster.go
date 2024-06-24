@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"flag"
 	"context"
-	"strconv"
-//	"time"
+//	"strconv"
+	"time"
 	"net"
 //	"io"
 
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 	"google.golang.org/grpc"
-//	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 /*********************************************/
@@ -24,33 +24,11 @@ func (r_m *remote_muster) init(n_ip string, n_cores int, pulse_server_port int, 
 	r_m.pulse_server_port = flag.Int("pulse_port", pulse_server_port, "remote_muster pulse serving port")
 	r_m.ctrl_server_port = flag.Int("ctrl_port", ctrl_server_port, "remote_muster ctrl serving port")
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
-					  "localhost:" + log_server_port, 
+					  "128.110.96.52:" + log_server_port, 
 					  "address of mirror local_muster log sync server")
 	r_m.coordinate_server_addr = flag.String("coordinate_server_addr", 
 					         "localhost:" + coordinate_server_port, 
 					         "address of shepherd's coordinate server")
-	var core uint8
-	for core = 0; core < r_m.ncores; core ++ {
-		var max_size uint64 = 4096 * 4
-		mem_buff := make([][]uint64, max_size)
-		c_str := strconv.Itoa(int(core))
-		sheep_id := c_str + "-" + r_m.ip
-		log_id := "log-" + c_str + "-" + r_m.ip
-		log_c := log{id: log_id,
-			     metrics: []string{"timestamp", "joules"},
-			     max_size: max_size,
-			     mem_buff: &mem_buff,
-			     ready_buff_chan: make(chan bool, 1)}
-		ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + r_m.ip
-		ctrl_itr_id := "ctrl-itr-" + c_str + "-" + r_m.ip
-		ctrl_dvfs := control{id: ctrl_dvfs_id, n_ip: r_m.ip, //core: core, 
-				     knob: "dvfs", value: 0x1300, dirty: false} 
-		ctrl_itr := control{id: ctrl_itr_id, n_ip: r_m.ip, //core: core, 
-				    knob: "itr-delay", value: 100, dirty: false}  
-		r_m.pasture[sheep_id].logs[log_id] = &log_c
-		r_m.pasture[sheep_id].controls[ctrl_dvfs_id] = &ctrl_dvfs
-		r_m.pasture[sheep_id].controls[ctrl_itr_id] = &ctrl_itr
-	}
 }
 
 //func (r_m *remote_muster) wait_done() {
@@ -85,74 +63,74 @@ func (r_m *remote_muster) init(n_ip string, n_cores int, pulse_server_port int, 
 //	}
 //}
 
-///*****************/
-///* REMOTE LOGGER */
-///*****************/
-//
-//func (r_m *remote_muster) start_logger() {
-//	<- r_m.hb_chan
-//
-//	fmt.Printf("-- STARTING REMOTE MUSTER LOGGER :  %v\n", r_m.id)
-//	conn, err := grpc.Dial(*r_m.log_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-//	if err != nil {
-//		fmt.Printf("** ** ** ERROR: %v could not create connection to local muster %s:\n** ** ** %v\n", r_m.id, *r_m.log_server_addr, err)
-//	}
-//	c := pb.NewLogClient(conn)
-//	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
-//	fmt.Printf("-- %v -- Initialized log client \n", r_m.id)
-//	r_m.log(conn, c, ctx, cancel)
-//}
-//
-///* This function represents a single remote_muster logger thread
-//   which is a client of the shepherd server, which in turn performs
-//   all log processing and control computation relevant to this 
-//   remote_muster as well as all other remote_musters the shepherd
-//   is in charge of. 
-//*/
-//func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context.Context, cancel context.CancelFunc) {
-//	fmt.Printf("-- %v :  Log syncing server waiting.. \n", r_m.id)
-//
-//	defer conn.Close()
-//	defer cancel()
-//
-//	for {
-//		select {
-//		case ids := <- r_m.full_buff_chan:
-//			sheep_id := ids[0]
-//			log_id := ids[1]
-//			for {
-//				stream, err := c.SyncLogBuffers(ctx)
-//				if err != nil {
-//					fmt.Printf("** ** ** ERROR: %v could not call log sync server for %v:\n** ** ** %v\n", r_m.id, log_id, err)
-//					time.Sleep(time.Second/10)
-//					continue
-//				}
-//				for _, log_entry := range *(r_m.pasture[sheep_id].logs[log_id].mem_buff) {
-//					for {
-//						err := stream.Send(&pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogEntry: &pb.LogEntry{Vals: log_entry}})
-//						if err != nil { 
-//							fmt.Printf("** ** ** ERROR: %v %v could not send log entry %v:\n** ** **%v\n", r_m.id, log_id, log_entry, err)
-//							time.Sleep(time.Second/20)
-//							continue
-//						}
-//						break
-//					}
-//				}
-//				r, err := stream.CloseAndRecv()
-//				if err != nil {
-//					fmt.Printf("** ** ** ERROR: %v problem receiving log sync reply %v:\n** ** ** %v\n", r_m.id, log_id, err)
-//					time.Sleep(time.Second/10)
-//					continue
-//				}
-//				fmt.Printf("-------- SYNC LOG REP : %v - %v\n", log_id, r.GetSyncComplete())
-//				if r.GetSyncComplete() {
-//					r_m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true
-//					break
-//				}
-//			}
-//		}
-//	}
-//}
+/*****************/
+/* REMOTE LOGGER */
+/*****************/
+
+func (r_m *remote_muster) start_logger() {
+	<- r_m.hb_chan
+
+	fmt.Printf("-- STARTING REMOTE MUSTER LOGGER :  %v\n", r_m.id)
+	conn, err := grpc.Dial(*r_m.log_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Printf("** ** ** ERROR: %v could not create connection to local muster %s:\n** ** ** %v\n", r_m.id, *r_m.log_server_addr, err)
+	}
+	c := pb.NewLogClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
+	fmt.Printf("-- %v -- Initialized log client \n", r_m.id)
+	r_m.log(conn, c, ctx, cancel)
+}
+
+/* This function represents a single remote_muster logger thread
+   which is a client of the shepherd server, which in turn performs
+   all log processing and control computation relevant to this 
+   remote_muster as well as all other remote_musters the shepherd
+   is in charge of. 
+*/
+func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context.Context, cancel context.CancelFunc) {
+	fmt.Printf("-- %v :  Log syncing server waiting.. \n", r_m.id)
+
+	defer conn.Close()
+	defer cancel()
+
+	for {
+		select {
+		case ids := <- r_m.full_buff_chan:
+			sheep_id := ids[0]
+			log_id := ids[1]
+			for {
+				stream, err := c.SyncLogBuffers(ctx)
+				if err != nil {
+					fmt.Printf("** ** ** ERROR: %v could not call log sync server for %v:\n** ** ** %v\n", r_m.id, log_id, err)
+					time.Sleep(time.Second/10)
+					continue
+				}
+				for _, log_entry := range *(r_m.pasture[sheep_id].logs[log_id].mem_buff) {
+					for {
+						err := stream.Send(&pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogEntry: &pb.LogEntry{Vals: log_entry}})
+						if err != nil { 
+							fmt.Printf("** ** ** ERROR: %v %v could not send log entry %v:\n** ** **%v\n", r_m.id, log_id, log_entry, err)
+							time.Sleep(time.Second/20)
+							continue
+						}
+						break
+					}
+				}
+				r, err := stream.CloseAndRecv()
+				if err != nil {
+					fmt.Printf("** ** ** ERROR: %v problem receiving log sync reply %v:\n** ** ** %v\n", r_m.id, log_id, err)
+					time.Sleep(time.Second/10)
+					continue
+				}
+				fmt.Printf("-------- SYNC LOG REP : %v - %v\n", log_id, r.GetSyncComplete())
+				if r.GetSyncComplete() {
+					r_m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true
+					break
+				}
+			}
+		}
+	}
+}
 
 /*****************/
 /* REMOTE PULSER */
