@@ -161,42 +161,45 @@ func (intlog_s *intlog_shepherd) init_log_files() {
 //   by all of its remote musters. This is a test implementation to
 //   confirm the correctness of the general functionality.
 //*/
-//func (ep_s ep_shepherd) process_logs() {
-//	for {
-//		select {
-//		case ids := <- ep_s.process_buff_chan:
-//			m_id := ids[0]
-//			sheep_id := ids[1]
-//			log_id := ids[2]
-//			l_m := ep_s.local_musters[m_id]
-//			sheep := l_m.pasture[sheep_id]
-//			log := *(sheep.logs[log_id])
-//			go func() {
-//				l_m := l_m
-//				sheep := sheep
-//				log := log
-//				fmt.Printf("-------------- PROCESS LOG SIGNAL :  %v - %v - %v\n", m_id, sheep_id, log_id)
-//				mem_buff := *(log.mem_buff)
-//				str_mem_buff := make([][]string,0)
-//				for _, row := range(mem_buff) {
-//					if len(row) == 0 { break }
-//					str_row := []string{strconv.Itoa(int(row[0])),
-//							    strconv.Itoa(int(row[1]))}
-//					str_mem_buff = append(str_mem_buff, str_row)
-//				}
-//				writer := l_m.out_writer[sheep.id]
-//				writer.WriteAll(str_mem_buff)
-//				fmt.Printf("-------------- COMPLETED PROCESS LOG :  %v - %v - %v\n", l_m.id, sheep.id, log.id)	
-//				// muster can now overwrite mem_buff for this log
-//				sheep.logs[log.id].done_process_chan <- true
+func (intlog_s intlog_shepherd) process_logs() {
+	for {
+		select {
+		case ids := <- intlog_s.process_buff_chan:
+			m_id := ids[0]
+			sheep_id := ids[1]
+			log_id := ids[2]
+			l_m := intlog_s.local_musters[m_id]
+			sheep := l_m.pasture[sheep_id]
+			log := *(sheep.logs[log_id])
+			go func() {
+				l_m := l_m
+				sheep := sheep
+				log := log
+				fmt.Printf("-------------- PROCESS LOG SIGNAL :  %v - %v - %v\n", m_id, sheep_id, log_id)
+				mem_buff := *(log.mem_buff)
+				str_mem_buff := make([][]string,0)
+				for _, row := range(mem_buff) {
+					if len(row) == 0 { break }
+					str_row := []string{}
+					for i := range(len(intlog_cols)) {
+						val := strconv.Itoa(int(row[i]))
+						str_row = append(str_row, val)
+					}
+					str_mem_buff = append(str_mem_buff, str_row)
+				}
+				writer := l_m.out_writer[sheep.id]
+				writer.WriteAll(str_mem_buff)
+				fmt.Printf("-------------- COMPLETED PROCESS LOG :  %v - %v - %v\n", l_m.id, sheep.id, log.id)	
+				// muster can now overwrite mem_buff for this log
+				sheep.logs[log.id].done_process_chan <- true
 //				select {
 //				case ep_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:
 //				default:
 //				}
-//			} ()
-//		}
-//	}
-//}
+			} ()
+		}
+	}
+}
 //
 ///***************************/
 ///********* CONTROL *********/
@@ -263,7 +266,7 @@ func (intlog_s *intlog_shepherd) init_log_files() {
 
 func main() {
 	// assume that a list of nodes is known apriori
-	nodes := []node{{ip: "10.0.0.1", ncores: 16, pulse_port: 50051, log_sync_port:50061, ctrl_port: 50071}}
+	nodes := []node{{ip: "128.110.96.54", ncores: 16, pulse_port: 50051, log_sync_port:50061, ctrl_port: 50071}}
 
 	// initialize generic shepherd
 	s := shepherd{id: "sheperd-intlog"}
@@ -278,15 +281,15 @@ func main() {
 	intlog_s.deploy_musters()
 
 	go intlog_s.listen_heartbeats()
-//	go intlog_s.process_logs()
+	go intlog_s.process_logs()
 //	go intlog_s.compute_control()
 
 	time.Sleep(time.Second*60)
-//	for _, l_m := range(intlog_s.local_musters) {
-//		for sheep_id, _ := range(l_m.pasture) {
-//			for _, f := range(l_m.out_f_map[sheep_id]) { f.Close() }
-//		}
-//	}
+	for _, l_m := range(intlog_s.local_musters) {
+		for sheep_id, _ := range(l_m.pasture) {
+			for _, f := range(l_m.out_f_map[sheep_id]) { f.Close() }
+		}
+	}
 }
 
 

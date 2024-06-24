@@ -70,7 +70,7 @@ func (s *shepherd) init_local(nodes []node) {
 										   "localhost:" + strconv.Itoa(nodes[n].ctrl_port),
 										   "address of one remote muster control server"),
 						     pulse_server_addr: flag.String("pulse_server_addr_" + m_id,
-										    "10.10.1.2:" + strconv.Itoa(nodes[n].pulse_port),
+										    nodes[n].ip+ ":" + strconv.Itoa(nodes[n].pulse_port),
 										    "address of one remote muster pulse server")}
 	}
 }
@@ -81,8 +81,8 @@ func (s *shepherd) init_local(nodes []node) {
 func (s *shepherd) deploy_musters() {
 	for _, l_m := range(s.local_musters) {	
 		l_m.start_pulser()		// general functionality: start pulse management thread per-muster
-//		l_m.start_logger()		// * specialization: start log server
-//		go s.log(l_m.id)		// general functionality: start log management thread per-muster
+		l_m.start_logger()		// * specialization: start log server
+		go s.log(l_m.id)		// general functionality: start log management thread per-muster
 //		go l_m.start_controller()
 	}
 }
