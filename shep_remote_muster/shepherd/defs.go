@@ -5,11 +5,14 @@ import (
 //	"context"
 	"os"
 	"encoding/csv"
+	"time"
 
 //	"google.golang.org/grpc"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 )
 /************************************/
+
+var exp_timeout time.Duration = time.Second * 75
 
 type node struct {
 	ncores uint8

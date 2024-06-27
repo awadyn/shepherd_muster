@@ -19,7 +19,7 @@ var logs_dir string = "/users/awadyn/shepherd_muster/logs/"
 
 var intlog_cols []string = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes", "instructions", "cycles", "ref_cycles", "llc_miss", "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
 
-var buff_max_size uint64 = 4096 * 4
+var buff_max_size uint64 = 4096
 
 /* 
    This function initializes a specialized shepherd for energy-and-performance 
@@ -39,7 +39,8 @@ func (intlog_s intlog_shepherd) init() {
 					max_size: buff_max_size, 
 					ready_buff_chan: make(chan bool, 1),
 					done_process_chan: make(chan bool, 1)}
-			mem_buff := make([][]uint64, log_c.max_size)
+			//mem_buff := make([][]uint64, log_c.max_size)
+			mem_buff := make([][]uint64, 0)
 			log_c.mem_buff = &mem_buff
 			ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
 			ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
@@ -284,7 +285,7 @@ func main() {
 	go intlog_s.process_logs()
 //	go intlog_s.compute_control()
 
-	time.Sleep(time.Second*60)
+	time.Sleep(exp_timeout)
 	for _, l_m := range(intlog_s.local_musters) {
 		for sheep_id, _ := range(l_m.pasture) {
 			for _, f := range(l_m.out_f_map[sheep_id]) { f.Close() }
