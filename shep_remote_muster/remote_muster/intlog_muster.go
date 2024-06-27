@@ -10,6 +10,14 @@ import (
 
 /*********************************************/
 
+var intlog_cols []string = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
+				    "instructions", "cycles", "ref_cycles", "llc_miss", 
+				    "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
+var max_rows uint64 = 4096
+var max_bytes uint64 = uint64(len(intlog_cols) * 64) * max_rows
+var exp_timeout time.Duration = time.Second * 75
+var mirror_ip string;
+
 func (intlog_m *intlog_muster) init() {
 	var core uint8
 	for core = 0; core < intlog_m.ncores; core ++ {
@@ -22,12 +30,13 @@ func (intlog_m *intlog_muster) init() {
 			     metrics: intlog_cols,
 			     max_size: max_size,
 			     mem_buff: &mem_buff,
+			     kill_log_chan: make(chan bool, 1),
 			     ready_buff_chan: make(chan bool, 1)}
 		ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + intlog_m.ip
 		ctrl_itr_id := "ctrl-itr-" + c_str + "-" + intlog_m.ip
-		ctrl_dvfs := control{id: ctrl_dvfs_id, n_ip: intlog_m.ip, //core: core, 
+		ctrl_dvfs := control{id: ctrl_dvfs_id, n_ip: intlog_m.ip, 
 				     knob: "dvfs", value: 0xc00, dirty: false} 
-		ctrl_itr := control{id: ctrl_itr_id, n_ip: intlog_m.ip, //core: core, 
+		ctrl_itr := control{id: ctrl_itr_id, n_ip: intlog_m.ip,
 				    knob: "itr-delay", value: 1, dirty: false}  
 		intlog_m.pasture[sheep_id].logs[log_id] = &log_c
 		intlog_m.pasture[sheep_id].controls[ctrl_dvfs_id] = &ctrl_dvfs
@@ -63,6 +72,9 @@ func (intlog_m *intlog_muster) start_native_logger() {
 
 func (r_m *intlog_muster) cleanup() {
 	for sheep_id, _ := range(r_m.pasture) {
+		for log_id, _ := range(r_m.pasture[sheep_id].logs) {
+			r_m.pasture[sheep_id].logs[log_id].kill_log_chan <- true
+		}
 		r_m.log_f_map[sheep_id].Close()
 	}
 }
@@ -71,14 +83,15 @@ func (r_m *intlog_muster) cleanup() {
 
 func main() {
 	n_ip := os.Args[1]
-	n_cores, err := strconv.Atoi(os.Args[2])
+	mirror_ip = os.Args[2]
+	n_cores, err := strconv.Atoi(os.Args[3])
 	if err != nil {fmt.Printf("** ** ** ERROR: bad n_cores argument: %v\n", err)}
-	pulse_server_port, err := strconv.Atoi(os.Args[3])
+	pulse_server_port, err := strconv.Atoi(os.Args[4])
 	if err != nil {fmt.Printf("** ** ** ERROR: bad n_port argument: %v\n", err)}
-	log_server_port := os.Args[4]
-	ctrl_server_port, err := strconv.Atoi(os.Args[5])
+	log_server_port := os.Args[5]
+	ctrl_server_port, err := strconv.Atoi(os.Args[6])
 	if err != nil {fmt.Printf("** ** ** ERROR: bad n_port argument: %v\n", err)}
-	coordinate_server_port := os.Args[6]
+	coordinate_server_port := os.Args[7]
 
 	m := muster{}
 	m.init(n_ip, n_cores)
@@ -100,7 +113,7 @@ func main() {
 	// cleanup
 //	go test_m.wait_done()
 //	<- test_m.exit_chan
-	time.Sleep(time.Second * 45)
+	time.Sleep(exp_timeout)
 	intlog_m.cleanup()
 }
 

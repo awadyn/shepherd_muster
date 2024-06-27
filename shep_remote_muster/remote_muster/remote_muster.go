@@ -24,7 +24,7 @@ func (r_m *remote_muster) init(n_ip string, n_cores int, pulse_server_port int, 
 	r_m.pulse_server_port = flag.Int("pulse_port", pulse_server_port, "remote_muster pulse serving port")
 	r_m.ctrl_server_port = flag.Int("ctrl_port", ctrl_server_port, "remote_muster ctrl serving port")
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
-					  "128.110.96.52:" + log_server_port, 
+					  mirror_ip + ":" + log_server_port, 
 					  "address of mirror local_muster log sync server")
 	r_m.coordinate_server_addr = flag.String("coordinate_server_addr", 
 					         "localhost:" + coordinate_server_port, 
@@ -49,7 +49,7 @@ func (r_m *remote_muster) init(n_ip string, n_cores int, pulse_server_port int, 
 //				fmt.Printf("** ** ** ERROR: %v could not create connection to shepherd %s:\n** ** ** %v\n", r_m.id, *r_m.coordinate_server_addr, err)
 //			}
 //			c := pb.NewCoordinateClient(conn)
-//			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+//			ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
 //			fmt.Printf("-- Initialized coordinate client for %v\n", sheep_id)
 //			r, err := c.CompleteRun(ctx, &pb.CompleteRunRequest{MusterId: r_m.id, SheepId: sheep_id})
 //			fmt.Printf("-- Coordination complete:  %v\n", r)
@@ -76,7 +76,7 @@ func (r_m *remote_muster) start_logger() {
 		fmt.Printf("** ** ** ERROR: %v could not create connection to local muster %s:\n** ** ** %v\n", r_m.id, *r_m.log_server_addr, err)
 	}
 	c := pb.NewLogClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
+	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
 	fmt.Printf("-- %v -- Initialized log client \n", r_m.id)
 	r_m.log(conn, c, ctx, cancel)
 }
@@ -89,10 +89,8 @@ func (r_m *remote_muster) start_logger() {
 */
 func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context.Context, cancel context.CancelFunc) {
 	fmt.Printf("-- %v :  Log syncing server waiting.. \n", r_m.id)
-
 	defer conn.Close()
 	defer cancel()
-
 	for {
 		select {
 		case ids := <- r_m.full_buff_chan:

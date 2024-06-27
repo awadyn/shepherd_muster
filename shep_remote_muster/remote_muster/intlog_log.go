@@ -13,6 +13,7 @@ import (
 /*********************************************************/
 
 func do_log(shared_log *log, reader *csv.Reader) error {
+	*shared_log.mem_buff = make([][]uint64, 0)
 	var counter uint64 = 0
 	for {
 		switch {
@@ -22,7 +23,7 @@ func do_log(shared_log *log, reader *csv.Reader) error {
 				return err
 			}
 			if err != nil { panic(err) }
-			(*shared_log.mem_buff)[counter] = []uint64{}
+			*shared_log.mem_buff = append(*shared_log.mem_buff, []uint64{})
 			for i := range(len(intlog_cols)) {
 				val, _ := strconv.Atoi(row[i])
 				(*shared_log.mem_buff)[counter] = append((*shared_log.mem_buff)[counter], uint64(val))
@@ -43,7 +44,10 @@ func (r_m *muster) sync_with_logger(sheep_id string, log_id string, core uint8, 
 			r_m.full_buff_chan <- []string{sheep_id, log_id}
 			<- shared_log.ready_buff_chan
 			*shared_log.mem_buff = make([][]uint64, shared_log.max_size)
-		case err == io.EOF:	// => logging done
+		case err == io.EOF:	// => log reader at EOF
+			// do nothing if nothing has been logged yet
+			if len(*(shared_log.mem_buff)) == 0 { return io.EOF }
+			// otherwise sync whatever has been logged with mirror
 			r_m.full_buff_chan <- []string{sheep_id, log_id}
 			<- shared_log.ready_buff_chan
 			return io.EOF
@@ -74,32 +78,13 @@ func (r_m *intlog_muster) intlog_log(sheep_id string, log_id string, core uint8)
 		r_m.log_reader_map[sheep_id] = reader
 	}
 
-	delta_log_chan := make(chan bool, 1)
-
 	go func() {
-		fi, err := f.Stat()
-		if err != nil { panic(err) }
-		log_size := fi.Size()
-		var new_log_size int64
-		var delta_size int64 = log_size	
+		cmd := exec.Command("bash", "-c", "cat " + src_fname)
+		if err := cmd.Run(); err != nil { panic(err) }
 		for {
-			cmd := exec.Command("bash", "-c", "cat " + src_fname + " >> " + log_fname)
-			if err := cmd.Run(); err != nil { panic(err) }
-			fi, err := f.Stat()
-			if err != nil { panic(err) }
-			new_log_size = fi.Size()
-			delta_size = new_log_size - log_size
-			if delta_size > 0 {
-				fmt.Println("old size: ", log_size, " new size: ", new_log_size, " delta: ", delta_size)
-				select {
-				case delta_log_chan <- true:
-				default:
-				}
-				log_size = new_log_size
-			}
-
-			time.Sleep(time.Second * 3)
-
+			cmd = exec.Command("bash", "-c", "cat " + src_fname + " >> " + log_fname)
+			if err = cmd.Run(); err != nil { panic(err) }
+			time.Sleep(time.Second)
 		}
 	} ()
 
@@ -108,10 +93,12 @@ func (r_m *intlog_muster) intlog_log(sheep_id string, log_id string, core uint8)
 		// --> sync_with_logger: syncs one mem_buff at a time with local muster
 		// --> do_log: fills one mem_buff at a time from log file
 		select {
-		case <- delta_log_chan:
+		case <- r_m.pasture[sheep_id].logs[log_id].kill_log_chan:
+			return
+		default:
 			err = r_m.sync_with_logger(sheep_id, log_id, core, reader, do_log)
 			if err == io.EOF { 
-				//fmt.Printf("***** READER AT EOF  -  CORE :  %v  -  LOG :  %v *****\n", core, log_fname)
+				//fmt.Printf("*** EOF  -  CORE :  %v  -  LOG :  %v ***\n", core, log_fname)
 				time.Sleep(time.Second)
 			}
 		}

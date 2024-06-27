@@ -12,13 +12,6 @@ import (
 
 /************************************/
 
-var intlog_cols []string = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
-				    "instructions", "cycles", "ref_cycles", "llc_miss", 
-				    "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
-var max_rows uint64 = 1
-var max_bytes uint64 = uint64(len(intlog_cols) * 64) * max_rows
-
-
 type node struct {
 	ncores uint8
 	ip string
@@ -26,6 +19,7 @@ type node struct {
 
 type log struct {
 	ready_buff_chan chan bool
+	kill_log_chan chan bool
 
 	mem_buff *[][]uint64
 	max_size uint64
@@ -56,7 +50,6 @@ type sheep struct {
 	ready_ctrl_chan chan bool
 	done_ctrl_chan chan bool
 
-	kill_log_chan chan bool
 	done_kill_chan chan bool
 
 	id string
