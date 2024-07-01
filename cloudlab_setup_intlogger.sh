@@ -38,18 +38,25 @@ ssh $myself@$node 'sudo rmmod ixgbe;							\
 	cd linux-5.15.89; 								\
 	fakeroot make -j8; fi';
 
-echo "Disabling hyperthreads.."
-ssh $myself@$node 'echo off | sudo tee /sys/devices/system/cpu/smt/control'
-#
+echo "Disabling hyperthreads and turboboost.."
+ssh $myself@$node 'echo off | sudo tee /sys/devices/system/cpu/smt/control;
+	echo "1" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo'
+
 echo "Starting intlogger.."
-ssh $myself@$node 'sudo insmod ~/linux-5.15.89/drivers/net/ethernet/intel/ixgbe/ixgbe.ko;			\
-	ieth=$(sudo dmesg | grep "ixgbe" | grep "renamed from eth0" | tail -n 2 | head -n 1 | cut -d " " -f4);	\
-	ieth=${ieth::-1};											\
-	ip=$(ip addr | grep -B1 128.110.96 | grep inet | grep -oP "inet \K(\d+\.\d+\.\d+\.\d+)");		\
-	echo "intlogger network interface: $ieth";								\
-	echo "intlogger network ip: $ip";									\
-	sudo ip link set dev $ieth up;										\
+ssh $myself@$node 'sudo insmod ~/linux-5.15.89/drivers/net/ethernet/intel/ixgbe/ixgbe.ko;		
+	ieth=$(sudo dmesg | grep "ixgbe" | grep "renamed from eth0" | tail -n 2 | head -n 1 | grep -oP "enp\ds\df\d");
+	num=$(uname -a | grep -oP "node\d" | grep -oP "\d");
+	node=$(($num + 1));
+	ip="10.10.1.$node";	
+	echo "intlogger network interface: $ieth";							
+	echo "intlogger network ip: $ip";								
+	sudo ip link set dev $ieth up;						
 	sudo ip addr add $ip dev $ieth'
+
+echo "Disabling irqbalance and setting irq affinity.."
+ssh $myself@$node 'sudo killall irqbalance;
+	ieth=$(sudo dmesg | grep "ixgbe" | grep "renamed from eth0" | tail -n 2 | head -n 1 | grep -oP "enp\ds\df\d");
+	sudo ./intel_set_irq_affinity.sh $ieth'
 
 echo "Testing intlogger.."
 ssh $myself@$node 'for i in {0..15}; do cat /proc/ixgbe_stats/core/$i; echo; done'
