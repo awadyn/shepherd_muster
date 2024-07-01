@@ -267,7 +267,7 @@ func (intlog_s intlog_shepherd) process_logs() {
 
 func main() {
 	// assume that a list of nodes is known apriori
-	nodes := []node{{ip: "128.110.96.54", ncores: 16, pulse_port: 50051, log_sync_port:50061, ctrl_port: 50071}}
+	nodes := []node{{ip: "10.10.1.2", ncores: 16, pulse_port: 50051, log_sync_port:50061, ctrl_port: 50071}}
 
 	// initialize generic shepherd
 	s := shepherd{id: "sheperd-intlog"}
