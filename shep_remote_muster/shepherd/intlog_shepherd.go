@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"time"
+//	"time"
 	"strconv"
 	"os"
 	"encoding/csv"
@@ -128,18 +128,6 @@ func (intlog_s *intlog_shepherd) init_log_files() {
 //	} 
 //}
 
-//func (ep_s *ep_shepherd) apply_control(m_id string, sheep_id string, ctrls map[string]uint64) {
-////	sheep := ep_s.musters[m_id].pasture[sheep_id]
-////	done_ctrl := <- sheep.done_ctrl_chan
-////	if !done_ctrl { return }
-////	for ctrl_id, ctrl_val := range(ctrls) {
-////		sheep.controls[ctrl_id].value = ctrl_val
-////	}
-//	ep_s.update_out_f_map(m_id, sheep_id, "/home/tanneen/shepherd_muster/shep_reproduced_mcd_logs/")
-//	ep_s.switch_out_f(m_id, sheep_id, "/home/tanneen/shepherd_muster/shep_reproduced_mcd_logs/")
-//	fmt.Println("!!!!!!!!!!!!!!!!!!! SWITCHED OUTFILES")
-//}
-
 //func (ep_s ep_shepherd) complete_runs() {
 //	for {
 //		select {
@@ -206,6 +194,18 @@ func (intlog_s intlog_shepherd) process_logs() {
 ///********* CONTROL *********/
 ///***************************/
 //
+//func (ep_s *ep_shepherd) apply_control(m_id string, sheep_id string, ctrls map[string]uint64) {
+////	sheep := ep_s.musters[m_id].pasture[sheep_id]
+////	done_ctrl := <- sheep.done_ctrl_chan
+////	if !done_ctrl { return }
+////	for ctrl_id, ctrl_val := range(ctrls) {
+////		sheep.controls[ctrl_id].value = ctrl_val
+////	}
+//	ep_s.update_out_f_map(m_id, sheep_id, "/home/tanneen/shepherd_muster/shep_reproduced_mcd_logs/")
+//	ep_s.switch_out_f(m_id, sheep_id, "/home/tanneen/shepherd_muster/shep_reproduced_mcd_logs/")
+//	fmt.Println("!!!!!!!!!!!!!!!!!!! SWITCHED OUTFILES")
+//}
+
 //func (ep_s *ep_shepherd) rand_ctrl(m_id string, sheep_id string) map[string]uint64 {
 //	new_ctrls := make(map[string]uint64)
 //	m := ep_s.musters[m_id]
@@ -263,35 +263,6 @@ func (intlog_s intlog_shepherd) process_logs() {
 //	}
 //}
 
-/************************************/
-
-func main() {
-	// assume that a list of nodes is known apriori
-	nodes := []node{{ip: "10.10.1.2", ncores: 16, pulse_port: 50051, log_sync_port:50061, ctrl_port: 50071}}
-
-	// initialize generic shepherd
-	s := shepherd{id: "sheperd-intlog"}
-	s.init(nodes)
-	s.init_local(nodes)
-
-	// initialize specialized energy-performance shepherd
-	intlog_s := intlog_shepherd{shepherd:s}
-	intlog_s.init()
-
-	// for each muster, start pulse + log + control threads
-	intlog_s.deploy_musters()
-
-	go intlog_s.listen_heartbeats()
-	go intlog_s.process_logs()
-//	go intlog_s.compute_control()
-
-	time.Sleep(exp_timeout)
-	for _, l_m := range(intlog_s.local_musters) {
-		for sheep_id, _ := range(l_m.pasture) {
-			for _, f := range(l_m.out_f_map[sheep_id]) { f.Close() }
-		}
-	}
-}
 
 
 

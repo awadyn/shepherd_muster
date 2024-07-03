@@ -2,14 +2,7 @@ package main
 
 import (
 	"fmt"
-//	"time"
-	"strconv"
-//	"context"
-	"flag"
-//	"net"
 
-//	"google.golang.org/grpc"
-//	"google.golang.org/grpc/credentials/insecure"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 )
 
@@ -17,63 +10,31 @@ import (
 
 /* 
    This function initializes 1) a generic shepherd with a muster representation
-   for each node under the shepherd's supervision and 2) a general log and control 
+   for each node under supervision and 2) a general log and control 
    representation for each core under a muster's supervision. 
 */
 func (s *shepherd) init(nodes []node) {
-	s.musters = make(map[string]*muster)
 	s.hb_chan = make(chan *pb.HeartbeatReply)
 	s.process_buff_chan = make(chan []string)
-	s.compute_ctrl_chan = make(chan []string)
+	//s.compute_ctrl_chan = make(chan []string)
+	//s.complete_run_chan = make(chan []string)
+	//s.coordinate_port = flag.Int("coordinate_port", 50081,
+	//			     "shepherd coordination server port")
 
-//	s.complete_run_chan = make(chan []string)
-//	s.coordinate_port = flag.Int("coordinate_port", 50081,
-//				     "shepherd coordination server port")
-
-	for n := 0; n < len(nodes); n++ {
-		/* init 1 muster for each node */
-		m_id := "muster-" + nodes[n].ip
-		m_n := muster{id: m_id, node: nodes[n],
-				pasture: make(map[string]*sheep),
-				hb_chan: make(chan *pb.HeartbeatReply),
-				full_buff_chan: make(chan []string),
-				new_ctrl_chan: make(chan control_request),
-				ready_ctrl_chan: make(chan string)}
-		/* init 1 sheep for each muster core */
-		var c uint8
-		for c = 0; c < m_n.ncores; c++ {
-			sheep_id := strconv.Itoa(int(c)) + "-" + m_n.ip
-			sheep_c := sheep{id: sheep_id, core: c,
-					 logs: make(map[string]*log), 
-					 controls: make(map[string]*control),
-//					 done_ctrl_chan: make(chan bool, 1),
-					 done_ctrl_chan: make(chan control_reply, 1),
-					 finish_run_chan: make(chan bool, 1)}
-			m_n.pasture[sheep_id] = &sheep_c
-		}
-		s.musters[m_id] = &m_n
-	}
-}
-
-func (s *shepherd) init_local(nodes []node) {
+	/* init 1 muster for each node and 1 sheep for each core */
+	s.musters = make(map[string]*muster)
 	s.local_musters = make(map[string]*local_muster)
-
 	for n := 0; n < len(nodes); n++ {
-		/* init 1 local muster for each node */
 		m_id := "muster-" + nodes[n].ip
-		m := s.musters[m_id]
-		s.local_musters[m_id] = &local_muster{muster: *m,
-						     log_server_port: flag.Int("log_server_port_" + m_id, 
-										nodes[n].log_sync_port,
-										"local muster log syncing server port"),
-						     ctrl_server_addr: flag.String("ctrl_server_addr_" + m_id,
-										   "localhost:" + strconv.Itoa(nodes[n].ctrl_port),
-										   "address of one remote muster control server"),
-						     pulse_server_addr: flag.String("pulse_server_addr_" + m_id,
-										    nodes[n].ip+ ":" + strconv.Itoa(nodes[n].pulse_port),
-										    "address of one remote muster pulse server")}
+		m_n := &muster{id: m_id, node: nodes[n]}
+		m_n.init()
+		l_m := &local_muster{muster: *m_n}
+		l_m.init()
+		s.musters[m_id] = m_n
+		s.local_musters[m_id] = l_m
 	}
 }
+
 
 /* This function starts all threads required by a shepherd 
    to manage all of its musters and their sheep.
