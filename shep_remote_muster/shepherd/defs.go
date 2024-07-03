@@ -60,7 +60,7 @@ type control struct {
 type sheep struct {
 	core uint8
 	finish_run_chan chan bool
-//	done_ctrl_chan chan bool
+	//done_ctrl_chan chan bool
 	done_ctrl_chan chan control_reply
 	logs map[string]*log
 	controls map[string]*control
@@ -75,8 +75,7 @@ type muster struct {
 	hb_chan chan *pb.HeartbeatReply
 	full_buff_chan chan []string
 	new_ctrl_chan chan control_request
-
-	ready_ctrl_chan chan string
+	//ready_ctrl_chan chan string
 
 	pasture map[string]*sheep
 	id string

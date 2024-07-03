@@ -248,8 +248,8 @@ func (intlog_s intlog_shepherd) process_logs() {
 //				fmt.Printf("------------------- NEW CONTROLS :  %v\n", new_ctrls)
 //
 //				l_m.new_ctrl_chan <- control_request{sheep_id: sheep.id, ctrls: new_ctrls}
-//
 //				ctrl_reply := <- sheep.done_ctrl_chan
+
 //				done_ctrl := ctrl_reply.done
 //				ctrls := ctrl_reply.ctrls
 //				if done_ctrl {

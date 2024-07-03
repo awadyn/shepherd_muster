@@ -21,14 +21,19 @@ func (l_m *local_muster) init() {
 						"address of one remote muster pulse server")
 	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id, l_m.log_sync_port, 
 					"local muster log syncing server port")
-//	l_m.ctrl_server_addr = flag.String("ctrl_server_addr_" + l_m.id, l_m.ip + ":" + strconv.Itoa(l_m.ctrl_port),
-//						"address of one remote muster control server")
+	l_m.ctrl_server_addr = flag.String("ctrl_server_addr_" + l_m.id, l_m.ip + ":" + strconv.Itoa(l_m.ctrl_port),
+						"address of one remote muster control server")
 }
 
 /************************/
 /***** LOCAL PULSER *****/
 /************************/
 
+/* 
+  local musters represent the client side of pulsing: where the server side
+  is a remote mirror and a local pulse client checks responsiveness of 
+  a remote pulse server. 
+*/
 func (l_m *local_muster) start_pulser() {
 	fmt.Printf("-- STARTING LOCAL PULSER :  %v\n", l_m.id)
 	conn, err := grpc.Dial(*l_m.pulse_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -129,59 +134,53 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 /*** LOCAL CONTROLLER ***/
 /************************/
 
-//func (l_m *local_muster) start_controller() {
-//	<- l_m.hb_chan
-//	fmt.Printf("-- STARTING LOCAL CONTROLLER :  %v\n", l_m.id)
-//	conn, err := grpc.Dial(*l_m.ctrl_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-//	if err != nil {
-//		fmt.Printf("** ** ** ERROR: could not create local connection to remote controller %s:\n** ** ** %v\n", l_m.id, err)
-//		panic(err)
-//	}
-//	c := pb.NewControlClient(conn)
-//	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
-//	go l_m.control(conn, c, ctx, cancel)
-//}
+/* 
+  local musters represent the client side of ctrl: where the server side
+  is a remote mirror and a local ctrl client sends new ctrl requests to 
+  a remote pulse server. 
+*/
+func (l_m *local_muster) start_controller() {
+	<- l_m.hb_chan
+	fmt.Printf("-- STARTING LOCAL CONTROLLER :  %v\n", l_m.id)
+	conn, err := grpc.Dial(*l_m.ctrl_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Printf("** ** ** ERROR: could not create local connection to remote controller %s:\n** ** ** %v\n", l_m.id, err)
+		panic(err)
+	}
+	c := pb.NewControlClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
+	go l_m.control(conn, c, ctx, cancel)
+}
 
-//func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx context.Context, cancel context.CancelFunc) {
-//	/* begin control protocol once heartbeats are established */
-//	<- l_m.hb_chan
-//	defer conn.Close()
-//	defer cancel()
-//	var done_ctrl bool
-//	for {
-//		select {
-////		case sheep_id := <- l_m.ready_ctrl_chan:
-//		case new_ctrl_req := <- l_m.new_ctrl_chan:
-//			sheep_id := new_ctrl_req.sheep_id
-//			new_ctrls := new_ctrl_req.ctrls
-//			for {
-//				stream, err := c.ApplyControl(ctx)
-//				if err != nil { 
-//					time.Sleep(time.Second/5)
-//					continue 
-//				}
-//				for ctrl_id, ctrl_val := range(new_ctrls) {
-//					err = stream.Send(&pb.ControlRequest{SheepId: sheep_id, CtrlEntry: &pb.ControlEntry{CtrlId: ctrl_id, Val: ctrl_val}})
-//					if err != nil { 
-//						time.Sleep(time.Second/5)
-//						continue 
-//					}
-//				}
-//				r, err := stream.CloseAndRecv()
-//				done_ctrl = r.GetCtrlComplete()
-//				if !done_ctrl { fmt.Println("!!!!! CTRL WAS NOT APPLIED - ", l_m.id, sheep_id) }
-//				if err != nil { 
-//					time.Sleep(time.Second/5)
-//					continue
-//				}
-//				break
-//			}
-//			new_ctrl_reply := control_reply{ctrls: new_ctrls, done: done_ctrl}
-//			l_m.pasture[sheep_id].done_ctrl_chan <- new_ctrl_reply
-////			l_m.pasture[sheep_id].done_ctrl_chan <- done_ctrl
-//			fmt.Println("DONE CTRL - ", sheep_id)
-//		}
-//	}
-//}
+func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx context.Context, cancel context.CancelFunc) {
+	/* begin control protocol once heartbeats are established */
+	<- l_m.hb_chan
+	defer conn.Close()
+	defer cancel()
+	var done_ctrl bool
+	for {
+		select {
+		case new_ctrl_req := <- l_m.new_ctrl_chan:
+			sheep_id := new_ctrl_req.sheep_id
+			new_ctrls := new_ctrl_req.ctrls
+			for {
+				stream, err := c.ApplyControl(ctx)
+				if err != nil { time.Sleep(time.Second/5); continue }
+				for ctrl_id, ctrl_val := range(new_ctrls) {
+					err = stream.Send(&pb.ControlRequest{SheepId: sheep_id, CtrlEntry: &pb.ControlEntry{CtrlId: ctrl_id, Val: ctrl_val}})
+					if err != nil { time.Sleep(time.Second/5); continue }
+				}
+				r, err := stream.CloseAndRecv()
+				done_ctrl = r.GetCtrlComplete()
+				if !done_ctrl { fmt.Println("!!!!! CTRL WAS NOT APPLIED - ", l_m.id, sheep_id) }
+				if err != nil { time.Sleep(time.Second/5); continue }
+				break
+			}
+			new_ctrl_reply := control_reply{ctrls: new_ctrls, done: done_ctrl}
+			l_m.pasture[sheep_id].done_ctrl_chan <- new_ctrl_reply
+			fmt.Println("DONE CTRL - ", sheep_id)
+		}
+	}
+}
 
 

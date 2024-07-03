@@ -12,20 +12,23 @@ func main() {
 	// initialize generic shepherd
 	s := shepherd{id: "sheperd-intlog"}
 	s.init(nodes)
-//	for _, l_m := range(s.local_musters) {
-//		l_m.init()
-//	}
-//	s.init_local(nodes)
 
 	// initialize specialized energy-performance shepherd
 	intlog_s := intlog_shepherd{shepherd:s}
 	intlog_s.init()
 
-	// for each muster, start pulse + log + control threads
+	// for each muster, start pulse + log + control threads for a total
+	// of num_musters * [1(pulse client) + 2(log server + coordinator) + 1(ctrl client)]
+	// = 4 * num_musters
 	intlog_s.deploy_musters()
 
+	// 1 thread listening for muster pulses
 	go intlog_s.listen_heartbeats()
+
+	// 1 thread managing process signals + (0 <= threads <= muster.ncores) 
+	// doing actual log processing 
 	go intlog_s.process_logs()
+
 //	go intlog_s.compute_control()
 
 	time.Sleep(exp_timeout)

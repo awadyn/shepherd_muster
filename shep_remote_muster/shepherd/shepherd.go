@@ -16,7 +16,7 @@ import (
 func (s *shepherd) init(nodes []node) {
 	s.hb_chan = make(chan *pb.HeartbeatReply)
 	s.process_buff_chan = make(chan []string)
-	//s.compute_ctrl_chan = make(chan []string)
+	s.compute_ctrl_chan = make(chan []string)
 	//s.complete_run_chan = make(chan []string)
 	//s.coordinate_port = flag.Int("coordinate_port", 50081,
 	//			     "shepherd coordination server port")
@@ -36,15 +36,13 @@ func (s *shepherd) init(nodes []node) {
 }
 
 
-/* This function starts all threads required by a shepherd 
-   to manage all of its musters and their sheep.
-*/
+/* This function starts all muster threads required by a shepherd. */
 func (s *shepherd) deploy_musters() {
 	for _, l_m := range(s.local_musters) {	
-		l_m.start_pulser()		// general functionality: start pulse management thread per-muster
-		l_m.start_logger()		// * specialization: start log server
-		go s.log(l_m.id)		// general functionality: start log management thread per-muster
-//		go l_m.start_controller()
+		l_m.start_pulser()		// per-muster pulse client	
+		l_m.start_logger()		// per-muster log server
+		go s.log(l_m.id)		// per-muster log coordinator
+		go l_m.start_controller()	// per-muster ctrl client
 	}
 }
 
@@ -96,20 +94,6 @@ func (s *shepherd) log(m_id string) {
 }
 
 
-//func (s *shepherd) control(m_id string) {
-//	m := s.musters[m_id]
-//	for {
-//		select {
-//		case new_ctrl_req := <- m.new_ctrl_chan:
-//			sheep_id := new_ctrl_req.sheep_id
-//			new_ctrls := new_ctrl_req.ctrls
-//			
-//			
-//		}
-//	}
-//}
-
-/**/
 
 //func (s *shepherd) CompleteRun(ctx context.Context, in *pb.CompleteRunRequest) (*pb.CompleteRunReply, error) {
 //	sheep_id := in.GetSheepId()
