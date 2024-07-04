@@ -107,8 +107,8 @@ func main() {
 
 	go intlog_m.start_pulser()
 	go intlog_m.start_logger()
-//	go test_m.start_controller()
-//	go test_m.handle_new_ctrl()
+	go intlog_m.start_controller()
+	go intlog_m.handle_new_ctrl()
 
 	// cleanup
 //	go test_m.wait_done()

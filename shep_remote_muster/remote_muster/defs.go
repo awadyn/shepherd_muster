@@ -78,6 +78,7 @@ type remote_muster struct {	// i.e. 1st level specialization of a muster
 	coordinate_server_addr *string
 
 	pb.UnimplementedPulseServer
+	pb.UnimplementedControlServer
 
 	logger pb.LogClient
 	conn_local *grpc.ClientConn
@@ -87,8 +88,6 @@ type remote_muster struct {	// i.e. 1st level specialization of a muster
 
 type test_muster struct {	// 2nd level specialization of a muster
 	remote_muster
-
-	pb.UnimplementedControlServer
 
 	log_f_map map[string](map[string]*os.File)
 	log_reader_map map[string](map[string]*csv.Reader)
