@@ -25,6 +25,7 @@ func (l_m *local_muster) init() {
 						"address of one remote muster control server")
 }
 
+
 /************************/
 /***** LOCAL PULSER *****/
 /************************/
@@ -68,6 +69,7 @@ func (l_m *local_muster) pulse(conn *grpc.ClientConn, c pb.PulseClient, ctx cont
 	}
 }
 
+
 /************************/
 /***** LOCAL LOGGER *****/
 /************************/
@@ -109,7 +111,6 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 		case err == io.EOF:
 			/* i.e. all log entries have been copied to mem_buff*/
 			l_m.full_buff_chan <- []string{sheep_id, log_id}
-			fmt.Println("sheep_id: ", sheep_id, "log_id: ", log_id)
 			<- l_m.pasture[sheep_id].logs[log_id].ready_buff_chan
 			fmt.Printf("-------- COMPLETED-SYNC-REQ -- %v - %v - %v\n", l_m.id, sheep_id, log_id)
 			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:true})
@@ -129,6 +130,7 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 		}
 	}
 }
+
 
 /************************/
 /*** LOCAL CONTROLLER ***/

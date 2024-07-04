@@ -127,6 +127,10 @@ type intlog_shepherd struct {
 	shepherd
 }
 
+type bayopt_shepherd struct {
+	shepherd
+}
+
 type Shepherd interface {
 	init()
 	process_logs()
