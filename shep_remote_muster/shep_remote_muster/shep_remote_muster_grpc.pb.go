@@ -348,6 +348,7 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CoordinateClient interface {
+	CoordinateLog(ctx context.Context, in *CoordinateLogRequest, opts ...grpc.CallOption) (*CoordinateLogReply, error)
 	CompleteRun(ctx context.Context, in *CompleteRunRequest, opts ...grpc.CallOption) (*CompleteRunReply, error)
 }
 
@@ -357,6 +358,15 @@ type coordinateClient struct {
 
 func NewCoordinateClient(cc grpc.ClientConnInterface) CoordinateClient {
 	return &coordinateClient{cc}
+}
+
+func (c *coordinateClient) CoordinateLog(ctx context.Context, in *CoordinateLogRequest, opts ...grpc.CallOption) (*CoordinateLogReply, error) {
+	out := new(CoordinateLogReply)
+	err := c.cc.Invoke(ctx, "/muster.Coordinate/CoordinateLog", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *coordinateClient) CompleteRun(ctx context.Context, in *CompleteRunRequest, opts ...grpc.CallOption) (*CompleteRunReply, error) {
@@ -372,6 +382,7 @@ func (c *coordinateClient) CompleteRun(ctx context.Context, in *CompleteRunReque
 // All implementations must embed UnimplementedCoordinateServer
 // for forward compatibility
 type CoordinateServer interface {
+	CoordinateLog(context.Context, *CoordinateLogRequest) (*CoordinateLogReply, error)
 	CompleteRun(context.Context, *CompleteRunRequest) (*CompleteRunReply, error)
 	mustEmbedUnimplementedCoordinateServer()
 }
@@ -380,6 +391,9 @@ type CoordinateServer interface {
 type UnimplementedCoordinateServer struct {
 }
 
+func (UnimplementedCoordinateServer) CoordinateLog(context.Context, *CoordinateLogRequest) (*CoordinateLogReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CoordinateLog not implemented")
+}
 func (UnimplementedCoordinateServer) CompleteRun(context.Context, *CompleteRunRequest) (*CompleteRunReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CompleteRun not implemented")
 }
@@ -394,6 +408,24 @@ type UnsafeCoordinateServer interface {
 
 func RegisterCoordinateServer(s grpc.ServiceRegistrar, srv CoordinateServer) {
 	s.RegisterService(&Coordinate_ServiceDesc, srv)
+}
+
+func _Coordinate_CoordinateLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CoordinateLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinateServer).CoordinateLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/muster.Coordinate/CoordinateLog",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinateServer).CoordinateLog(ctx, req.(*CoordinateLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Coordinate_CompleteRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -421,6 +453,10 @@ var Coordinate_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "muster.Coordinate",
 	HandlerType: (*CoordinateServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CoordinateLog",
+			Handler:    _Coordinate_CoordinateLog_Handler,
+		},
 		{
 			MethodName: "CompleteRun",
 			Handler:    _Coordinate_CompleteRun_Handler,
