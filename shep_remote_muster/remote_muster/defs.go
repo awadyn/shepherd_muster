@@ -20,6 +20,7 @@ type node struct {
 type log struct {
 	ready_buff_chan chan bool
 	kill_log_chan chan bool
+	do_log_chan chan bool
 
 	mem_buff *[][]uint64
 	max_size uint64
@@ -75,9 +76,11 @@ type remote_muster struct {	// i.e. 1st level specialization of a muster
 	pulse_server_port *int
 	ctrl_server_port *int
 	log_server_addr *string
-	coordinate_server_addr *string
+	coordinate_server_port *int
 
 	pb.UnimplementedPulseServer
+	pb.UnimplementedControlServer
+	pb.UnimplementedCoordinateServer
 
 	logger pb.LogClient
 	conn_local *grpc.ClientConn
@@ -88,8 +91,6 @@ type remote_muster struct {	// i.e. 1st level specialization of a muster
 type test_muster struct {	// 2nd level specialization of a muster
 	remote_muster
 
-	pb.UnimplementedControlServer
-
 	log_f_map map[string](map[string]*os.File)
 	log_reader_map map[string](map[string]*csv.Reader)
 
@@ -99,7 +100,16 @@ type test_muster struct {	// 2nd level specialization of a muster
 type intlog_muster struct {	// 2nd level specialization of a muster
 	remote_muster
 
-	pb.UnimplementedControlServer
+//	pb.UnimplementedControlServer
+
+	log_f_map map[string]*os.File
+	log_reader_map map[string]*csv.Reader
+}
+
+type bayopt_muster struct {	// 2nd level specialization of a muster
+	remote_muster
+
+//	pb.UnimplementedControlServer
 
 	log_f_map map[string]*os.File
 	log_reader_map map[string]*csv.Reader
