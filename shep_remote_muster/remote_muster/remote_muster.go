@@ -21,15 +21,17 @@ import (
   each sheep (i.e. core) can produce a list of logs and 
   each sheep (i.e. core) can be controlled by a list of controls
 */
-func (r_m *remote_muster) init(n_ip string, n_cores int, pulse_server_port int, ctrl_server_port int, log_server_port string, coordinate_server_port string) {
-	r_m.pulse_server_port = flag.Int("pulse_port", pulse_server_port, "remote_muster pulse serving port")
-	r_m.ctrl_server_port = flag.Int("ctrl_port", ctrl_server_port, "remote_muster ctrl serving port")
+func (r_m *remote_muster) init(n_ip string, n_cores int, pulse_server_port int, ctrl_server_port int, 
+				log_server_port string, coordinate_server_port int) {
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
 					  mirror_ip + ":" + log_server_port, 
 					  "address of mirror local_muster log sync server")
-	//r_m.coordinate_server_addr = flag.String("coordinate_server_addr", 
-	//				         "localhost:" + coordinate_server_port, 
-	//				         "address of shepherd's coordinate server")
+	r_m.pulse_server_port = flag.Int("pulse_port", pulse_server_port, 
+						"remote_muster pulse server port")
+	r_m.ctrl_server_port = flag.Int("ctrl_port", ctrl_server_port, 
+						"remote_muster ctrl server port")
+	r_m.coordinate_server_port = flag.Int("coordinate_port", coordinate_server_port, 
+						"remote muster coordinate server port")
 }
 
 //func (r_m *remote_muster) wait_done() {
@@ -89,7 +91,7 @@ func (r_m *remote_muster) start_logger() {
    is in charge of. 
 */
 func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context.Context, cancel context.CancelFunc) {
-	fmt.Printf("-- %v :  Log syncing server waiting.. \n", r_m.id)
+	fmt.Printf("-- %v :  Log syncing client waiting.. \n", r_m.id)
 	defer conn.Close()
 	defer cancel()
 	for {
@@ -215,7 +217,7 @@ func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) err
 }
 
 func (r_m *remote_muster) start_controller() {
-	fmt.Printf("-- %v :  Ctrl syncing client waiting for heartbeats.. \n", r_m.id)
+	fmt.Printf("-- %v :  Ctrl syncing server waiting for heartbeats.. \n", r_m.id)
 	<- r_m.hb_chan
 	fmt.Printf("-- STARTING REMOTE MUSTER CONTROLLER :  %v\n", r_m.id)
 	flag.Parse()
@@ -232,5 +234,36 @@ func (r_m *remote_muster) start_controller() {
 }
 
 
+/**********************/
+/* REMOTE COORDINATOR */
+/**********************/
+
+func (r_m *remote_muster) CoordinateLog(ctx context.Context, in *pb.CoordinateLogRequest) (*pb.CoordinateLogReply, error) {
+	sheep_id := in.GetSheepId()
+	log_id := in.GetLogId()
+	fmt.Printf("------COORDINATE-REQ %v ------ %v -- %v\n", r_m.id, sheep_id, log_id)
+	select {
+	case r_m.pasture[sheep_id].logs[log_id].do_log_chan <- true:
+	default:
+	}
+	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id}, nil
+}
+
+func (r_m *remote_muster) start_coordinator() {
+	fmt.Printf("-- %v :  Coordination server waiting for heartbeats.. \n", r_m.id)
+	<- r_m.hb_chan
+	fmt.Printf("-- STARTING REMOTE MUSTER COORDINATOR :  %v\n", r_m.id)
+	flag.Parse()
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.coordinate_server_port))
+	if err != nil {
+		fmt.Printf("** ** ** ERROR: %v failed to listen on control port: %v\n", r_m.id, err)
+	}
+	s := grpc.NewServer()
+	pb.RegisterCoordinateServer(s, r_m)
+	fmt.Printf("-- %v -- Coordination server listening at %v ... ... ...\n", r_m.id, lis.Addr())
+	if err := s.Serve(lis); err != nil {
+		fmt.Printf("** ** ** ERROR: failed to serve: %v\n", err)
+	}
+}
 
 
