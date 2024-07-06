@@ -17,12 +17,14 @@ import (
 /************************************/
 
 func (l_m *local_muster) init() {
-	l_m.pulse_server_addr = flag.String("pulse_server_addr_" + l_m.id, l_m.ip + ":" + strconv.Itoa(l_m.pulse_port),
-						"address of one remote muster pulse server")
 	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id, l_m.log_sync_port, 
 					"local muster log syncing server port")
+	l_m.pulse_server_addr = flag.String("pulse_server_addr_" + l_m.id, l_m.ip + ":" + strconv.Itoa(l_m.pulse_port),
+						"address of one remote muster pulse server")
 	l_m.ctrl_server_addr = flag.String("ctrl_server_addr_" + l_m.id, l_m.ip + ":" + strconv.Itoa(l_m.ctrl_port),
 						"address of one remote muster control server")
+	l_m.coordinate_server_addr = flag.String("coordinate_server_addr_" + l_m.id, l_m.ip + ":" + strconv.Itoa(l_m.coordinate_port),
+							"address of remote muster  coordination server")
 }
 
 
@@ -184,5 +186,46 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 		}
 	}
 }
+
+/*************************/
+/*** LOCAL COORDINATOR ***/
+/*************************/
+func (l_m *local_muster) start_coordinator() {
+	<- l_m.hb_chan
+	fmt.Printf("-- STARTING LOCAL COORDINATOR :  %v\n", l_m.id)
+	conn, err := grpc.Dial(*l_m.coordinate_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Printf("** ** ** ERROR: could not create local connection to remote muster %s:\n** ** ** %v\n", l_m.id, err)
+	}
+	c := pb.NewCoordinateClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
+	fmt.Printf("-- %v -- Initialized coordinate client \n", l_m.id)
+	go l_m.coordinate(conn, c, ctx, cancel)
+}
+
+func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient, ctx context.Context, cancel context.CancelFunc) {
+	defer conn.Close()
+	defer cancel()
+	for {
+		select {
+		case ids := <- l_m.request_log_chan:
+			sheep_id := ids[0]
+			log_id := ids[1]
+			fmt.Println(sheep_id, log_id)
+			<- l_m.pasture[sheep_id].done_request_chan
+			for {
+				fmt.Println("******** SENDING COORDINATE REQUEST ********")
+				r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id})  
+				
+				if err != nil { time.Sleep(time.Second/2); continue }
+				fmt.Println("******** COORDINATE REP **** ", r)
+				l_m.pasture[sheep_id].done_request_chan <- true
+				break
+			}
+		}
+	}
+}
+
+
 
 

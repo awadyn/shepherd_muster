@@ -18,8 +18,6 @@ func (s *shepherd) init(nodes []node) {
 	s.process_buff_chan = make(chan []string)
 	s.compute_ctrl_chan = make(chan []string)
 	//s.complete_run_chan = make(chan []string)
-	//s.coordinate_port = flag.Int("coordinate_port", 50081,
-	//			     "shepherd coordination server port")
 
 	/* init 1 muster for each node and 1 sheep for each core */
 	s.musters = make(map[string]*muster)
@@ -43,6 +41,7 @@ func (s *shepherd) deploy_musters() {
 		l_m.start_logger()		// per-muster log server
 		go s.log(l_m.id)		// per-muster log coordinator
 		go l_m.start_controller()	// per-muster ctrl client
+		go l_m.start_coordinator()	// per-muster coordinate client
 	}
 }
 

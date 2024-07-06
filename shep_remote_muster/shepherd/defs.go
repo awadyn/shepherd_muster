@@ -62,6 +62,9 @@ type sheep struct {
 	finish_run_chan chan bool
 	//done_ctrl_chan chan bool
 	done_ctrl_chan chan control_reply
+
+	done_request_chan chan bool
+
 	logs map[string]*log
 	controls map[string]*control
 	id string
@@ -77,6 +80,8 @@ type muster struct {
 	new_ctrl_chan chan control_request
 	//ready_ctrl_chan chan string
 
+	request_log_chan chan []string
+
 	pasture map[string]*sheep
 	id string
 	/* e.g. {"muster_n", {"ctrl-dvfs-i": {..}, "ctrl-itr-i": {..} ...}, {"log-ep-i": {..}, "log-ep-j": {..}, ...}, node{"10.0.0.1", 24}} */
@@ -88,6 +93,7 @@ type local_muster struct {
 	log_server_port *int
 	ctrl_server_addr *string
 	pulse_server_addr *string
+	coordinate_server_addr *string
 
 	out_f_map map[string](map[string]*os.File)
 	out_writer_map map[string](map[string]*csv.Writer)
@@ -112,8 +118,8 @@ type shepherd struct {
 
 	complete_run_chan chan []string
 
-	coordinate_port *int
-	pb.UnimplementedCoordinateServer
+//	coordinate_port *int
+//	pb.UnimplementedCoordinateServer
 
 	id string
 	/* e.g. {"sheperd-ep", {"muster-10.0.0.1": &muster{..}, "muster-10.0.0.2": &muster{..} ...}} */
