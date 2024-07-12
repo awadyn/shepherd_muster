@@ -34,37 +34,6 @@ func (r_m *remote_muster) init(n_ip string, n_cores int, pulse_server_port int, 
 						"remote muster coordinate server port")
 }
 
-//func (r_m *remote_muster) wait_done() {
-//	total_ctr := 0
-//	for sheep_id, _ := range(r_m.pasture) {
-//		for i := 0; i < len(r_m.pasture[sheep_id].logs) ; i++ { total_ctr ++ }
-//	}
-//	done_ctr := 0
-//	for {
-//		select {
-//		case ids := <- r_m.done_chan:
-//			sheep_id := ids[0]
-//			log_id := ids[1]
-//			done_ctr ++
-//			fmt.Println("********** DONE ********** ", sheep_id, log_id)
-//			conn, err := grpc.Dial(*r_m.coordinate_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-//			if err != nil {
-//				fmt.Printf("** ** ** ERROR: %v could not create connection to shepherd %s:\n** ** ** %v\n", r_m.id, *r_m.coordinate_server_addr, err)
-//			}
-//			c := pb.NewCoordinateClient(conn)
-//			ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
-//			fmt.Printf("-- Initialized coordinate client for %v\n", sheep_id)
-//			r, err := c.CompleteRun(ctx, &pb.CompleteRunRequest{MusterId: r_m.id, SheepId: sheep_id})
-//			fmt.Printf("-- Coordination complete:  %v\n", r)
-//			conn.Close()
-//			cancel()
-//		}
-//		if done_ctr == total_ctr { 
-//			r_m.exit_chan <- true
-//			return
-//		}
-//	}
-//}
 
 /*****************/
 /* REMOTE LOGGER */
@@ -217,8 +186,8 @@ func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) err
 }
 
 func (r_m *remote_muster) start_controller() {
-	fmt.Printf("-- %v :  Ctrl syncing server waiting for heartbeats.. \n", r_m.id)
 	<- r_m.hb_chan
+
 	fmt.Printf("-- STARTING REMOTE MUSTER CONTROLLER :  %v\n", r_m.id)
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.ctrl_server_port))
@@ -238,20 +207,33 @@ func (r_m *remote_muster) start_controller() {
 /* REMOTE COORDINATOR */
 /**********************/
 
+/* CoordinateLog: one type of coordination service
+	-> when a CoordinateLog request is received, a remote muster should
+	   signal the native logging wrapper to sync native logs with the
+	   local muster mirror
+	   --> the protocol by which native logs are synced is defined by
+	   the remote muster's specialization, e.g:
+	       	-> a bayopt remote muster is specialized to sync
+		   only 1 log entry per CoordinateLog request
+		-> a reinforcement learning remote muster is specialized
+		   to sync all log entries until signalled to stop doing so
+*/
 func (r_m *remote_muster) CoordinateLog(ctx context.Context, in *pb.CoordinateLogRequest) (*pb.CoordinateLogReply, error) {
 	sheep_id := in.GetSheepId()
 	log_id := in.GetLogId()
-	fmt.Printf("------COORDINATE-REQ %v ------ %v -- %v\n", r_m.id, sheep_id, log_id)
-	select {
-	case r_m.pasture[sheep_id].logs[log_id].do_log_chan <- true:
-	default:
-	}
-	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id}, nil
+	coordinate_cmd := in.GetCoordinateCmd()
+	fmt.Printf("------COORDINATE-REQ %v ------ %v -- %v -- %v\n", r_m.id, sheep_id, log_id, coordinate_cmd)
+
+	r_m.pasture[sheep_id].logs[log_id].do_log_chan <- coordinate_cmd
+//	r_m.pasture[sheep_id].logs[log_id].do_log_chan <- true
+	//<- r_m.pasture[sheep_id].logs[log_id].done_log_chan
+
+	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd}, nil
 }
 
 func (r_m *remote_muster) start_coordinator() {
-	fmt.Printf("-- %v :  Coordination server waiting for heartbeats.. \n", r_m.id)
 	<- r_m.hb_chan
+
 	fmt.Printf("-- STARTING REMOTE MUSTER COORDINATOR :  %v\n", r_m.id)
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.coordinate_server_port))
@@ -266,4 +248,35 @@ func (r_m *remote_muster) start_coordinator() {
 	}
 }
 
+//func (r_m *remote_muster) wait_done() {
+//	total_ctr := 0
+//	for sheep_id, _ := range(r_m.pasture) {
+//		for i := 0; i < len(r_m.pasture[sheep_id].logs) ; i++ { total_ctr ++ }
+//	}
+//	done_ctr := 0
+//	for {
+//		select {
+//		case ids := <- r_m.done_chan:
+//			sheep_id := ids[0]
+//			log_id := ids[1]
+//			done_ctr ++
+//			fmt.Println("********** DONE ********** ", sheep_id, log_id)
+//			conn, err := grpc.Dial(*r_m.coordinate_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+//			if err != nil {
+//				fmt.Printf("** ** ** ERROR: %v could not create connection to shepherd %s:\n** ** ** %v\n", r_m.id, *r_m.coordinate_server_addr, err)
+//			}
+//			c := pb.NewCoordinateClient(conn)
+//			ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
+//			fmt.Printf("-- Initialized coordinate client for %v\n", sheep_id)
+//			r, err := c.CompleteRun(ctx, &pb.CompleteRunRequest{MusterId: r_m.id, SheepId: sheep_id})
+//			fmt.Printf("-- Coordination complete:  %v\n", r)
+//			conn.Close()
+//			cancel()
+//		}
+//		if done_ctr == total_ctr { 
+//			r_m.exit_chan <- true
+//			return
+//		}
+//	}
+//}
 
