@@ -20,7 +20,9 @@ type node struct {
 type log struct {
 	ready_buff_chan chan bool
 	kill_log_chan chan bool
-	do_log_chan chan bool
+	//do_log_chan chan bool
+	do_log_chan chan string
+	done_log_chan chan bool
 
 	mem_buff *[][]uint64
 	max_size uint64
@@ -51,6 +53,7 @@ type sheep struct {
 	ready_ctrl_chan chan bool
 	done_ctrl_chan chan bool
 
+	detach_native_logger chan bool
 	done_kill_chan chan bool
 
 	id string

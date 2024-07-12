@@ -32,17 +32,23 @@ func main() {
 	bayopt_m := bayopt_muster{remote_muster: r_m}
 	bayopt_m.init()
 
-	bayopt_m.start_native_logger()
-	go bayopt_m.start_coordinator()
-
 	go bayopt_m.start_pulser()
 	go bayopt_m.start_logger()
-	go bayopt_m.start_controller()
-	go bayopt_m.handle_new_ctrl()
+	//go bayopt_m.start_controller()
+	//go bayopt_m.handle_new_ctrl()
+
+	/* handles different types of coordination requests */
+	go bayopt_m.start_coordinator()
+
+//	go bayopt_m.start_native_logger()
+	for sheep_id, _ := range(bayopt_m.pasture) {
+		core := bayopt_m.pasture[sheep_id].core
+		for log_id, _ := range(bayopt_m.pasture[sheep_id].logs) { 
+			go bayopt_m.bayopt_log(sheep_id, log_id, core) 
+		}
+	}
 
 	// cleanup
-//	go test_m.wait_done()
-//	<- test_m.exit_chan
 	time.Sleep(exp_timeout)
 	bayopt_m.cleanup()
 }

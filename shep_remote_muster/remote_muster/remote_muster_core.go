@@ -30,6 +30,7 @@ func (m *muster) init(n_ip string, n_cores int) {
 				 controls: make(map[string]*control),
 				 ready_ctrl_chan: make(chan bool, 1),
 				 done_ctrl_chan: make(chan bool, 1),
+				 detach_native_logger: make(chan bool, 1),
 				 done_kill_chan: make(chan bool, 1)}
 		m.pasture[sheep_id] = &sheep_c
 	}

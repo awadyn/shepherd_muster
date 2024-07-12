@@ -58,37 +58,22 @@ message ControlReply {
 
 
 service Coordinate {
-<<<<<<< HEAD
         rpc CoordinateLog (CoordinateLogRequest) returns (CoordinateLogReply) {}
-=======
-	rpc CoordinateLog (CoordinateLogRequest) returns (CoordinateLogReply) {}
->>>>>>> ffca9e8df9e9e9bd24e3d761f766748a292529db
 	rpc CompleteRun(CompleteRunRequest) returns (CompleteRunReply) {}
 }
 
 message CoordinateLogRequest {
-<<<<<<< HEAD
         string sheep_id = 1;
         string log_id = 2;
+	string coordinate_cmd = 3;
 }
 
 message CoordinateLogReply {
         string sheep_id = 1;
         string log_id = 2;
+	string coordinate_cmd = 3;
 }
 
-=======
-	string sheep_id = 1;
-	string log_id = 2;
-}
-
-message CoordinateLogReply {
-	string sheep_id = 1;
-	string log_id = 2;
-}
-
-
->>>>>>> ffca9e8df9e9e9bd24e3d761f766748a292529db
 message CompleteRunRequest {
 	string sheep_id = 1;
 	string muster_id = 2;
