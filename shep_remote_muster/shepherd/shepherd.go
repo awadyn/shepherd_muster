@@ -40,8 +40,8 @@ func (s *shepherd) deploy_musters() {
 		l_m.start_pulser()		// per-muster pulse client	
 		l_m.start_logger()		// per-muster log server
 		go s.log(l_m.id)		// per-muster log coordinator
-		go l_m.start_controller()	// per-muster ctrl client
-		go l_m.start_coordinator()	// per-muster coordinate client
+		l_m.start_controller()		// per-muster ctrl client
+		l_m.start_coordinator()		// per-muster coordinate client
 	}
 }
 

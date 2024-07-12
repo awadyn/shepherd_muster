@@ -208,18 +208,17 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 	defer cancel()
 	for {
 		select {
-		case ids := <- l_m.request_log_chan:
-			sheep_id := ids[0]
-			log_id := ids[1]
-			fmt.Println(sheep_id, log_id)
-			<- l_m.pasture[sheep_id].done_request_chan
+		case req := <- l_m.request_log_chan:
+			sheep_id := req[0]
+			log_id := req[1]
+			coordinate_cmd := req[2]
+			fmt.Println("******** SENDING COORDINATE REQUEST ********", sheep_id, log_id, coordinate_cmd)
 			for {
-				fmt.Println("******** SENDING COORDINATE REQUEST ********")
-				r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id})  
+				r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd})  
 				
-				if err != nil { time.Sleep(time.Second/2); continue }
-				fmt.Println("******** COORDINATE REP **** ", r)
-				l_m.pasture[sheep_id].done_request_chan <- true
+				if err != nil { time.Sleep(time.Second/2); continue } 
+				fmt.Println("******** COORDINATE REP **** ", r) 
+				//l_m.pasture[sheep_id].done_request_chan <- true
 				break
 			}
 		}
