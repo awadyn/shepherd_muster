@@ -36,14 +36,15 @@ func (bayopt_s *bayopt_shepherd) init() {
 			log_c := log{id: log_id, n_ip: m.ip,
 					metrics: bayopt_cols, 
 					max_size: buff_max_size, 
+					ready_request_chan: make(chan bool, 1),
 					ready_buff_chan: make(chan bool, 1),
 					done_process_chan: make(chan bool, 1)}
 			mem_buff := make([][]uint64, 0)
 			log_c.mem_buff = &mem_buff
 			ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
 			ctrl_dvfs_c := control{id: ctrl_dvfs_id, n_ip: m.ip, knob: "dvfs", value: 0xc00, dirty: false}
-			//ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
-			//ctrl_itr_c := control{id: ctrl_itr_id, n_ip: m.ip, knob: "itr-delay", value: 1, dirty: false}
+			ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
+			ctrl_itr_c := control{id: ctrl_itr_id, n_ip: m.ip, knob: "itr-delay", value: 1, dirty: false}
 
 			sheep_id := c_str + "-" + m.ip
 
@@ -51,7 +52,8 @@ func (bayopt_s *bayopt_shepherd) init() {
 
 			bayopt_s.musters[m_id].pasture[sheep_id].logs[log_id] = &log_c
 			bayopt_s.musters[m_id].pasture[sheep_id].controls[ctrl_dvfs_c.id] = &ctrl_dvfs_c
-			//bayopt_s.musters[m_id].pasture[sheep_id].controls[ctrl_itr_c.id] = &ctrl_itr_c
+			bayopt_s.musters[m_id].pasture[sheep_id].controls[ctrl_itr_c.id] = &ctrl_itr_c
+			bayopt_s.musters[m_id].pasture[sheep_id].logs[log_c.id].ready_request_chan <- true
 			bayopt_s.musters[m_id].pasture[sheep_id].logs[log_c.id].ready_buff_chan <- true
 		}
 	}
@@ -118,10 +120,11 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				log := log
 				fmt.Printf("-------------- PROCESS LOG SIGNAL :  %v - %v - %v\n", m_id, sheep_id, log_id)
 				mem_buff := *(log.mem_buff)
-				joules_val := float64(mem_buff[0][0]) * 0.000061
-				joules_old := bayopt_s.joules_diff[m_id][sheep_id]
-				bayopt_s.joules_diff[m_id][sheep_id] = joules_val - joules_old
-				fmt.Println("JOULES DIFF *** ", bayopt_s.joules_diff[l_m.id][sheep.id])
+				fmt.Println(mem_buff)
+//				joules_val := float64(mem_buff[0][0]) * 0.000061
+//				joules_old := bayopt_s.joules_diff[m_id][sheep_id]
+//				bayopt_s.joules_diff[m_id][sheep_id] = joules_val - joules_old
+//				fmt.Println("JOULES DIFF *** ", bayopt_s.joules_diff[l_m.id][sheep.id])
 				fmt.Printf("-------------- COMPLETED PROCESS LOG :  %v - %v - %v\n", l_m.id, sheep.id, log.id)	
 				// muster can now overwrite mem_buff for this log
 				sheep.logs[log.id].done_process_chan <- true

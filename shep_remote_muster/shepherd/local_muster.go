@@ -209,18 +209,25 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 	for {
 		select {
 		case req := <- l_m.request_log_chan:
-			sheep_id := req[0]
-			log_id := req[1]
-			coordinate_cmd := req[2]
-			fmt.Println("******** SENDING COORDINATE REQUEST ********", sheep_id, log_id, coordinate_cmd)
-			for {
-				r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd})  
-				
-				if err != nil { time.Sleep(time.Second/2); continue } 
-				fmt.Println("******** COORDINATE REP **** ", r) 
-				//l_m.pasture[sheep_id].done_request_chan <- true
-				break
-			}
+			go func() {
+				req := req
+				sheep_id := req[0]
+				log_id := req[1]
+				coordinate_cmd := req[2]
+
+				<- l_m.pasture[sheep_id].logs[log_id].ready_request_chan
+				fmt.Println("******** SENDING COORDINATE REQUEST ********", sheep_id, log_id, coordinate_cmd)
+				for {
+					r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd})  
+					
+					if err != nil { time.Sleep(time.Second/2); continue } 
+					fmt.Println("******** COORDINATE REP **** ", r)
+					l_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+					return
+//					break
+				}
+//				l_m.pasture[sheep_id].done_request_chan <- true
+			} ()
 		}
 	}
 }

@@ -22,7 +22,7 @@ func (m *muster) init() {
 				 logs: make(map[string]*log), 
 				 controls: make(map[string]*control),
 				 done_ctrl_chan: make(chan control_reply, 1),
-				 done_request_chan: make(chan bool, 1),
+				 //done_request_chan: make(chan bool, 1),
 				 finish_run_chan: make(chan bool, 1)}
 		m.pasture[sheep_id] = &sheep_c
 	}

@@ -24,6 +24,7 @@ type node struct {
 }
 
 type log struct {
+	ready_request_chan chan bool
 	ready_buff_chan chan bool
 	done_process_chan chan bool
 
