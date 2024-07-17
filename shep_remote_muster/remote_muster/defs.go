@@ -21,7 +21,7 @@ type log struct {
 	ready_buff_chan chan bool
 	kill_log_chan chan bool
 	//do_log_chan chan bool
-	do_log_chan chan string
+	request_log_chan chan string
 	done_log_chan chan bool
 
 	mem_buff *[][]uint64
@@ -94,16 +94,14 @@ type remote_muster struct {	// i.e. 1st level specialization of a muster
 type test_muster struct {	// 2nd level specialization of a muster
 	remote_muster
 
+	done_log_map map[string](map[string]chan bool)
+
 	log_f_map map[string](map[string]*os.File)
 	log_reader_map map[string](map[string]*csv.Reader)
-
-	done_log_map map[string](map[string]chan bool)
 }
 
 type intlog_muster struct {	// 2nd level specialization of a muster
 	remote_muster
-
-//	pb.UnimplementedControlServer
 
 	log_f_map map[string]*os.File
 	log_reader_map map[string]*csv.Reader
@@ -111,8 +109,6 @@ type intlog_muster struct {	// 2nd level specialization of a muster
 
 type bayopt_muster struct {	// 2nd level specialization of a muster
 	remote_muster
-
-//	pb.UnimplementedControlServer
 
 	log_f_map map[string]*os.File
 	log_reader_map map[string]*csv.Reader
