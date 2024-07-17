@@ -224,10 +224,11 @@ func (r_m *remote_muster) CoordinateLog(ctx context.Context, in *pb.CoordinateLo
 	coordinate_cmd := in.GetCoordinateCmd()
 	fmt.Printf("------COORDINATE-REQ %v ------ %v -- %v -- %v\n", r_m.id, sheep_id, log_id, coordinate_cmd)
 
-	r_m.pasture[sheep_id].logs[log_id].do_log_chan <- coordinate_cmd
+	r_m.pasture[sheep_id].logs[log_id].request_log_chan <- coordinate_cmd
 //	r_m.pasture[sheep_id].logs[log_id].do_log_chan <- true
-	//<- r_m.pasture[sheep_id].logs[log_id].done_log_chan
+	<- r_m.pasture[sheep_id].logs[log_id].done_log_chan
 
+	fmt.Printf("------DONE-COORDINATE-REQ %v ------ %v -- %v -- %v\n", r_m.id, sheep_id, log_id, coordinate_cmd)
 	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd}, nil
 }
 

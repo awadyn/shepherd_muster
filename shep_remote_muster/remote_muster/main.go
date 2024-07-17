@@ -9,6 +9,9 @@ import (
 
 /*********************************************/
 
+var exp_timeout time.Duration = time.Second * 75
+var mirror_ip string;
+
 func main() {
 	n_ip := os.Args[1]
 	mirror_ip = os.Args[2]
@@ -41,10 +44,11 @@ func main() {
 	go bayopt_m.start_coordinator()
 
 //	go bayopt_m.start_native_logger()
+
+	<- bayopt_m.hb_chan
 	for sheep_id, _ := range(bayopt_m.pasture) {
-		core := bayopt_m.pasture[sheep_id].core
 		for log_id, _ := range(bayopt_m.pasture[sheep_id].logs) { 
-			go bayopt_m.bayopt_log(sheep_id, log_id, core) 
+			go bayopt_m.log_manage(sheep_id, log_id) 
 		}
 	}
 
