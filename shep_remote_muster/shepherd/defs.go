@@ -136,7 +136,8 @@ type intlog_shepherd struct {
 
 type bayopt_shepherd struct {
 	shepherd
-	joules_diff map[string](map[string]float64)
+	joules_measure map[string](map[string][]float64)
+	joules_diff map[string](map[string][]float64)
 }
 
 type Shepherd interface {

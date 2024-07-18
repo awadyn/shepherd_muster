@@ -53,15 +53,17 @@ func (s *shepherd) deploy_musters() {
 */
 func (s *shepherd) listen_heartbeats() {
 	fmt.Printf("-- STARTING HEARTBEAT LISTENER :  %v ... ... ...\n", s.id)
+	counter := 0
 	for {
 		for _, m := range(s.musters) {
 			select {
 			case r := <- s.musters[m.id].hb_chan:
 				m_id := r.GetMusterReply()
-				fmt.Println("------HB-REP --", m_id, r.GetShepRequest())
+				if counter % 3 == 0 { fmt.Println("------HB-REP --", m_id, r.GetShepRequest()) }
 //				s.musters[m_id].pulsing = true
 			default:
 			}
+			counter ++
 		}
 	}
 }
