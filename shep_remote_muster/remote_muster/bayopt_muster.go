@@ -97,12 +97,6 @@ func do_log(shared_log *log, reader *csv.Reader) error {
 				(*shared_log.mem_buff)[counter] = append((*shared_log.mem_buff)[counter], uint64(val))
 			}
 			counter ++
-//			*shared_log.mem_buff = append(*shared_log.mem_buff, []uint64{})
-//			joules_val, _ := strconv.Atoi(row[joules_idx])
-//			(*shared_log.mem_buff)[counter] = append((*shared_log.mem_buff)[counter], uint64(joules_val))
-//			timestamp_val, _ := strconv.Atoi(row[timestamp_idx])
-//			(*shared_log.mem_buff)[counter] = append((*shared_log.mem_buff)[counter], uint64(timestamp_val))	
-//			counter ++
 		case counter == shared_log.max_size:
 			return nil
 		}
@@ -206,25 +200,35 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 					log_id := log_id
 					f := bayopt_m.log_f_map[sheep_id]
 					f.Seek(0, io.SeekStart)
+
+					// get length of log file
 					reader1 := csv.NewReader(f)
-					reader2 := csv.NewReader(f)
 					reader1.Comma = ' '
-					reader2.Comma = ' '
-					var err error
-					_, err = reader1.Read()
-					if err == io.EOF { 
+					rows, err := reader1.ReadAll() 
+					if err != nil { panic(err) }
+					len_rows := len(rows)
+					if len_rows == 0 {
 						fmt.Println("************** FILE IS EMPTY *************", log_id) 
 						bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
 						return
 					}
-					if err != nil { panic(err) }
-					// read until end of file to get last log entry
+
+					// read log file except last entry
+					f.Seek(0, io.SeekStart)
+					reader2 := csv.NewReader(f)
+					reader2.Comma = ' '
+					counter := 0
 					for {
-						_, err = reader1.Read()
+						if counter == len_rows - 1 { break }
+						_, err := reader2.Read()
+						if err == io.EOF { 
+							fmt.Println("************** FILE IS EMPTY *************", log_id) 
+							break
+						}
 						if err != nil { panic(err) }
-						if err == io.EOF { break }
-						reader2.Read()
+						counter ++
 					}
+
 					err = bayopt_m.sync_with_logger(sheep_id, log_id, reader2, do_log)
 					if err != nil { panic(err) }
 					bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
