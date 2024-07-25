@@ -1,48 +1,54 @@
 package main
 
 import ( "time"
-	 "fmt"
+//	 "fmt"
+	 "os"
 	 "os/exec" 
 )
 
 /**************************************/
 
+func (intlog_s *intlog_shepherd) run_workload(m_id string) {
+	l_m := intlog_s.local_musters[m_id]
+	<- l_m.hb_chan
+
+	for iter := 0; iter < 3; iter ++ {
+		cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=32 --measure_qps=2000 --qps=400000 --time=10")
+		if err := cmd.Run(); err != nil { panic(err) }
+	}
+
+}
+
 func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 	l_m := bayopt_s.local_musters[m_id]
 	<- l_m.hb_chan
 
-
-	for sheep_id, sheep := range(l_m.pasture) {
-		for log_id, _ := range(sheep.logs) {
-			l_m.request_log_chan <- []string{sheep_id, log_id, "start"}
-		}
-	}
-
-	fmt.Println("Running Test...")
-	fmt.Println("Sleeping... 10")
-	time.Sleep(time.Second * 10)
-	for sheep_id, sheep := range(l_m.pasture) {
-		for log_id, _ := range(sheep.logs) {
-			l_m.request_log_chan <- []string{sheep_id, log_id, "first"}
-		}
-	}
-
-	for iter := 0; iter < 4; iter ++ {
-//		fmt.Println("Sleeping... 10")
-//		time.Sleep(time.Second * 10)
-		cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=32 --measure_qps=2000 --qps=400000 --time=10")
+	for iter := 0; iter < 2; iter ++ {
+		for sheep_id, sheep := range(l_m.pasture) {
+			for log_id, _ := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep_id, log_id, "start"}
+			}
+		}	
+		cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=32 --measure_qps=2000 --qps=200000 --time=10")
+		cmd.Stdout = os.Stdout
 		if err := cmd.Run(); err != nil { panic(err) }
+		for sheep_id, sheep := range(l_m.pasture) {
+			for log_id, _ := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep_id, log_id, "stop"}
+			}
+		}
+
+		for sheep_id, sheep := range(l_m.pasture) {
+			for log_id, _ := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep_id, log_id, "first"}
+			}
+		}
 		for sheep_id, sheep := range(l_m.pasture) {
 			for log_id, _ := range(sheep.logs) {
 				l_m.request_log_chan <- []string{sheep_id, log_id, "last"}
 			}
 		}
-	}
-
-	for sheep_id, sheep := range(l_m.pasture) {
-		for log_id, _ := range(sheep.logs) {
-			l_m.request_log_chan <- []string{sheep_id, log_id, "stop"}
-		}
+		time.Sleep(time.Second * 2)
 	}
 }
 
@@ -57,27 +63,27 @@ func main() {
 	// initialize specialized energy-performance shepherd
 	bayopt_s := bayopt_shepherd{shepherd:s}
 	bayopt_s.init()
-//	fmt.Println(bayopt_s.joules_diff)
-
-	// for each muster, start pulse + log + control threads for a total
-	// of num_musters * [1(pulse client) + 2(log server + coordinator) + 1(ctrl client)]
-	// = 4 * num_musters
 	bayopt_s.deploy_musters()
-
-	// 1 thread listening for muster pulses
 	go bayopt_s.listen_heartbeats()
-
-	// 1 thread managing process signals + (0 <= threads <= muster.ncores) 
-	// doing actual log processing 
 	go bayopt_s.process_logs()
-	//go bayopt_s.compute_control()
-
+	go bayopt_s.compute_control()
 	for _, l_m := range(bayopt_s.local_musters) {
 		go bayopt_s.run_workload(l_m.id)
 	}
 
+//	intlog_s := intlog_shepherd{shepherd:s}
+//	intlog_s.init()
+//	intlog_s.deploy_musters()
+//	go intlog_s.listen_heartbeats()
+//	go intlog_s.process_logs()
+//	for _, l_m := range(intlog_s.local_musters) {
+//		go intlog_s.run_workload(l_m.id)
+//	}
+
 	time.Sleep(exp_timeout)
+
 	for _, l_m := range(bayopt_s.local_musters) {
+//	for _, l_m := range(intlog_s.local_musters) {
 		for sheep_id, _ := range(l_m.pasture) {
 			for _, f := range(l_m.out_f_map[sheep_id]) { f.Close() }
 		}
