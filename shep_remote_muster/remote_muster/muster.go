@@ -2,7 +2,9 @@ package main
 
 import (
 //	"fmt"
+	"io"
 	"strconv"
+	"encoding/csv"
 )
 
 /*********************************************/
@@ -28,11 +30,66 @@ func (m *muster) init(n_ip string, n_cores int) {
 		sheep_c := sheep{id: sheep_id, core: core,
 				 logs: make(map[string]*log),
 				 controls: make(map[string]*control),
+				 request_ctrl_chan: make(chan map[string]uint64),
 				 ready_ctrl_chan: make(chan bool, 1),
 				 done_ctrl_chan: make(chan bool, 1),
 				 detach_native_logger: make(chan bool, 1),
 				 done_kill_chan: make(chan bool, 1)}
 		m.pasture[sheep_id] = &sheep_c
+	}
+}
+
+func (ctrl *control) getter(core uint8, get_func func(uint8)uint64) uint64 {
+	ctrl_val := get_func(core)
+	return ctrl_val
+}
+
+func (ctrl *control) setter(core uint8, value uint64, set_func func(uint8, uint64)error) error {
+	err := set_func(core, value)
+	return err
+}
+
+func (m *muster) sync_with_logger(sheep_id string, log_id string, reader *csv.Reader, logger_func func(*log, *csv.Reader)error, n_iter int) error {
+	shared_log := m.pasture[sheep_id].logs[log_id] 
+	var err error = nil
+	iter := 0
+	for {
+		switch {
+		case n_iter > 0:
+			if iter == n_iter { return err }
+			iter ++
+		default:
+		}
+		err := logger_func(shared_log, reader)
+		switch {
+		case err == nil:	// => logged one buff
+			m.full_buff_chan <- []string{sheep_id, log_id}
+			<- shared_log.ready_buff_chan
+			*shared_log.mem_buff = make([][]uint64, shared_log.max_size)
+		case err == io.EOF:	// => log reader at EOF
+			// do nothing if nothing has been logged yet
+			if len(*(shared_log.mem_buff)) == 0 { return io.EOF }
+			// otherwise sync whatever has been logged with mirror
+			m.full_buff_chan <- []string{sheep_id, log_id}
+			<- shared_log.ready_buff_chan
+			return io.EOF
+		}
+	}
+}
+
+func (m *muster) sync_new_ctrl() {
+	for {
+		select {
+		case new_ctrl_req := <- m.new_ctrl_chan:
+			sheep_id := new_ctrl_req.sheep_id
+			new_ctrls := new_ctrl_req.ctrls
+			m.pasture[sheep_id].request_ctrl_chan <- new_ctrls
+//			sheep := m.pasture[sheep_id]
+//			for ctrl_id, ctrl_val := range(new_ctrls) {
+//				sheep.controls[ctrl_id].value = ctrl_val
+//			}
+//			m.pasture[sheep.id].ready_ctrl_chan <- true
+		}
 	}
 }
 
