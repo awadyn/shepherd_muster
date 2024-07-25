@@ -15,12 +15,6 @@ import (
 /****** SHEPHERD SPECIALIZATION  ******/
 /**************************************/
 
-var logs_dir string = "/users/awadyn/shepherd_muster/logs/"
-
-var intlog_cols []string = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes", "instructions", "cycles", "ref_cycles", "llc_miss", "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
-
-var buff_max_size uint64 = 4096
-
 /* 
    This function initializes a specialized shepherd for energy-and-performance 
    supervision. Each muster under this shepherd's supervision logs energy and
@@ -29,14 +23,18 @@ var buff_max_size uint64 = 4096
    and dynamic-voltage-frequency-scaling - for each core under its supervision.
 */
 func (intlog_s intlog_shepherd) init() {
+	intlog_s.logs_dir = "/users/awadyn/shepherd_muster/logs/"
+	intlog_s.intlog_metrics = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes", "instructions", "cycles", "ref_cycles", "llc_miss", "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
+	intlog_s.buff_max_size = 4096
+
 	for m_id, m := range(intlog_s.musters) {
 		var c uint8
 		for c = 0; c < m.ncores; c++ {
 			c_str := strconv.Itoa(int(c))
 			log_id := "log-" + c_str + "-" + m.ip 
 			log_c := log{id: log_id, n_ip: m.ip,
-					metrics: intlog_cols, 
-					max_size: buff_max_size, 
+					metrics: intlog_s.intlog_metrics, 
+					max_size: intlog_s.buff_max_size, 
 					ready_buff_chan: make(chan bool, 1),
 					done_process_chan: make(chan bool, 1)}
 			//mem_buff := make([][]uint64, log_c.max_size)
@@ -62,7 +60,7 @@ func (intlog_s intlog_shepherd) init() {
    There can then be a separate sheep log for different controls.
 */
 func (intlog_s *intlog_shepherd) init_log_files() {
-	err := os.Mkdir(logs_dir, 0750)
+	err := os.Mkdir(intlog_s.logs_dir, 0750)
 	if err != nil && !os.IsExist(err) { panic(err) }
 	for _, l_m := range(intlog_s.local_musters) {
 		l_m.out_f_map = make(map[string](map[string]*os.File))
@@ -79,7 +77,7 @@ func (intlog_s *intlog_shepherd) init_log_files() {
 			ctrl_itr_id := "ctrl-itr-" + c_str + "-" + l_m.ip
 			ctrl_dvfs := fmt.Sprintf("0x%x", sheep.controls[ctrl_dvfs_id].value)
 			ctrl_itr := strconv.Itoa(int(sheep.controls[ctrl_itr_id].value))
-			out_fname := logs_dir + l_m.id + "_" + c_str + "_" + ctrl_itr + "_" + ctrl_dvfs + ".intlog"
+			out_fname := intlog_s.logs_dir + l_m.id + "_" + c_str + "_" + ctrl_itr + "_" + ctrl_dvfs + ".intlog"
 			f, err := os.Create(out_fname)
 			if err != nil { panic(err) }
 			writer := csv.NewWriter(f)
@@ -170,7 +168,7 @@ func (intlog_s intlog_shepherd) process_logs() {
 				for _, row := range(mem_buff) {
 					if len(row) == 0 { break }
 					str_row := []string{}
-					for i := range(len(intlog_cols)) {
+					for i := range(len(intlog_s.intlog_metrics)) {
 						val := strconv.Itoa(int(row[i]))
 						str_row = append(str_row, val)
 					}

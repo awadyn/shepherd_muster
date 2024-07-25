@@ -132,10 +132,19 @@ type ep_shepherd struct {
 
 type intlog_shepherd struct {
 	shepherd
+
+	logs_dir string
+	intlog_metrics []string
+	buff_max_size uint64
 }
 
 type bayopt_shepherd struct {
 	shepherd
+
+	logs_dir string
+	intlog_metrics []string
+	buff_max_size uint64
+
 	joules_measure map[string](map[string][]float64)
 	joules_diff map[string](map[string][]float64)
 }

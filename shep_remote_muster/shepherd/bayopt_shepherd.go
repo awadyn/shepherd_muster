@@ -14,14 +14,8 @@ import (
 /**************************************/
 
 
-var logs_dir string = "/users/awadyn/shepherd_muster/logs/"
-var intlog_cols []string = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
-                                    "instructions", "cycles", "ref_cycles", "llc_miss",
-                                    "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
-var bayopt_cols []string = []string{"joules","latency"}
-var buff_max_size uint64 = 1
-var joules_idx int = slices.Index(intlog_cols, "joules")
-var timestamp_idx int = slices.Index(intlog_cols, "timestamp")
+var joules_idx int
+var timestamp_idx int
 
 
 /* 
@@ -32,6 +26,13 @@ var timestamp_idx int = slices.Index(intlog_cols, "timestamp")
    and dynamic-voltage-frequency-scaling - for each core under its supervision.
 */
 func (bayopt_s *bayopt_shepherd) init() {
+//	bayopt_s.logs_dir = "/users/awadyn/shepherd_muster/logs/"
+	bayopt_s.intlog_metrics = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
+	                                "instructions", "cycles", "ref_cycles", "llc_miss",
+	                                "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
+	bayopt_s.buff_max_size = 1
+	joules_idx = slices.Index(bayopt_s.intlog_metrics, "joules")
+	timestamp_idx = slices.Index(bayopt_s.intlog_metrics, "timestamp")
 	bayopt_s.joules_measure = make(map[string](map[string][]float64))
 	bayopt_s.joules_diff = make(map[string](map[string][]float64))
 	for m_id, m := range(bayopt_s.musters) {
@@ -43,8 +44,8 @@ func (bayopt_s *bayopt_shepherd) init() {
 			sheep_id := c_str + "-" + m.ip
 			log_id := "log-" + c_str + "-" + m.ip 
 			log_c := log{id: log_id, n_ip: m.ip,
-					metrics: bayopt_cols, 
-					max_size: buff_max_size, 
+					metrics: bayopt_s.intlog_metrics, 
+					max_size: bayopt_s.buff_max_size, 
 					ready_request_chan: make(chan bool, 1),
 					ready_buff_chan: make(chan bool, 1),
 					done_process_chan: make(chan bool, 1)}
@@ -138,9 +139,11 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				fmt.Printf("-------------- COMPLETED PROCESS LOG :  %v - %v - %v\n", l_m.id, sheep.id, log.id)	
 				// muster can now overwrite mem_buff for this log
 				sheep.logs[log.id].done_process_chan <- true
-				select {
-				case bayopt_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:
-				default:
+				if len(bayopt_s.joules_diff[l_m.id][sheep.id]) % 2 == 0 {
+					select {
+					case bayopt_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:
+					default:
+					}
 				}
 			} ()
 		}
@@ -157,17 +160,17 @@ func (bayopt_s *bayopt_shepherd) bayopt_ctrl(m_id string, sheep_id string) map[s
 	sheep := m.pasture[sheep_id]
 	c_str := strconv.Itoa(int(sheep.core))
 	ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
-	//ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
+//	ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
 
 	dvfs_list := []uint64{0xc00, 0xe00, 0x1100, 0x1300, 0x1500, 0x1700, 0x1900, 0x1a00}
+//	itr_list := []uint64{2, 100, 400}
 	dvfs_idx := rand.Intn(len(dvfs_list))
 	new_dvfs := dvfs_list[dvfs_idx]
-	//itr_list := []uint64{100}
-	//itr_idx := rand.Intn(len(itr_list))
-	//new_itr := itr_list[itr_idx]
+//	itr_idx := rand.Intn(len(itr_list))
+//	new_itr := itr_list[itr_idx]
 
 	new_ctrls[ctrl_dvfs_id] = new_dvfs
-	//new_ctrls[ctrl_itr_id] = new_itr
+//	new_ctrls[ctrl_itr_id] = new_itr
 	return new_ctrls
 }
 
@@ -185,10 +188,8 @@ func (bayopt_s bayopt_shepherd) compute_control() {
 			go func() {
 				l_m := l_m
 				sheep := sheep
-				fmt.Printf("------------------- COMPUTE CONTROL SIGNAL :  %v - %v\n", l_m.id, sheep.id)
 				new_ctrls := bayopt_s.bayopt_ctrl(l_m.id, sheep.id)
-				fmt.Printf("----------------------- NEW CONTROLS :  %v\n", new_ctrls)
-
+				fmt.Printf("----------------------- NEW CTRL :  %v - %v - %v\n", l_m.id, sheep.id, new_ctrls)
 				l_m.new_ctrl_chan <- control_request{sheep_id: sheep.id, ctrls: new_ctrls}
 				ctrl_reply := <- sheep.done_ctrl_chan
 				ctrls := ctrl_reply.ctrls

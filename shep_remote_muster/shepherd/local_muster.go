@@ -157,7 +157,6 @@ func (l_m *local_muster) start_controller() {
 }
 
 func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx context.Context, cancel context.CancelFunc) {
-	/* begin control protocol once heartbeats are established */
 	<- l_m.hb_chan
 	defer conn.Close()
 	defer cancel()
@@ -165,24 +164,27 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 	for {
 		select {
 		case new_ctrl_req := <- l_m.new_ctrl_chan:
-			sheep_id := new_ctrl_req.sheep_id
-			new_ctrls := new_ctrl_req.ctrls
-			for {
-				stream, err := c.ApplyControl(ctx)
-				if err != nil { time.Sleep(time.Second/5); continue }
-				for ctrl_id, ctrl_val := range(new_ctrls) {
-					err = stream.Send(&pb.ControlRequest{SheepId: sheep_id, CtrlEntry: &pb.ControlEntry{CtrlId: ctrl_id, Val: ctrl_val}})
+			go func() {
+				new_ctrl_req := new_ctrl_req
+				sheep_id := new_ctrl_req.sheep_id
+				new_ctrls := new_ctrl_req.ctrls
+				for {
+					stream, err := c.ApplyControl(ctx)
 					if err != nil { time.Sleep(time.Second/5); continue }
+					for ctrl_id, ctrl_val := range(new_ctrls) {
+						err = stream.Send(&pb.ControlRequest{SheepId: sheep_id, CtrlEntry: &pb.ControlEntry{CtrlId: ctrl_id, Val: ctrl_val}})
+						if err != nil { time.Sleep(time.Second/5); continue }
+					}
+					r, err := stream.CloseAndRecv()
+					done_ctrl = r.GetCtrlComplete()
+					if !done_ctrl { fmt.Println("!!!!! CTRL WAS NOT APPLIED - ", l_m.id, sheep_id) }
+					if err != nil { time.Sleep(time.Second/5); continue }
+					break
 				}
-				r, err := stream.CloseAndRecv()
-				done_ctrl = r.GetCtrlComplete()
-				if !done_ctrl { fmt.Println("!!!!! CTRL WAS NOT APPLIED - ", l_m.id, sheep_id) }
-				if err != nil { time.Sleep(time.Second/5); continue }
-				break
-			}
-			new_ctrl_reply := control_reply{ctrls: new_ctrls, done: done_ctrl}
-			l_m.pasture[sheep_id].done_ctrl_chan <- new_ctrl_reply
-			fmt.Println("DONE CTRL - ", sheep_id)
+				new_ctrl_reply := control_reply{ctrls: new_ctrls, done: done_ctrl}
+				l_m.pasture[sheep_id].done_ctrl_chan <- new_ctrl_reply
+				fmt.Printf("----------------------- DONE CTRL :  %v - %v - %v\n", l_m.id, sheep_id, new_ctrls)
+			}()
 		}
 	}
 }
