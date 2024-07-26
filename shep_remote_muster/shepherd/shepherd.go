@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"encoding/csv"
 
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 )
@@ -17,7 +20,6 @@ func (s *shepherd) init(nodes []node) {
 	s.hb_chan = make(chan *pb.HeartbeatReply)
 	s.process_buff_chan = make(chan []string)
 	s.compute_ctrl_chan = make(chan []string)
-	//s.complete_run_chan = make(chan []string)
 
 	/* init 1 muster for each node and 1 sheep for each core */
 	s.musters = make(map[string]*muster)
@@ -33,15 +35,49 @@ func (s *shepherd) init(nodes []node) {
 	}
 }
 
+/* This function assigns a map of log files to each sheep/core
+   such that there can then be a separate per-sheep log for different 
+   control settings.
+*/
+func (s *shepherd) init_log_files(logs_dir string) {
+	err := os.Mkdir(logs_dir, 0750)
+	if err != nil && !os.IsExist(err) { panic(err) }
+	for _, l_m := range(s.local_musters) {
+		l_m.out_f_map = make(map[string](map[string]*os.File))
+		l_m.out_writer_map = make(map[string](map[string]*csv.Writer))
+		l_m.out_f = make(map[string]*os.File)
+		l_m.out_writer = make(map[string]*csv.Writer)
+		for _, sheep := range(l_m.pasture) {
+			l_m.out_f_map[sheep.id] = make(map[string]*os.File)
+			l_m.out_writer_map[sheep.id] = make(map[string]*csv.Writer)
+			c_str := strconv.Itoa(int(sheep.core))
+			out_fname := logs_dir + l_m.id + "_" + c_str 
+			for _, ctrl := range(sheep.controls) {
+				ctrl_val := strconv.Itoa(int(ctrl.value))
+				out_fname += "_" + ctrl_val
+			}
+			out_fname += ".flinklog"
+			f, err := os.Create(out_fname)
+			if err != nil { panic(err) }
+			writer := csv.NewWriter(f)
+			writer.Comma = ' '
+			l_m.out_f_map[sheep.id][out_fname] = f
+			l_m.out_writer_map[sheep.id][out_fname] = writer
+			l_m.out_f[sheep.id] = f
+			l_m.out_writer[sheep.id] = writer
+		}
+	}
+}
 
 /* This function starts all muster threads required by a shepherd. */
 func (s *shepherd) deploy_musters() {
-	for _, l_m := range(s.local_musters) {	
+	for _, l_m := range(s.local_musters) {
+		fmt.Printf("**** DEPLOYING MUSTER %v ****\n", l_m.id)
 		l_m.start_pulser()		// per-muster pulse client	
-		l_m.start_logger()		// per-muster log server
-		go s.log(l_m.id)		// per-muster log coordinator
 		l_m.start_controller()		// per-muster ctrl client
 		l_m.start_coordinator()		// per-muster coordinate client
+		l_m.start_logger()		// per-muster log server
+		go s.log(l_m.id)
 	}
 }
 
@@ -84,7 +120,7 @@ func (s *shepherd) log(m_id string) {
 			log_id := ids[1]
 			s.process_buff_chan <- []string{m.id, sheep_id, log_id}
 			go func() {
-				<- m.pasture[sheep_id].logs[log_id].done_process_chan
+				<- m.pasture[sheep_id].logs[log_id].ready_process_chan
 				select {
 				case m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true:
 				default:

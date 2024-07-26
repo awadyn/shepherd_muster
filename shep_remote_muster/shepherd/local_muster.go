@@ -45,7 +45,7 @@ func (l_m *local_muster) start_pulser() {
 	}
 	c := pb.NewPulseClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
-	fmt.Printf("-- %v -- Initialized pulse client \n", l_m.id)
+	fmt.Printf("---- %v -- Initialized pulse client \n", l_m.id)
 	go l_m.pulse(conn, c, ctx, cancel)
 }
 
@@ -97,7 +97,7 @@ func (l_m *local_muster) log() {
 	}
 	s := grpc.NewServer()
 	pb.RegisterLogServer(s, l_m)
-	fmt.Printf("-- %v -- Log sync server listening at %v ... ... ...\n", l_m.id, lis.Addr())
+	fmt.Printf("---- %v -- Initialized log sync server listening at %v \n", l_m.id, lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		fmt.Printf("** ** ** ERROR: %v failed to start log sync server: %v\n", l_m.id, err)
 	}
@@ -144,7 +144,6 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
   a remote pulse server. 
 */
 func (l_m *local_muster) start_controller() {
-	<- l_m.hb_chan
 	fmt.Printf("-- STARTING LOCAL CONTROLLER :  %v\n", l_m.id)
 	conn, err := grpc.Dial(*l_m.ctrl_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -153,6 +152,7 @@ func (l_m *local_muster) start_controller() {
 	}
 	c := pb.NewControlClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
+	fmt.Printf("---- %v -- Initialized control client \n", l_m.id)
 	go l_m.control(conn, c, ctx, cancel)
 }
 
@@ -193,7 +193,6 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 /*** LOCAL COORDINATOR ***/
 /*************************/
 func (l_m *local_muster) start_coordinator() {
-	<- l_m.hb_chan
 	fmt.Printf("-- STARTING LOCAL COORDINATOR :  %v\n", l_m.id)
 	conn, err := grpc.Dial(*l_m.coordinate_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -201,11 +200,12 @@ func (l_m *local_muster) start_coordinator() {
 	}
 	c := pb.NewCoordinateClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
-	fmt.Printf("-- %v -- Initialized coordinate client \n", l_m.id)
+	fmt.Printf("---- %v -- Initialized coordinate client \n", l_m.id)
 	go l_m.coordinate(conn, c, ctx, cancel)
 }
 
 func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient, ctx context.Context, cancel context.CancelFunc) {
+	<- l_m.hb_chan
 	defer conn.Close()
 	defer cancel()
 	for {
@@ -226,9 +226,7 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 					fmt.Println("******** COORDINATE REP **** ", r)
 					l_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 					return
-//					break
 				}
-//				l_m.pasture[sheep_id].done_request_chan <- true
 			} ()
 		}
 	}
