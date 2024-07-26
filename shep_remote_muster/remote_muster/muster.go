@@ -5,11 +5,19 @@ import (
 	"io"
 	"strconv"
 	"encoding/csv"
+	"os"
 )
 
 /*********************************************/
 
-func (m *muster) init(n_ip string, n_cores int) {
+func (l *log) init() {
+	l.kill_log_chan = make(chan bool, 1)
+	l.request_log_chan = make(chan string)
+	l.done_log_chan = make(chan bool, 1)
+	l.ready_buff_chan = make(chan bool, 1)
+}
+
+func (m *muster) init(n_ip string, n_cores uint8) {
 	n := node{ip:n_ip, ncores: uint8(n_cores)}
 	m_id := "muster-" + n.ip
 	m.id = m_id
@@ -36,6 +44,22 @@ func (m *muster) init(n_ip string, n_cores int) {
 				 detach_native_logger: make(chan bool, 1),
 				 done_kill_chan: make(chan bool, 1)}
 		m.pasture[sheep_id] = &sheep_c
+	}
+}
+
+
+func (m *muster) init_log_files(logs_dir string) {
+	err := os.Mkdir(logs_dir, 0750)
+	if err != nil && !os.IsExist(err) { panic(err) }
+	m.log_f_map = make(map[string]*os.File)
+	m.log_reader_map = make(map[string]*csv.Reader)
+	for sheep_id, _ := range(m.pasture) {
+		core := m.pasture[sheep_id].core
+		c_str := strconv.Itoa(int(core))
+		log_fname := logs_dir + c_str
+		f, err := os.Create(log_fname)
+		if err != nil { panic(err) }
+		m.log_f_map[sheep_id] = f
 	}
 }
 

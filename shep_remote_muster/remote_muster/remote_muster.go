@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"flag"
 	"context"
-//	"strconv"
+	"strconv"
 	"time"
 	"net"
 	"io"
@@ -21,10 +21,10 @@ import (
   each sheep (i.e. core) can produce a list of logs and 
   each sheep (i.e. core) can be controlled by a list of controls
 */
-func (r_m *remote_muster) init(n_ip string, n_cores int, pulse_server_port int, ctrl_server_port int, 
-				log_server_port string, coordinate_server_port int) {
+func (r_m *remote_muster) init(pulse_server_port int, log_server_port int, 
+				ctrl_server_port int, coordinate_server_port int) {
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
-					  mirror_ip + ":" + log_server_port, 
+					  mirror_ip + ":" + strconv.Itoa(log_server_port), 
 					  "address of mirror local_muster log sync server")
 	r_m.pulse_server_port = flag.Int("pulse_port", pulse_server_port, 
 						"remote_muster pulse server port")

@@ -77,6 +77,9 @@ type muster struct {
 	exit_chan chan bool
 
 	id string
+
+	log_f_map map[string]*os.File
+	log_reader_map map[string]*csv.Reader
 }
 
 type remote_muster struct {	// i.e. 1st level specialization of a muster
@@ -112,9 +115,6 @@ type intlog_muster struct {	// 2nd level specialization of a muster
 	logs_dir string
 	intlog_metrics []string
 	buff_max_size uint64
-
-	log_f_map map[string]*os.File
-	log_reader_map map[string]*csv.Reader
 }
 
 type bayopt_muster struct {	// 2nd level specialization of a muster
@@ -123,9 +123,15 @@ type bayopt_muster struct {	// 2nd level specialization of a muster
 	intlog_metrics []string
 	bayopt_metrics []string
 	buff_max_size uint64
+}
 
-	log_f_map map[string]*os.File
-	log_reader_map map[string]*csv.Reader
+type flink_muster struct {	// 2nd level specialization of a muster
+	remote_muster
+
+	logs_dir string
+	flink_metrics []string
+	buff_max_size uint64
+
 }
 /*****************************************/
 
