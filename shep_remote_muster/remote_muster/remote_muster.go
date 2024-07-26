@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"flag"
 	"context"
-//	"strconv"
+	"strconv"
 	"time"
 	"net"
 	"io"
@@ -21,10 +21,10 @@ import (
   each sheep (i.e. core) can produce a list of logs and 
   each sheep (i.e. core) can be controlled by a list of controls
 */
-func (r_m *remote_muster) init(n_ip string, n_cores int, pulse_server_port int, ctrl_server_port int, 
-				log_server_port string, coordinate_server_port int) {
+func (r_m *remote_muster) init(pulse_server_port int, log_server_port int, 
+				ctrl_server_port int, coordinate_server_port int) {
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
-					  mirror_ip + ":" + log_server_port, 
+					  mirror_ip + ":" + strconv.Itoa(log_server_port), 
 					  "address of mirror local_muster log sync server")
 	r_m.pulse_server_port = flag.Int("pulse_port", pulse_server_port, 
 						"remote_muster pulse server port")
@@ -105,13 +105,15 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 /*****************/
 /* REMOTE PULSER */
 /*****************/
+var hb_counter int = 0
 
 func (r_m *remote_muster) HeartBeat(ctx context.Context, in *pb.HeartbeatRequest) (*pb.HeartbeatReply, error) {
-	fmt.Printf("------HB-REQ-- %v\n", in.GetShepRequest())
+	if hb_counter % 3 == 0 { fmt.Printf("------HB-REQ-- %v\n", in.GetShepRequest()) }
 	select {
 	case r_m.hb_chan <- true:
 	default:
 	}
+	hb_counter ++
 	return &pb.HeartbeatReply{MusterReply: r_m.id, ShepRequest: in.GetShepRequest()}, nil
 }
 
@@ -134,53 +136,30 @@ func (r_m *remote_muster) start_pulser() {
 /* REMOTE CONTROLLER */
 /*********************/
 
-func (r_m *remote_muster) handle_new_ctrl() {
-	for {
-		select {
-		case new_ctrl_req := <- r_m.new_ctrl_chan:
-			sheep := r_m.pasture[new_ctrl_req.sheep_id]
-			new_ctrls := new_ctrl_req.ctrls
-//			// kill logging of current ctrl
-//			sheep.kill_log_chan <- true
-//			// once shepherd is told that new ctrl is acknowledged and old ctrl logging is killed..
-//			<- sheep.ready_ctrl_chan
-//			// apply new ctrls 
-			for ctrl_id, ctrl_val := range(new_ctrls) {
-				sheep.controls[ctrl_id].value = ctrl_val
-				//sheep.controls[ctrl_id].dirty = true
-			}
-//			// then restart logging
-//			for log_id, _ := range(sheep.logs) {
-//				go r_m.simulate_remote_log(sheep.id, log_id, sheep.core)
-//			}
-		}
-	}
-}
-
 func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) error {
+	ctrl_ctr := 0
 	var sheep_id string
 	new_ctrls := make(map[string]uint64)
 	for {
 		req, err := stream.Recv()
 		switch {
 		case err == io.EOF:
-			fmt.Println("**************** NEW CTRL - ", sheep_id, new_ctrls)
-
 			r_m.new_ctrl_chan <- ctrl_req{sheep_id: sheep_id, ctrls: new_ctrls}
-			//done_kill := <- r_m.pasture[sheep_id].done_kill_chan
-			//r_m.pasture[sheep_id].ready_ctrl_chan <- true
-
-			fmt.Printf("------------ COMPLETED CTRL-REQ -- %v\n", sheep_id)
+			<- r_m.pasture[sheep_id].ready_ctrl_chan
+			fmt.Printf("------------ COMPLETED CTRL-REQ -- %v - %v\n", sheep_id, new_ctrls)
 			return stream.SendAndClose(&pb.ControlReply{CtrlComplete: true})
 		case err != nil:
 			fmt.Printf("** ** ** ERROR: could not receive control request: %v\n", err)
 			return err
 		default:
-			fmt.Printf("------------ CTRL-REQ -- %v\n", sheep_id)
 			sheep_id = req.GetSheepId()
+			if ctrl_ctr == 0 { 
+				fmt.Printf("------------ CTRL-REQ -- %v\n", sheep_id)
+			}
 			ctrl_id := req.GetCtrlEntry().GetCtrlId()
 			ctrl_val := req.GetCtrlEntry().GetVal()
 			new_ctrls[ctrl_id] = ctrl_val
+			ctrl_ctr ++
 		}
 	}
 }

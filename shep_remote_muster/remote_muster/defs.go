@@ -40,6 +40,11 @@ type control struct {
 	id string
 }
 
+type Control interface {
+	getter()
+	setter()
+}
+
 type ctrl_req struct {
 	sheep_id string
 	ctrls map[string]uint64
@@ -50,6 +55,7 @@ type sheep struct {
 	logs map[string]*log
 	controls map[string]*control
 
+	request_ctrl_chan chan map[string]uint64 
 	ready_ctrl_chan chan bool
 	done_ctrl_chan chan bool
 
@@ -71,6 +77,9 @@ type muster struct {
 	exit_chan chan bool
 
 	id string
+
+	log_f_map map[string]*os.File
+	log_reader_map map[string]*csv.Reader
 }
 
 type remote_muster struct {	// i.e. 1st level specialization of a muster
@@ -103,15 +112,26 @@ type test_muster struct {	// 2nd level specialization of a muster
 type intlog_muster struct {	// 2nd level specialization of a muster
 	remote_muster
 
-	log_f_map map[string]*os.File
-	log_reader_map map[string]*csv.Reader
+	logs_dir string
+	intlog_metrics []string
+	buff_max_size uint64
 }
 
 type bayopt_muster struct {	// 2nd level specialization of a muster
 	remote_muster
 
-	log_f_map map[string]*os.File
-	log_reader_map map[string]*csv.Reader
+	intlog_metrics []string
+	bayopt_metrics []string
+	buff_max_size uint64
+}
+
+type flink_muster struct {	// 2nd level specialization of a muster
+	remote_muster
+
+	logs_dir string
+	flink_metrics []string
+	buff_max_size uint64
+
 }
 /*****************************************/
 

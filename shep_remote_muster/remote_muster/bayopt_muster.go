@@ -8,46 +8,49 @@ import (
 	"encoding/csv"
 	"time"
 	"io"
+	"strings"
+	"bytes"
 //	"slices"
 //	"bufio"
 )
 
 /*********************************************/
 
-var intlog_cols []string = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
-				    "instructions", "cycles", "ref_cycles", "llc_miss", 
-				    "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
-//var joules_idx int = slices.Index(intlog_cols, "joules")
-//var timestamp_idx int = slices.Index(intlog_cols, "timestamp")
-//var bayopt_cols []string = []string{"joules","latency"}
-var max_rows uint64 = 1
 
 func (bayopt_m *bayopt_muster) init() {
+	bayopt_m.intlog_metrics = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
+				    "instructions", "cycles", "ref_cycles", "llc_miss", 
+				    "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
+	bayopt_m.buff_max_size = 1
 	var core uint8
+	ctrl_itr_shared := control{n_ip: bayopt_m.ip, knob: "itr-delay", dirty: false}  
+	rx_usecs_shared := ctrl_itr_shared.getter(0, read_rx_usecs)  
 	for core = 0; core < bayopt_m.ncores; core ++ {
-		var max_size uint64 = max_rows
-		mem_buff := make([][]uint64, max_size)
+		mem_buff := make([][]uint64, bayopt_m.buff_max_size)
 		c_str := strconv.Itoa(int(core))
 		sheep_id := c_str + "-" + bayopt_m.ip
+
 		log_id := "log-" + c_str + "-" + bayopt_m.ip
 		log_c := log{id: log_id,
-			     metrics: intlog_cols,
-			     //metrics: bayopt_cols,
-			     max_size: max_size,
+			     metrics: bayopt_m.intlog_metrics,
+			     //metrics: bayopt_m.bayopt_metrics,
+			     max_size: bayopt_m.buff_max_size,
 			     mem_buff: &mem_buff,
 			     kill_log_chan: make(chan bool, 1),
 			     request_log_chan: make(chan string),
 			     done_log_chan: make(chan bool, 1),
 			     ready_buff_chan: make(chan bool, 1)}
-		ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + bayopt_m.ip
-		ctrl_dvfs := control{id: ctrl_dvfs_id, n_ip: bayopt_m.ip, 
-				     knob: "dvfs", value: 0xc00, dirty: false} 
-		ctrl_itr_id := "ctrl-itr-" + c_str + "-" + bayopt_m.ip
-		ctrl_itr := control{id: ctrl_itr_id, n_ip: bayopt_m.ip,
-				    knob: "itr-delay", value: 1, dirty: false}  
+
+		ctrl_dvfs := control{n_ip: bayopt_m.ip, knob: "dvfs", dirty: false}
+		ctrl_dvfs.id = "ctrl-dvfs-" + c_str + "-" + bayopt_m.ip
+		ctrl_dvfs.value = ctrl_dvfs.getter(core, read_dvfs)
+		ctrl_itr := ctrl_itr_shared
+		ctrl_itr.id = "ctrl-itr-" + c_str + "-" + bayopt_m.ip
+		ctrl_itr.value = rx_usecs_shared
+
 		bayopt_m.pasture[sheep_id].logs[log_id] = &log_c
-		bayopt_m.pasture[sheep_id].controls[ctrl_dvfs_id] = &ctrl_dvfs
-		bayopt_m.pasture[sheep_id].controls[ctrl_itr_id] = &ctrl_itr
+		bayopt_m.pasture[sheep_id].controls[ctrl_dvfs.id] = &ctrl_dvfs
+		bayopt_m.pasture[sheep_id].controls[ctrl_itr.id] = &ctrl_itr
 	}
 
 	bayopt_m.log_f_map = make(map[string]*os.File)
@@ -62,19 +65,51 @@ func (bayopt_m *bayopt_muster) init() {
 	}
 }
 
-/*
-   These functions implement the logging functionality of a bayopt_muster.
-   Bayopt_muster is concerned with the total joules consumed and the overall
-   99th latency of an execution. 
-   These 2 quantities constitute a bayopt_muster log that must be synced with 
-   the bayopt_muster local mirror.
-   --> at which point the shepherd can run bayopt to choose different
-       control settings.
-   ** No log syncing will be done during execution.
-   ** Upon completing an execution, bayopt_muster is signalled to sync logs.
-*/
 
-func do_log(shared_log *log, reader *csv.Reader) error {
+func read_dvfs(core uint8) uint64 {
+	c_str := strconv.Itoa(int(core))
+	var out strings.Builder
+	cmd := exec.Command("sudo", "rdmsr", "-p " + c_str, "0x199")
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil { panic(err) }
+	out_str := out.String()
+	if out_str[len(out_str)-1] == '\n' { out_str = out_str[0:len(out_str)-1] }
+	dvfs_val, err := strconv.ParseInt(out_str, 16, 64)
+	if err != nil { panic(err) }
+	return uint64(dvfs_val)
+}
+
+func write_dvfs(core uint8, val uint64) error {
+	c_str := strconv.Itoa(int(core))
+	cmd := exec.Command("sudo", "wrmsr", "-p " + c_str, "0x199", strconv.Itoa(int(val)))
+	err := cmd.Run()
+	if err != nil { panic(err) }
+	return err
+}
+
+func read_rx_usecs(core uint8) uint64 {
+	var out strings.Builder
+	cmd:= exec.Command("bash", "-c", "ethtool -c enp3s0f0 | grep \"rx-usecs:\" | cut -d ' ' -f2")
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil { panic(err) }
+	out_str := out.String()
+	if out_str[len(out_str)-1] == '\n' { out_str = out_str[0:len(out_str)-1] }
+	rx_usecs_val, err := strconv.Atoi(out_str)
+	return uint64(rx_usecs_val)
+}
+
+func write_rx_usecs(core uint8, val uint64) error {
+	cmd := exec.Command("sudo", "ethtool", "-C", "enp3s0f0", "rx-usecs", strconv.Itoa(int(val))) 
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil { panic(err) }
+	return err
+}
+
+func do_bayopt_log(shared_log *log, reader *csv.Reader) error {
 	*shared_log.mem_buff = make([][]uint64, 0)
 	var counter uint64 = 0
 	for {
@@ -92,7 +127,7 @@ func do_log(shared_log *log, reader *csv.Reader) error {
 				break
 			}
 			*shared_log.mem_buff = append(*shared_log.mem_buff, []uint64{})
-			for i := range(len(intlog_cols)) {
+			for i := range(len(shared_log.metrics)) {
 				val, _ := strconv.Atoi(row[i])
 				(*shared_log.mem_buff)[counter] = append((*shared_log.mem_buff)[counter], uint64(val))
 			}
@@ -103,38 +138,15 @@ func do_log(shared_log *log, reader *csv.Reader) error {
 	}
 }
 
-func (r_m *muster) sync_with_logger(sheep_id string, log_id string, reader *csv.Reader, logger_func func(*log, *csv.Reader)error) error {
-	shared_log := r_m.pasture[sheep_id].logs[log_id] 
-	err := logger_func(shared_log, reader)
-	switch {
-	case err == nil:	// => logged one buff
-		r_m.full_buff_chan <- []string{sheep_id, log_id}
-		<- shared_log.ready_buff_chan
-		*shared_log.mem_buff = make([][]uint64, shared_log.max_size)
-	case err == io.EOF:	// => log reader at EOF
-		// do nothing if nothing has been logged yet
-		if len(*(shared_log.mem_buff)) == 0 { return io.EOF }
-		// otherwise sync whatever has been logged with mirror
-		r_m.full_buff_chan <- []string{sheep_id, log_id}
-		<- shared_log.ready_buff_chan
-	}
-	return err
-}
-
-/********************************************/
-
 func (bayopt_m *bayopt_muster) assign_log_files(sheep_id string) {
 	c_str := strconv.Itoa(int(bayopt_m.pasture[sheep_id].core))
 	log_fname := "/users/awadyn/shepherd_muster/shep_remote_muster/intlog_logs/" + c_str
-	var f *os.File
-	var err error
-	if bayopt_m.log_f_map[sheep_id] != nil { // log file has been previously open
-		return				 // do nothing..
-	} else {
-		f, err = os.Open(log_fname)
-		if err != nil { panic(err) }
-		bayopt_m.log_f_map[sheep_id] = f
+	if bayopt_m.log_f_map[sheep_id] != nil {
+		bayopt_m.log_f_map[sheep_id].Close()
 	}
+	f, err := os.Create(log_fname)
+	if err != nil { panic(err) }
+	bayopt_m.log_f_map[sheep_id] = f
 }
 
 
@@ -160,6 +172,31 @@ func (bayopt_m *bayopt_muster) attach_native_logger(sheep_id string) {
 	}
 }
 
+
+func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
+	fmt.Printf("-- -- STARTING CONTROL MANAGER FOR SHEEP %v\n", sheep_id)
+	sheep := bayopt_m.pasture[sheep_id]
+	var err error
+	for {
+		select {
+		case new_ctrls := <- sheep.request_ctrl_chan:
+			for ctrl_id, ctrl_val := range(new_ctrls) {
+				switch {
+				case sheep.controls[ctrl_id].knob == "dvfs":
+					err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val, write_dvfs)
+				case sheep.controls[ctrl_id].knob == "itr-delay":
+					err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val, write_rx_usecs)
+				default:
+				}
+				if err != nil { panic(err) }
+				sheep.controls[ctrl_id].value = ctrl_val
+			}
+			bayopt_m.pasture[sheep.id].ready_ctrl_chan <- true
+		}
+	}
+}
+
+
 func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 	fmt.Printf("-- -- STARTING LOG MANAGER FOR SHEEP %v - LOG %v \n", sheep_id, log_id)
 	for {
@@ -184,7 +221,7 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 					reader := csv.NewReader(f)
 					reader.Comma = ' '
 					f.Seek(0, io.SeekStart)
-					err := bayopt_m.sync_with_logger(sheep_id, log_id, reader, do_log)
+					err := bayopt_m.sync_with_logger(sheep_id, log_id, reader, do_bayopt_log, 1)
 					if err == io.EOF {
 						fmt.Println("************** FILE IS EMPTY *************", log_id) 
 						bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
@@ -229,7 +266,7 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 						counter ++
 					}
 
-					err = bayopt_m.sync_with_logger(sheep_id, log_id, reader2, do_log)
+					err = bayopt_m.sync_with_logger(sheep_id, log_id, reader2, do_bayopt_log, 1)
 					if err != nil { panic(err) }
 					bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
 				} ()
@@ -242,9 +279,6 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 
 func (r_m *bayopt_muster) cleanup() {
 	for sheep_id, _ := range(r_m.pasture) {
-		for log_id, _ := range(r_m.pasture[sheep_id].logs) {
-			r_m.pasture[sheep_id].logs[log_id].kill_log_chan <- true
-		}
 		r_m.log_f_map[sheep_id].Close()
 	}
 }
