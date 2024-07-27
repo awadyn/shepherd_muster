@@ -63,6 +63,12 @@ func (m *muster) init_log_files(logs_dir string) {
 	}
 }
 
+func (m *muster) cleanup() {
+	for sheep_id, _ := range(m.pasture) {
+		m.log_f_map[sheep_id].Close()
+	}
+}
+
 func (ctrl *control) getter(core uint8, get_func func(uint8)uint64) uint64 {
 	ctrl_val := get_func(core)
 	return ctrl_val

@@ -67,14 +67,14 @@ func (intlog_m *intlog_muster) start_native_logger() {
 	}
 }
 
-func (r_m *intlog_muster) cleanup() {
-	for sheep_id, _ := range(r_m.pasture) {
-		for log_id, _ := range(r_m.pasture[sheep_id].logs) {
-			r_m.pasture[sheep_id].logs[log_id].kill_log_chan <- true
-		}
-		r_m.log_f_map[sheep_id].Close()
-	}
-}
+//func (r_m *intlog_muster) cleanup() {
+//	for sheep_id, _ := range(r_m.pasture) {
+//		for log_id, _ := range(r_m.pasture[sheep_id].logs) {
+//			r_m.pasture[sheep_id].logs[log_id].kill_log_chan <- true
+//		}
+//		r_m.log_f_map[sheep_id].Close()
+//	}
+//}
 
 /*****************/
 

@@ -277,11 +277,6 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 	}
 }
 
-func (r_m *bayopt_muster) cleanup() {
-	for sheep_id, _ := range(r_m.pasture) {
-		r_m.log_f_map[sheep_id].Close()
-	}
-}
 
 
 
