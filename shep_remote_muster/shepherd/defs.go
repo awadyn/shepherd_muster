@@ -23,22 +23,6 @@ type node struct {
 	ip string
 }
 
-type log struct {
-	ready_request_chan chan bool
-	ready_buff_chan chan bool
-	done_process_chan chan bool
-
-	mem_buff *[][]uint64
-	max_size uint64
-	metrics []string
-	n_ip string
-	id string
-	/* e.g. { "log-ep-i", "10.0.0.1", ["joules", "timestamp"], 64KB, 0xdeadbeef, 0x12345678:PORT(i):10.0.0.1, i}
-		0xdeadbeef: l_buff  ->  [  [x, 0]
-					   [y, 1]
-		   			   [z, 2], ...]  */
-}
-
 type control_request struct {
 	sheep_id string
 	ctrls map[string]uint64
@@ -58,13 +42,27 @@ type control struct {
 	/* e.g. { "ctrl-dvfs-i", "10.0.0.1", "dvfs", 0x1234, i }*/
 }
 
+type log struct {
+	ready_request_chan chan bool	//signal that new request for this log can be handled
+	ready_buff_chan chan bool	//signal that mem buff for this log can be overwritten
+	ready_process_chan chan bool	//signal that processing for this log can be re-invoked 
+
+	mem_buff *[][]uint64
+	max_size uint64
+	metrics []string
+	n_ip string
+	id string
+	/* e.g. { "log-ep-i", "10.0.0.1", ["joules", "timestamp"], 64KB, 0xdeadbeef, 0x12345678:PORT(i):10.0.0.1, i}
+		0xdeadbeef: l_buff  ->  [  [x, 0]
+					   [y, 1]
+		   			   [z, 2], ...]  */
+}
+
 type sheep struct {
 	core uint8
-	finish_run_chan chan bool
-	//done_ctrl_chan chan bool
-	done_ctrl_chan chan control_reply
 
-	done_request_chan chan bool
+	//finish_run_chan chan bool
+	done_ctrl_chan chan control_reply
 
 	logs map[string]*log
 	controls map[string]*control
@@ -73,14 +71,11 @@ type sheep struct {
 
 type muster struct {
 	node
-
 	pulsing bool
 
 	hb_chan chan *pb.HeartbeatReply
 	full_buff_chan chan []string
 	new_ctrl_chan chan control_request
-	//ready_ctrl_chan chan string
-
 	request_log_chan chan []string
 
 	pasture map[string]*sheep
@@ -117,7 +112,7 @@ type shepherd struct {
 	process_buff_chan chan []string
 	compute_ctrl_chan chan []string
 
-	complete_run_chan chan []string
+	//complete_run_chan chan []string
 
 //	coordinate_port *int
 //	pb.UnimplementedCoordinateServer
@@ -147,6 +142,14 @@ type bayopt_shepherd struct {
 
 	joules_measure map[string](map[string][]float64)
 	joules_diff map[string](map[string][]float64)
+}
+
+type flink_shepherd struct {
+	shepherd
+
+	logs_dir string
+	flink_metrics []string
+	buff_max_size uint64
 }
 
 type Shepherd interface {

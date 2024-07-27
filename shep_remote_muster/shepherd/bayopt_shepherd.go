@@ -48,7 +48,7 @@ func (bayopt_s *bayopt_shepherd) init() {
 					max_size: bayopt_s.buff_max_size, 
 					ready_request_chan: make(chan bool, 1),
 					ready_buff_chan: make(chan bool, 1),
-					done_process_chan: make(chan bool, 1)}
+					ready_process_chan: make(chan bool, 1)}
 			mem_buff := make([][]uint64, 0)
 			log_c.mem_buff = &mem_buff
 			ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
@@ -138,7 +138,7 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				fmt.Println("\033[33;1m JOULES DIFF *** ", bayopt_s.joules_diff[l_m.id][sheep.id], "\033[0m")
 				fmt.Printf("-------------- COMPLETED PROCESS LOG :  %v - %v - %v\n", l_m.id, sheep.id, log.id)	
 				// muster can now overwrite mem_buff for this log
-				sheep.logs[log.id].done_process_chan <- true
+				sheep.logs[log.id].ready_process_chan <- true
 				if len(bayopt_s.joules_diff[l_m.id][sheep.id]) % 2 == 0 {
 					select {
 					case bayopt_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:

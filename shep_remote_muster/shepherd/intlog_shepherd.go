@@ -36,7 +36,7 @@ func (intlog_s intlog_shepherd) init() {
 					metrics: intlog_s.intlog_metrics, 
 					max_size: intlog_s.buff_max_size, 
 					ready_buff_chan: make(chan bool, 1),
-					done_process_chan: make(chan bool, 1)}
+					ready_process_chan: make(chan bool, 1)}
 			//mem_buff := make([][]uint64, log_c.max_size)
 			mem_buff := make([][]uint64, 0)
 			log_c.mem_buff = &mem_buff
@@ -178,7 +178,7 @@ func (intlog_s intlog_shepherd) process_logs() {
 				writer.WriteAll(str_mem_buff)
 				fmt.Printf("-------------- COMPLETED PROCESS LOG :  %v - %v - %v\n", l_m.id, sheep.id, log.id)	
 				// muster can now overwrite mem_buff for this log
-				sheep.logs[log.id].done_process_chan <- true
+				sheep.logs[log.id].ready_process_chan <- true
 //				select {
 //				case ep_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:
 //				default:
