@@ -133,6 +133,15 @@ type flink_muster struct {	// 2nd level specialization of a muster
 	buff_max_size uint64
 
 }
+
+type flink_energy_muster struct {
+	flink_muster
+}
+
+type flink_backpressure_muster struct {
+	flink_muster
+}
+
 /*****************************************/
 
 func (l_ptr *log) show() {
