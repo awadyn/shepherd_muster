@@ -63,6 +63,7 @@ type sheep struct {
 
 	//finish_run_chan chan bool
 	done_ctrl_chan chan control_reply
+	done_request_chan chan bool
 
 	logs map[string]*log
 	controls map[string]*control

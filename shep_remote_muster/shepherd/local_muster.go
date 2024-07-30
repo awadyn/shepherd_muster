@@ -228,6 +228,8 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 					return
 				}
 			} ()
+//			sheep_id := req[0]
+//			l_m.pasture[sheep_id].done_request_chan <- true
 		}
 	}
 }
