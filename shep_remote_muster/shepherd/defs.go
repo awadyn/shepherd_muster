@@ -73,6 +73,7 @@ type sheep struct {
 type muster struct {
 	node
 	pulsing bool
+	role string
 
 	hb_chan chan *pb.HeartbeatReply
 	full_buff_chan chan []string
@@ -155,6 +156,7 @@ type flink_shepherd struct {
 
 type Shepherd interface {
 	init()
+	deploy_musters()
 	process_logs()
 	compute_control()
 	complete_run()
