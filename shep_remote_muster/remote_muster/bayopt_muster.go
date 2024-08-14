@@ -23,8 +23,15 @@ func (bayopt_m *bayopt_muster) init() {
 				    "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
 	bayopt_m.buff_max_size = 1
 	var core uint8
+	var rx_usecs_shared uint64
 	ctrl_itr_shared := control{n_ip: bayopt_m.ip, knob: "itr-delay", dirty: false}  
-	rx_usecs_shared := ctrl_itr_shared.getter(0, read_rx_usecs)  
+	rx_usecs_reading := ctrl_itr_shared.getter(0, read_rx_usecs)  
+	if rx_usecs_reading == 0 {
+		fmt.Printf("**** PROBLEM: %v cannot read ethtool rx_usecs value.. assuming default value 1\n", bayopt_m.id)
+		rx_usecs_shared = 1
+	} else {
+		rx_usecs_shared = rx_usecs_reading
+	}
 	for core = 0; core < bayopt_m.ncores; core ++ {
 		mem_buff := make([][]uint64, bayopt_m.buff_max_size)
 		c_str := strconv.Itoa(int(core))
@@ -53,18 +60,21 @@ func (bayopt_m *bayopt_muster) init() {
 		bayopt_m.pasture[sheep_id].controls[ctrl_itr.id] = &ctrl_itr
 	}
 
+	bayopt_m.init_log_files()
+}
+
+func (bayopt_m *bayopt_muster) init_log_files() {
 	bayopt_m.log_f_map = make(map[string]*os.File)
 	bayopt_m.log_reader_map = make(map[string]*csv.Reader)
 	for sheep_id, _ := range(bayopt_m.pasture) {
 		core := bayopt_m.pasture[sheep_id].core
 		c_str := strconv.Itoa(int(core))
-		log_fname := "/users/awadyn/shepherd_muster/shep_remote_muster/intlog_logs/" + c_str
+		log_fname := bayopt_m.logs_dir + c_str
 		f, err := os.Create(log_fname)
 		if err != nil { panic(err) }
 		bayopt_m.log_f_map[sheep_id] = f
 	}
 }
-
 
 func read_dvfs(core uint8) uint64 {
 	c_str := strconv.Itoa(int(core))
@@ -72,7 +82,10 @@ func read_dvfs(core uint8) uint64 {
 	cmd := exec.Command("sudo", "rdmsr", "-p " + c_str, "0x199")
 	cmd.Stdout = &out
 	err := cmd.Run()
-	if err != nil { panic(err) }
+	if err != nil { 
+		fmt.Println(err)
+		panic(err) 
+	}
 	out_str := out.String()
 	if out_str[len(out_str)-1] == '\n' { out_str = out_str[0:len(out_str)-1] }
 	dvfs_val, err := strconv.ParseInt(out_str, 16, 64)
@@ -90,11 +103,23 @@ func write_dvfs(core uint8, val uint64) error {
 
 func read_rx_usecs(core uint8) uint64 {
 	var out strings.Builder
+	var stderr strings.Builder
+
 	cmd:= exec.Command("bash", "-c", "ethtool -c enp3s0f0 | grep \"rx-usecs:\" | cut -d ' ' -f2")
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil { panic(err) }
 	out_str := out.String()
+	stderr_str := stderr.String()
+	if len(out_str) == 0 {
+		if len(stderr_str) > 0 {
+			fmt.Printf("**** PROBLEM: cannot exec '%v' correctly - ERROR: \n", "ethtool -c enp3s0f0")
+			fmt.Println(stderr_str)
+			return 0
+		}
+	}
+
 	if out_str[len(out_str)-1] == '\n' { out_str = out_str[0:len(out_str)-1] }
 	rx_usecs_val, err := strconv.Atoi(out_str)
 	return uint64(rx_usecs_val)

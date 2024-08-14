@@ -120,6 +120,7 @@ type intlog_muster struct {	// 2nd level specialization of a muster
 type bayopt_muster struct {	// 2nd level specialization of a muster
 	remote_muster
 
+	logs_dir string
 	intlog_metrics []string
 	bayopt_metrics []string
 	buff_max_size uint64
