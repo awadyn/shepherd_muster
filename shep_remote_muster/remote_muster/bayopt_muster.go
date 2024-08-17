@@ -24,8 +24,17 @@ func (bayopt_m *bayopt_muster) init() {
 	bayopt_m.buff_max_size = 1
 	var core uint8
 	var rx_usecs_shared uint64
+
+	// get name of internal network interface
+	iface := bayopt_m.get_internal_iface()
+	if iface == "" {
+		fmt.Printf("**** PROBLEM: %v cannot get internal network interface name.. aborting\n", bayopt_m.id)
+		return
+	}
+
 	ctrl_itr_shared := control{n_ip: bayopt_m.ip, knob: "itr-delay", dirty: false}  
-	rx_usecs_reading := ctrl_itr_shared.getter(0, read_rx_usecs)  
+	rx_usecs_reading := ctrl_itr_shared.getter(0, read_rx_usecs, iface)  
+
 	if rx_usecs_reading == 0 {
 		fmt.Printf("**** PROBLEM: %v cannot read ethtool rx_usecs value.. assuming default value 1\n", bayopt_m.id)
 		rx_usecs_shared = 1
@@ -76,14 +85,17 @@ func (bayopt_m *bayopt_muster) init_log_files() {
 	}
 }
 
-func read_dvfs(core uint8) uint64 {
+func read_dvfs(core uint8, extra_args ...string) uint64 {
 	c_str := strconv.Itoa(int(core))
 	var out strings.Builder
+	var stderr strings.Builder
 	cmd := exec.Command("sudo", "rdmsr", "-p " + c_str, "0x199")
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil { 
-		fmt.Println(err)
+		stderr_str := stderr.String()
+		fmt.Println(stderr_str)
 		panic(err) 
 	}
 	out_str := out.String()
@@ -101,11 +113,13 @@ func write_dvfs(core uint8, val uint64) error {
 	return err
 }
 
-func read_rx_usecs(core uint8) uint64 {
+func read_rx_usecs(core uint8, iface_args ...string) uint64 {
 	var out strings.Builder
 	var stderr strings.Builder
+	iface := iface_args[0]
 
-	cmd:= exec.Command("bash", "-c", "ethtool -c enp3s0f0 | grep \"rx-usecs:\" | cut -d ' ' -f2")
+	cmd_str := "ethtool -c " + iface + " | grep \"rx-usecs:\" | cut -d ' ' -f2"
+	cmd:= exec.Command("bash", "-c", cmd_str)
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -123,6 +137,26 @@ func read_rx_usecs(core uint8) uint64 {
 	if out_str[len(out_str)-1] == '\n' { out_str = out_str[0:len(out_str)-1] }
 	rx_usecs_val, err := strconv.Atoi(out_str)
 	return uint64(rx_usecs_val)
+}
+
+func (bayopt_m *bayopt_muster) get_internal_iface() string {
+	var out strings.Builder
+	var stderr strings.Builder
+	cmd:= exec.Command("bash", "-c", "ls /sys/class/net | grep enp | grep f0")
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil { panic(err) }
+	iface := out.String()
+	stderr_str := stderr.String()
+	if len(iface) == 0 {
+		if len(stderr_str) > 0 {
+			fmt.Printf("**** PROBLEM: %v cannot read ethernet interface name.. aborting..\n", bayopt_m.id)
+			return ""
+		}
+	}
+	if iface[len(iface)-1] == '\n' { iface = iface[0:len(iface)-1] }
+	return iface
 }
 
 func write_rx_usecs(core uint8, val uint64) error {

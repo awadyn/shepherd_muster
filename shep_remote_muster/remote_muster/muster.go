@@ -69,8 +69,13 @@ func (m *muster) cleanup() {
 	}
 }
 
-func (ctrl *control) getter(core uint8, get_func func(uint8)uint64) uint64 {
-	ctrl_val := get_func(core)
+func (ctrl *control) getter(core uint8, get_func func(uint8, ...string)uint64, args ...string) uint64 {
+	var ctrl_val uint64
+	if len(args) > 0 {
+		ctrl_val = get_func(core, args[0])
+	} else {
+		ctrl_val = get_func(core)
+	}
 	return ctrl_val
 }
 
