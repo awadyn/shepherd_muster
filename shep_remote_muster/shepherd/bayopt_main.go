@@ -40,24 +40,22 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 	}
 }
 
-func bayopt_main() {
-	// assume that a list of nodes is known apriori
-	nodes := []node{{ip: "10.10.1.1", ncores: 16, pulse_port: 50051, log_sync_port:50061, ctrl_port: 50071, coordinate_port: 50081}}
-
+func bayopt_main(nodes []node) {
 	// initialize generic shepherd
-	s := shepherd{id: "sheperd-intlog"}
+	s := shepherd{id: "sheperd-bayopt"}
 	s.init(nodes)
-
 	// initialize specialized energy-performance shepherd
 	bayopt_s := bayopt_shepherd{shepherd:s}
 	bayopt_s.init()
+	
+	// start all management and coordination threads
 	bayopt_s.deploy_musters()
 	go bayopt_s.listen_heartbeats()
 	go bayopt_s.process_logs()
-	go bayopt_s.compute_control()
-	for _, l_m := range(bayopt_s.local_musters) {
-		go bayopt_s.run_workload(l_m.id)
-	}
+//	go bayopt_s.compute_control()
+//	for _, l_m := range(bayopt_s.local_musters) {
+//		go bayopt_s.run_workload(l_m.id)
+//	}
 
 	time.Sleep(exp_timeout)
 

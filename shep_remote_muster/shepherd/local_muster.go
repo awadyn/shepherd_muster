@@ -17,13 +17,15 @@ import (
 /************************************/
 
 func (l_m *local_muster) init() {
-	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id, l_m.log_sync_port, 
+	var idx string = ""
+	if l_m.ip_idx != -1 { idx = strconv.Itoa(int(l_m.ip_idx)) } 
+	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id + idx, l_m.log_sync_port, 
 					"local muster log syncing server port")
-	l_m.pulse_server_addr = flag.String("pulse_server_addr_" + l_m.id, l_m.ip + ":" + strconv.Itoa(l_m.pulse_port),
+	l_m.pulse_server_addr = flag.String("pulse_server_addr_" + l_m.id + idx, l_m.ip + ":" + strconv.Itoa(l_m.pulse_port),
 						"address of one remote muster pulse server")
-	l_m.ctrl_server_addr = flag.String("ctrl_server_addr_" + l_m.id, l_m.ip + ":" + strconv.Itoa(l_m.ctrl_port),
+	l_m.ctrl_server_addr = flag.String("ctrl_server_addr_" + l_m.id + idx, l_m.ip + ":" + strconv.Itoa(l_m.ctrl_port),
 						"address of one remote muster control server")
-	l_m.coordinate_server_addr = flag.String("coordinate_server_addr_" + l_m.id, l_m.ip + ":" + strconv.Itoa(l_m.coordinate_port),
+	l_m.coordinate_server_addr = flag.String("coordinate_server_addr_" + l_m.id + idx, l_m.ip + ":" + strconv.Itoa(l_m.coordinate_port),
 							"address of remote muster  coordination server")
 }
 

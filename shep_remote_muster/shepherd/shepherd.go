@@ -25,7 +25,7 @@ func (s *shepherd) init(nodes []node) {
 	s.musters = make(map[string]*muster)
 	s.local_musters = make(map[string]*local_muster)
 	for n := 0; n < len(nodes); n++ {
-		m_id := "muster-" + nodes[n].ip
+		m_id := "muster-" + nodes[n].ip + strconv.Itoa(n)
 		m_n := &muster{id: m_id, node: nodes[n]}
 		m_n.init()
 		l_m := &local_muster{muster: *m_n}
@@ -96,7 +96,7 @@ func (s *shepherd) listen_heartbeats() {
 			case r := <- s.musters[m.id].hb_chan:
 				m_id := r.GetMusterReply()
 				if counter % 3 == 0 { fmt.Println("------HB-REP --", m_id, r.GetShepRequest()) }
-//				s.musters[m_id].pulsing = true
+				s.musters[m_id].pulsing = true
 			default:
 			}
 			counter ++

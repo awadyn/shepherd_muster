@@ -21,6 +21,7 @@ type node struct {
 	ctrl_port int
 	coordinate_port int
 	ip string
+	ip_idx int		// used to differentiate different musters on the same node
 }
 
 type control_request struct {
