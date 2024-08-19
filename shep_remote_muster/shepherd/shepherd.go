@@ -25,7 +25,7 @@ func (s *shepherd) init(nodes []node) {
 	s.musters = make(map[string]*muster)
 	s.local_musters = make(map[string]*local_muster)
 	for n := 0; n < len(nodes); n++ {
-		m_id := "muster-" + nodes[n].ip + strconv.Itoa(n)
+		m_id := "muster-" + nodes[n].ip + "-" + strconv.Itoa(n)
 		m_n := &muster{id: m_id, node: nodes[n]}
 		m_n.init()
 		l_m := &local_muster{muster: *m_n}
@@ -56,7 +56,6 @@ func (s *shepherd) init_log_files(logs_dir string) {
 				ctrl_val := strconv.Itoa(int(ctrl.value))
 				out_fname += "_" + ctrl_val
 			}
-			out_fname += ".flinklog"
 			f, err := os.Create(out_fname)
 			if err != nil { panic(err) }
 			writer := csv.NewWriter(f)
@@ -72,7 +71,7 @@ func (s *shepherd) init_log_files(logs_dir string) {
 /* This function starts all muster threads required by a shepherd. */
 func (s *shepherd) deploy_musters() {
 	for _, l_m := range(s.local_musters) {
-		fmt.Printf("**** DEPLOYING MUSTER %v ****\n", l_m.id)
+		fmt.Printf("\033[97;1m**** DEPLOYING MUSTER %v ****\n\033[0m", l_m.id)
 		l_m.start_pulser()		// per-muster pulse client	
 		l_m.start_controller()		// per-muster ctrl client
 		l_m.start_coordinator()		// per-muster coordinate client
@@ -88,15 +87,14 @@ func (s *shepherd) deploy_musters() {
    It receives a message each time a muster pulses.
 */
 func (s *shepherd) listen_heartbeats() {
-	fmt.Printf("-- STARTING HEARTBEAT LISTENER :  %v ... ... ...\n", s.id)
+	fmt.Printf("\033[39;1m-- STARTING HEARTBEAT LISTENER :  %v ... ... ...\n\033[0m", s.id)
 	counter := 0
 	for {
 		for _, m := range(s.musters) {
 			select {
 			case r := <- s.musters[m.id].hb_chan:
 				m_id := r.GetMusterReply()
-				if counter % 3 == 0 { fmt.Println("------HB-REP --", m_id, r.GetShepRequest()) }
-				s.musters[m_id].pulsing = true
+				if counter % 3 == 0 { fmt.Printf("\033[39m----HB-REP -- %v -- %v\n\033[0m", m_id, r.GetShepRequest()) }
 			default:
 			}
 			counter ++

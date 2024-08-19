@@ -20,7 +20,7 @@ func (m *muster) init() {
 	m.pasture = make(map[string]*sheep)
 	var c uint8
 	for c = 0; c < m.ncores; c++ {
-		sheep_id := strconv.Itoa(int(c)) + "-" + m.ip
+		sheep_id := "sheep-" + strconv.Itoa(int(c)) + "-" + m.ip
 		sheep_c := sheep{id: sheep_id, core: c,
 				 logs: make(map[string]*log), 
 				 controls: make(map[string]*control),

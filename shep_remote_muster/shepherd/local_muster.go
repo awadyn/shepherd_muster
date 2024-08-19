@@ -40,14 +40,14 @@ func (l_m *local_muster) init() {
   a remote pulse server. 
 */
 func (l_m *local_muster) start_pulser() {
-	fmt.Printf("-- STARTING LOCAL PULSER :  %v\n", l_m.id)
+	fmt.Printf("\033[34;1m-- STARTING LOCAL PULSER :  %v\n\033[0m", l_m.id)
 	conn, err := grpc.Dial(*l_m.pulse_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		fmt.Printf("** ** ** ERROR: could not create local connection to remote muster %s:\n** ** ** %v\n", l_m.id, err)
+		fmt.Printf("****** ERROR: could not create local connection to remote muster %s:\n****** %v\n", l_m.id, err)
 	}
 	c := pb.NewPulseClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
-	fmt.Printf("---- %v -- Initialized pulse client \n", l_m.id)
+	fmt.Printf("\033[36m---- %v -- Initialized pulse client\n\033[0m", l_m.id)
 	go l_m.pulse(conn, c, ctx, cancel)
 }
 
@@ -62,7 +62,7 @@ func (l_m *local_muster) pulse(conn *grpc.ClientConn, c pb.PulseClient, ctx cont
 		if err != nil {
 			err_count ++
 			if err_count == 30 {
-				fmt.Printf("***** LOST PULSE:  %v\n", l_m.id)
+				fmt.Printf("\033[31;1m***** LOST PULSE:  %v\n\033[0m", l_m.id)
 				return
 			}
 		} else { 
@@ -87,7 +87,7 @@ func (l_m *local_muster) pulse(conn *grpc.ClientConn, c pb.PulseClient, ctx cont
 */
 
 func (l_m *local_muster) start_logger() {
-	fmt.Printf("-- STARTING LOCAL LOGGER :  %v\n", l_m.id)
+	fmt.Printf("\033[34;1m-- STARTING LOCAL LOGGER :  %v\n\033[0m", l_m.id)
 	go l_m.log()
 }
 
@@ -95,13 +95,13 @@ func (l_m *local_muster) log() {
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *l_m.log_server_port))
 	if err != nil {
-		fmt.Printf("** ** ** ERROR: %v failed to listen at %v: %v\n", l_m.id, *l_m.log_server_port, err)
+		fmt.Printf("\033[31;1m****** ERROR: %v failed to listen at %v: %v\n\033[0m", l_m.id, *l_m.log_server_port, err)
 	}
 	s := grpc.NewServer()
 	pb.RegisterLogServer(s, l_m)
-	fmt.Printf("---- %v -- Initialized log sync server listening at %v \n", l_m.id, lis.Addr())
+	fmt.Printf("\033[36m---- %v -- Initialized log sync server listening at %v \n\033[0m", l_m.id, lis.Addr())
 	if err := s.Serve(lis); err != nil {
-		fmt.Printf("** ** ** ERROR: %v failed to start log sync server: %v\n", l_m.id, err)
+		fmt.Printf("\033[31;1m****** ERROR: %v failed to start log sync server: %v\n\033[0m", l_m.id, err)
 	}
 }
 
@@ -116,17 +116,17 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 			/* i.e. all log entries have been copied to mem_buff*/
 			l_m.full_buff_chan <- []string{sheep_id, log_id}
 			<- l_m.pasture[sheep_id].logs[log_id].ready_buff_chan
-			fmt.Printf("-------- COMPLETED-SYNC-REQ -- %v - %v - %v\n", l_m.id, sheep_id, log_id)
+			fmt.Printf("\033[36m<----- SYNC-REP -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id)
 			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:true})
 		case err != nil:
-			fmt.Printf("** ** ** ERROR: could not receive sync log request from stream\n")
+			fmt.Printf("\033[31;1m****** ERROR: could not receive sync log request from stream\n\033[0m")
 			return err
 		default:
 			sheep_id = sync_req.GetSheepId()
 			log_id = sync_req.GetLogId()
 			mem_buff := l_m.pasture[sheep_id].logs[log_id].mem_buff
 			if buff_ctr == 0 { 
-				fmt.Printf("-------- SYNC-REQ -- %v - %v\n", sheep_id, log_id) 
+				fmt.Printf("\033[36m-----> SYNC-REQ -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) 
 				*(l_m.pasture[sheep_id].logs[log_id].mem_buff)  = make([][]uint64, 0)
 			}	
 			*mem_buff = append(*mem_buff, sync_req.GetLogEntry().GetVals())
@@ -146,15 +146,15 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
   a remote pulse server. 
 */
 func (l_m *local_muster) start_controller() {
-	fmt.Printf("-- STARTING LOCAL CONTROLLER :  %v\n", l_m.id)
+	fmt.Printf("\033[34;1m-- STARTING LOCAL CONTROLLER :  %v\n\033[0m", l_m.id)
 	conn, err := grpc.Dial(*l_m.ctrl_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		fmt.Printf("** ** ** ERROR: could not create local connection to remote controller %s:\n** ** ** %v\n", l_m.id, err)
+		fmt.Printf("\033[31;1m****** ERROR: could not create local connection to remote controller %s:\n****** %v\n\033[0m", l_m.id, err)
 		panic(err)
 	}
 	c := pb.NewControlClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
-	fmt.Printf("---- %v -- Initialized control client \n", l_m.id)
+	fmt.Printf("\033[36m---- %v -- Initialized control client \n\033[0m", l_m.id)
 	go l_m.control(conn, c, ctx, cancel)
 }
 
@@ -195,14 +195,14 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 /*** LOCAL COORDINATOR ***/
 /*************************/
 func (l_m *local_muster) start_coordinator() {
-	fmt.Printf("-- STARTING LOCAL COORDINATOR :  %v\n", l_m.id)
+	fmt.Printf("\033[34;1m-- STARTING LOCAL COORDINATOR :  %v\n\033[0m", l_m.id)
 	conn, err := grpc.Dial(*l_m.coordinate_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		fmt.Printf("** ** ** ERROR: could not create local connection to remote muster %s:\n** ** ** %v\n", l_m.id, err)
+		fmt.Printf("\033[31;1m****** ERROR: could not create local connection to remote muster %s:\n****** %v\n \033[0m", l_m.id, err)
 	}
 	c := pb.NewCoordinateClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
-	fmt.Printf("---- %v -- Initialized coordinate client \n", l_m.id)
+	fmt.Printf("\033[36m---- %v -- Initialized coordinate client \n\033[0m", l_m.id)
 	go l_m.coordinate(conn, c, ctx, cancel)
 }
 
@@ -220,18 +220,16 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 				coordinate_cmd := req[2]
 
 				<- l_m.pasture[sheep_id].logs[log_id].ready_request_chan
-				fmt.Println("******** SENDING COORDINATE REQUEST ********", sheep_id, log_id, coordinate_cmd)
+				//fmt.Printf("\033[32m---- COORD REQ -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd)
 				for {
 					r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd})  
 					
 					if err != nil { time.Sleep(time.Second/2); continue } 
-					fmt.Println("******** COORDINATE REP **** ", r)
+					fmt.Printf("\033[34m---- COORD REP -- %v\n\033[0m", r)
 					l_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 					return
 				}
 			} ()
-//			sheep_id := req[0]
-//			l_m.pasture[sheep_id].done_request_chan <- true
 		}
 	}
 }

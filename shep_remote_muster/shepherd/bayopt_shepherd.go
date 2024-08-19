@@ -8,15 +8,11 @@ import (
 )
 
 /**************************************/
-
-/**************************************/
 /****** SHEPHERD SPECIALIZATION  ******/
 /**************************************/
 
-
 var joules_idx int
 var timestamp_idx int
-
 
 /* 
    This function initializes a specialized shepherd for energy-and-performance 
@@ -26,7 +22,7 @@ var timestamp_idx int
    and dynamic-voltage-frequency-scaling - for each core under its supervision.
 */
 func (bayopt_s *bayopt_shepherd) init() {
-//	bayopt_s.logs_dir = "/users/awadyn/shepherd_muster/logs/"
+	bayopt_s.logs_dir = "/users/awadyn/shepherd_muster/intlog_logs/"
 	bayopt_s.intlog_metrics = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
 	                                "instructions", "cycles", "ref_cycles", "llc_miss",
 	                                "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
@@ -41,7 +37,7 @@ func (bayopt_s *bayopt_shepherd) init() {
 		var c uint8
 		for c = 0; c < m.ncores; c++ {
 			c_str := strconv.Itoa(int(c))
-			sheep_id := c_str + "-" + m.ip
+			sheep_id := "sheep-" + c_str + "-" + m.ip
 			log_id := "log-" + c_str + "-" + m.ip 
 			log_c := log{id: log_id, n_ip: m.ip,
 					metrics: bayopt_s.intlog_metrics, 
@@ -65,7 +61,7 @@ func (bayopt_s *bayopt_shepherd) init() {
 			bayopt_s.musters[m_id].pasture[sheep_id].logs[log_c.id].ready_buff_chan <- true
 		}
 	}
-//	bayopt_s.init_log_files()
+	bayopt_s.init_log_files(bayopt_s.logs_dir)
 }
 
 /* This function assigns a map of log files to each sheep/core.
@@ -126,17 +122,16 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				l_m := l_m
 				sheep := sheep
 				log := log
-				fmt.Printf("-------------- PROCESS LOG SIGNAL :  %v - %v - %v\n", m_id, sheep_id, log_id)
+				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
 				mem_buff := *(log.mem_buff)
-
 				joules_val := float64(mem_buff[0][joules_idx]) * 0.000061
 				bayopt_s.joules_measure[m_id][sheep_id] = append(bayopt_s.joules_measure[m_id][sheep_id], joules_val)
 				joules_old := bayopt_s.joules_measure[m_id][sheep_id][len(bayopt_s.joules_measure[m_id][sheep_id]) - 2]
 				bayopt_s.joules_diff[m_id][sheep_id] = append(bayopt_s.joules_diff[m_id][sheep_id], joules_val - joules_old)
-				fmt.Println(mem_buff)
-				fmt.Println("\033[33;1m JOULES MEASURE *** ", bayopt_s.joules_measure[l_m.id][sheep.id], "\033[0m")
-				fmt.Println("\033[33;1m JOULES DIFF *** ", bayopt_s.joules_diff[l_m.id][sheep.id], "\033[0m")
-				fmt.Printf("-------------- COMPLETED PROCESS LOG :  %v - %v - %v\n", l_m.id, sheep.id, log.id)	
+				//fmt.Printf("\033[33m---------- %v\n\033[0m", mem_buff)
+				fmt.Printf("\033[33m---------- JOULES MEAS: %v\n\033[0m", bayopt_s.joules_measure[l_m.id][sheep.id])
+				fmt.Printf("\033[33m---------- JOULES DIFF: %v\n\033[0m", bayopt_s.joules_diff[l_m.id][sheep.id])
+				fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v - %v\n\033[0m", l_m.id, sheep.id, log.id)	
 				// muster can now overwrite mem_buff for this log
 				sheep.logs[log.id].ready_process_chan <- true
 				if len(bayopt_s.joules_diff[l_m.id][sheep.id]) % 2 == 0 {
