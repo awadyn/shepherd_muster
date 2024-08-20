@@ -22,7 +22,7 @@ var timestamp_idx int
    and dynamic-voltage-frequency-scaling - for each core under its supervision.
 */
 func (bayopt_s *bayopt_shepherd) init() {
-	bayopt_s.logs_dir = "/users/awadyn/shepherd_muster/intlog_logs/"
+	bayopt_s.logs_dir = "/users/awadyn/shepherd_muster/shep_remote_muster/shepherd_intlog_logs/"
 	bayopt_s.intlog_metrics = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
 	                                "instructions", "cycles", "ref_cycles", "llc_miss",
 	                                "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}

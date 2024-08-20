@@ -44,7 +44,7 @@ func (bayopt_m *bayopt_muster) init() {
 	for core = 0; core < bayopt_m.ncores; core ++ {
 		mem_buff := make([][]uint64, bayopt_m.buff_max_size)
 		c_str := strconv.Itoa(int(core))
-		sheep_id := c_str + "-" + bayopt_m.ip
+		sheep_id := "sheep-" + c_str + "-" + bayopt_m.ip
 
 		log_id := "log-" + c_str + "-" + bayopt_m.ip
 		log_c := log{id: log_id,
@@ -52,6 +52,7 @@ func (bayopt_m *bayopt_muster) init() {
 			     //metrics: bayopt_m.bayopt_metrics,
 			     max_size: bayopt_m.buff_max_size,
 			     mem_buff: &mem_buff,
+			     log_wait_factor: 3,
 			     kill_log_chan: make(chan bool, 1),
 			     request_log_chan: make(chan string),
 			     done_log_chan: make(chan bool, 1),
@@ -212,28 +213,33 @@ func (bayopt_m *bayopt_muster) assign_log_files(sheep_id string) {
 /* The following functions associate each sheep with its
    intlog data in /proc/ixgbe_stats/core/sheep.core
 */
-func (bayopt_m *bayopt_muster) attach_native_logger(sheep_id string) {
+func (bayopt_m *bayopt_muster) attach_native_logger(sheep_id string, log_id string) {
 	c_str := strconv.Itoa(int(bayopt_m.pasture[sheep_id].core))
 	src_fname := "/proc/ixgbe_stats/core/" + c_str
 	log_fname := "/users/awadyn/shepherd_muster/shep_remote_muster/intlog_logs/" + c_str
 
 	cmd := exec.Command("bash", "-c", "cat " + src_fname)
 	if err := cmd.Run(); err != nil { panic(err) }
-	for {
-		select {
-		case <- bayopt_m.pasture[sheep_id].detach_native_logger:
-			return
-		default:
-			cmd = exec.Command("bash", "-c", "cat " + src_fname + " >> " + log_fname)
-			if err := cmd.Run(); err != nil { panic(err) }
-			time.Sleep(time.Second * 2)
+
+	go func() {
+		sheep_id := sheep_id
+		log_id := log_id
+		for {
+			select {
+			case <- bayopt_m.pasture[sheep_id].detach_native_logger:
+				return
+			default:
+				cmd = exec.Command("bash", "-c", "cat " + src_fname + " >> " + log_fname)
+				if err := cmd.Run(); err != nil { panic(err) }
+				time.Sleep(time.Second * bayopt_m.pasture[sheep_id].logs[log_id].log_wait_factor)
+			}
 		}
-	}
+	} ()
 }
 
 
 func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
-	fmt.Printf("-- -- STARTING CONTROL MANAGER FOR SHEEP %v\n", sheep_id)
+	fmt.Printf("\033[36m-- SHEEP %v -- STARTING CONTROL MANAGER\n\033[0m", sheep_id)
 	sheep := bayopt_m.pasture[sheep_id]
 	var err error
 	for {
@@ -257,7 +263,7 @@ func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
 
 
 func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
-	fmt.Printf("-- -- STARTING LOG MANAGER FOR SHEEP %v - LOG %v \n", sheep_id, log_id)
+	fmt.Printf("\033[34m-- SHEEP %v - LOG %v -- STARTING LOG MANAGER\n\033[0m", sheep_id, log_id)
 	for {
 		select {
 		case cmd := <- bayopt_m.pasture[sheep_id].logs[log_id].request_log_chan:
@@ -265,7 +271,7 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 			case cmd == "start":
 				// start communication with native logger
 				bayopt_m.assign_log_files(sheep_id)
-				go bayopt_m.attach_native_logger(sheep_id)
+				bayopt_m.attach_native_logger(sheep_id, log_id)
 				bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
 			case cmd == "stop":
 				// stop communication with native logger

@@ -87,14 +87,14 @@ func (s *shepherd) deploy_musters() {
    It receives a message each time a muster pulses.
 */
 func (s *shepherd) listen_heartbeats() {
-	fmt.Printf("\033[39;1m-- STARTING HEARTBEAT LISTENER :  %v ... ... ...\n\033[0m", s.id)
+	fmt.Printf("\033[39;1m-- STARTING HEARTBEAT LISTENER :  %v\n\033[0m", s.id)
 	counter := 0
 	for {
 		for _, m := range(s.musters) {
 			select {
 			case r := <- s.musters[m.id].hb_chan:
 				m_id := r.GetMusterReply()
-				if counter % 3 == 0 { fmt.Printf("\033[39m----HB-REP -- %v -- %v\n\033[0m", m_id, r.GetShepRequest()) }
+				if counter % 3 == 0 { fmt.Printf("\033[39m-- HB REP %v - %v\n\033[0m", r.GetShepRequest(), m_id) }
 			default:
 			}
 			counter ++

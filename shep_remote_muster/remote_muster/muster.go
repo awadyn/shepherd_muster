@@ -17,9 +17,10 @@ func (l *log) init() {
 	l.ready_buff_chan = make(chan bool, 1)
 }
 
-func (m *muster) init(n_ip string, n_cores uint8) {
+func (m *muster) init(n_ip string, n_cores uint8, ip_idx string) {
 	n := node{ip:n_ip, ncores: uint8(n_cores)}
 	m_id := "muster-" + n.ip
+	if ip_idx != "" { m_id = m_id + "-" + ip_idx }
 	m.id = m_id
 	m.node = n 
 	m.pasture = make(map[string]*sheep)
@@ -34,7 +35,7 @@ func (m *muster) init(n_ip string, n_cores uint8) {
 	var core uint8
 	for core = 0; core < n.ncores; core ++ {
 		c_str := strconv.Itoa(int(core))
-		sheep_id := c_str + "-" + m.ip
+		sheep_id := "sheep-" + c_str + "-" + m.ip
 		sheep_c := sheep{id: sheep_id, core: core,
 				 logs: make(map[string]*log),
 				 controls: make(map[string]*control),

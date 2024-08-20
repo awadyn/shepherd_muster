@@ -225,7 +225,7 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 					r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd})  
 					
 					if err != nil { time.Sleep(time.Second/2); continue } 
-					fmt.Printf("\033[34m---- COORD REP -- %v\n\033[0m", r)
+					fmt.Printf("\033[34m<--- COORD REP -- %v\n\033[0m", r)
 					l_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 					return
 				}

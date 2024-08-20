@@ -34,23 +34,50 @@ func (r_m *remote_muster) init(pulse_server_port int, log_server_port int,
 						"remote muster coordinate server port")
 }
 
+/*****************/
+/* REMOTE PULSER */
+/*****************/
+var hb_counter int = 0
+
+func (r_m *remote_muster) HeartBeat(ctx context.Context, in *pb.HeartbeatRequest) (*pb.HeartbeatReply, error) {
+	if hb_counter % 3 == 0 { fmt.Printf("-- HB REQ %v\n", in.GetShepRequest()) }
+	select {
+	case r_m.hb_chan <- true:
+	default:
+	}
+	hb_counter ++
+	return &pb.HeartbeatReply{MusterReply: r_m.id, ShepRequest: in.GetShepRequest()}, nil
+}
+
+func (r_m *remote_muster) start_pulser() {
+	fmt.Printf("\033[35;1m-- STARTING PULSER :  %v\n\033[0m", r_m.id)
+	flag.Parse()
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.pulse_server_port))
+	if err != nil {
+		fmt.Printf("\033[31;1m****** ERROR: %v failed to listen: %v\n\033[0m", r_m.id, err)
+	}
+	s := grpc.NewServer()
+	pb.RegisterPulseServer(s, r_m)
+	fmt.Printf("\033[35m---- Heartbeat server listening at %v - %v\n\033[0m", r_m.ip, lis.Addr())
+	if err := s.Serve(lis); err != nil {
+		fmt.Printf("\033[31;1m****** ERROR: failed to serve: %v\n\033[0m", err)
+	}
+}
 
 /*****************/
 /* REMOTE LOGGER */
 /*****************/
 
 func (r_m *remote_muster) start_logger() {
-	<- r_m.hb_chan
-
-	fmt.Printf("-- STARTING REMOTE MUSTER LOGGER :  %v\n", r_m.id)
+	fmt.Printf("\033[35;1m-- STARTING LOGGER :  %v\n\033[0m", r_m.id)
 	conn, err := grpc.Dial(*r_m.log_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		fmt.Printf("** ** ** ERROR: %v could not create connection to local muster %s:\n** ** ** %v\n", r_m.id, *r_m.log_server_addr, err)
+		fmt.Printf("\033[31;1m****** ERROR: %v could not create connection to local muster %s:\n****** %v\n\033[0m", r_m.id, *r_m.log_server_addr, err)
 	}
 	c := pb.NewLogClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
-	fmt.Printf("-- %v -- Initialized log client \n", r_m.id)
-	r_m.log(conn, c, ctx, cancel)
+	fmt.Printf("\033[35m---- Initialized log client -- %v\n\033[0m", r_m.id)
+	go r_m.log(conn, c, ctx, cancel)
 }
 
 /* This function represents a single remote_muster logger thread
@@ -60,7 +87,7 @@ func (r_m *remote_muster) start_logger() {
    is in charge of. 
 */
 func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context.Context, cancel context.CancelFunc) {
-	fmt.Printf("-- %v :  Log syncing client waiting.. \n", r_m.id)
+	<- r_m.hb_chan
 	defer conn.Close()
 	defer cancel()
 	for {
@@ -71,15 +98,16 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 			for {
 				stream, err := c.SyncLogBuffers(ctx)
 				if err != nil {
-					fmt.Printf("** ** ** ERROR: %v could not call log sync server for %v:\n** ** ** %v\n", r_m.id, log_id, err)
+					fmt.Printf("\033[31;1m****** ERROR: %v could not initialize log sync stream %v:\n****** %v\n\033[0m", r_m.id, log_id, err)
 					time.Sleep(time.Second/10)
 					continue
 				}
+				fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep_id, log_id)
 				for _, log_entry := range *(r_m.pasture[sheep_id].logs[log_id].mem_buff) {
 					for {
 						err := stream.Send(&pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogEntry: &pb.LogEntry{Vals: log_entry}})
 						if err != nil { 
-							fmt.Printf("** ** ** ERROR: %v %v could not send log entry %v:\n** ** **%v\n", r_m.id, log_id, log_entry, err)
+							fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log entry %v:\n******%v\n\033[0m", r_m.id, log_id, log_entry, err)
 							time.Sleep(time.Second/20)
 							continue
 						}
@@ -88,47 +116,17 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 				}
 				r, err := stream.CloseAndRecv()
 				if err != nil {
-					fmt.Printf("** ** ** ERROR: %v problem receiving log sync reply %v:\n** ** ** %v\n", r_m.id, log_id, err)
+					fmt.Printf("\033[31;1m****** ERROR: %v problem receiving log sync reply %v:\n****** %v\n\033[0m", r_m.id, log_id, err)
 					time.Sleep(time.Second/10)
 					continue
 				}
-				fmt.Printf("-------- SYNC LOG REP : %v - %v\n", log_id, r.GetSyncComplete())
+				fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log_id, r.GetSyncComplete())
 				if r.GetSyncComplete() {
 					r_m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true
 					break
 				}
 			}
 		}
-	}
-}
-
-/*****************/
-/* REMOTE PULSER */
-/*****************/
-var hb_counter int = 0
-
-func (r_m *remote_muster) HeartBeat(ctx context.Context, in *pb.HeartbeatRequest) (*pb.HeartbeatReply, error) {
-	if hb_counter % 3 == 0 { fmt.Printf("------HB-REQ-- %v\n", in.GetShepRequest()) }
-	select {
-	case r_m.hb_chan <- true:
-	default:
-	}
-	hb_counter ++
-	return &pb.HeartbeatReply{MusterReply: r_m.id, ShepRequest: in.GetShepRequest()}, nil
-}
-
-func (r_m *remote_muster) start_pulser() {
-	fmt.Printf("-- STARTING REMOTE MUSTER PULSER :  %v\n", r_m.id)
-	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.pulse_server_port))
-	if err != nil {
-		fmt.Printf("** ** ** ERROR: %v failed to listen: %v\n", r_m.id, err)
-	}
-	s := grpc.NewServer()
-	pb.RegisterPulseServer(s, r_m)
-	fmt.Printf("-- %v -- Heartbeat server listening at %v ... ... ...\n", r_m.id, lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		fmt.Printf("** ** ** ERROR: failed to serve: %v\n", err)
 	}
 }
 
@@ -165,19 +163,17 @@ func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) err
 }
 
 func (r_m *remote_muster) start_controller() {
-	<- r_m.hb_chan
-
-	fmt.Printf("-- STARTING REMOTE MUSTER CONTROLLER :  %v\n", r_m.id)
+	fmt.Printf("\033[35;1m-- STARTING CONTROLLER :  %v\n\033[0m", r_m.id)
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.ctrl_server_port))
 	if err != nil {
-		fmt.Printf("** ** ** ERROR: %v failed to listen on control port: %v\n", r_m.id, err)
+		fmt.Printf("\033[31;1m****** ERROR: %v failed to listen on control port: %v\n\033[0m", r_m.id, err)
 	}
 	s := grpc.NewServer()
 	pb.RegisterControlServer(s, r_m)
-	fmt.Printf("-- %v -- Control server listening at %v ... ... ...\n", r_m.id, lis.Addr())
+	fmt.Printf("\033[35m---- Control server listening at %v - %v\n\033[0m", r_m.ip, lis.Addr())
 	if err := s.Serve(lis); err != nil {
-		fmt.Printf("** ** ** ERROR: failed to serve: %v\n", err)
+		fmt.Printf("\033[31;1m****** ERROR: failed to serve: %v\n\033[0m", err)
 	}
 }
 
@@ -201,30 +197,25 @@ func (r_m *remote_muster) CoordinateLog(ctx context.Context, in *pb.CoordinateLo
 	sheep_id := in.GetSheepId()
 	log_id := in.GetLogId()
 	coordinate_cmd := in.GetCoordinateCmd()
-	fmt.Printf("------COORDINATE-REQ %v ------ %v -- %v -- %v\n", r_m.id, sheep_id, log_id, coordinate_cmd)
-
+	fmt.Printf("\033[34m---> COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd)
 	r_m.pasture[sheep_id].logs[log_id].request_log_chan <- coordinate_cmd
-//	r_m.pasture[sheep_id].logs[log_id].do_log_chan <- true
 	<- r_m.pasture[sheep_id].logs[log_id].done_log_chan
-
-	fmt.Printf("------DONE-COORDINATE-REQ %v ------ %v -- %v -- %v\n", r_m.id, sheep_id, log_id, coordinate_cmd)
+	//fmt.Printf("\033[34m----DONE COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd)
 	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd}, nil
 }
 
 func (r_m *remote_muster) start_coordinator() {
-	<- r_m.hb_chan
-
-	fmt.Printf("-- STARTING REMOTE MUSTER COORDINATOR :  %v\n", r_m.id)
+	fmt.Printf("\033[35;1m-- STARTING COORDINATOR :  %v\n\033[0m", r_m.id)
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.coordinate_server_port))
 	if err != nil {
-		fmt.Printf("** ** ** ERROR: %v failed to listen on control port: %v\n", r_m.id, err)
+		fmt.Printf("\033[31;1m****** ERROR: %v failed to listen on control port: %v\n\033[0m", r_m.id, err)
 	}
 	s := grpc.NewServer()
 	pb.RegisterCoordinateServer(s, r_m)
-	fmt.Printf("-- %v -- Coordination server listening at %v ... ... ...\n", r_m.id, lis.Addr())
+	fmt.Printf("\033[35m---- Coordination server listening at %v - %v\n\033[0m", r_m.ip, lis.Addr())
 	if err := s.Serve(lis); err != nil {
-		fmt.Printf("** ** ** ERROR: failed to serve: %v\n", err)
+		fmt.Printf("\033[31;1m****** ERROR: failed to serve: %v\n\033[0m", err)
 	}
 }
 

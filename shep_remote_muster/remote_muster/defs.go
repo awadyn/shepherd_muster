@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"encoding/csv"
+	"time"
 
 	"google.golang.org/grpc"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
@@ -28,6 +29,8 @@ type log struct {
 	max_size uint64
 	metrics []string
 
+	log_wait_factor time.Duration		// seconds to wait before appending to log filesys rep
+						// TODO: buff_wait_factor ??
 	n_ip string
 	id string
 }
