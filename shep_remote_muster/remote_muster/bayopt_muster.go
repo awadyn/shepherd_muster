@@ -108,7 +108,12 @@ func read_dvfs(core uint8, extra_args ...string) uint64 {
 
 func write_dvfs(core uint8, val uint64) error {
 	c_str := strconv.Itoa(int(core))
-	cmd := exec.Command("sudo", "wrmsr", "-p " + c_str, "0x199", strconv.Itoa(int(val)))
+	var out strings.Builder
+	var stderr strings.Builder
+	cmd_str := "sudo wrmsr -p " + c_str + " 0x199 " + strconv.Itoa(int(val))
+	cmd := exec.Command("bash", "-c", cmd_str)
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil { panic(err) }
 	return err

@@ -53,7 +53,7 @@ func bayopt_main(nodes []node) {
 	bayopt_s.deploy_musters()
 	go bayopt_s.listen_heartbeats()
 	go bayopt_s.process_logs()
-//	go bayopt_s.compute_control()
+	go bayopt_s.compute_control()
 	for _, l_m := range(bayopt_s.local_musters) {
 		go bayopt_s.run_workload(l_m.id)
 	}

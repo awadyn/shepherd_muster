@@ -184,7 +184,7 @@ func (bayopt_s bayopt_shepherd) compute_control() {
 				l_m := l_m
 				sheep := sheep
 				new_ctrls := bayopt_s.bayopt_ctrl(l_m.id, sheep.id)
-				fmt.Printf("----------------------- NEW CTRL :  %v - %v - %v\n", l_m.id, sheep.id, new_ctrls)
+				fmt.Printf("\033[35m<------- CTRL REQ --  %v - %v - %v\n\033[0m", l_m.id, sheep.id, new_ctrls)
 				l_m.new_ctrl_chan <- control_request{sheep_id: sheep.id, ctrls: new_ctrls}
 				ctrl_reply := <- sheep.done_ctrl_chan
 				ctrls := ctrl_reply.ctrls

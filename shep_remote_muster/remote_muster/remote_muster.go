@@ -142,18 +142,16 @@ func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) err
 		req, err := stream.Recv()
 		switch {
 		case err == io.EOF:
+			fmt.Printf("\033[35m-----> CTRL-REQ -- %v - %v\n\033[0m", sheep_id, new_ctrls)
 			r_m.new_ctrl_chan <- ctrl_req{sheep_id: sheep_id, ctrls: new_ctrls}
 			<- r_m.pasture[sheep_id].ready_ctrl_chan
-			fmt.Printf("------------ COMPLETED CTRL-REQ -- %v - %v\n", sheep_id, new_ctrls)
+			fmt.Printf("\033[35m<----- CTRL REP -- %v - %v\n\033[0m", sheep_id, new_ctrls)
 			return stream.SendAndClose(&pb.ControlReply{CtrlComplete: true})
 		case err != nil:
-			fmt.Printf("** ** ** ERROR: could not receive control request: %v\n", err)
+			fmt.Printf("\033[31;1m****** ERROR: could not receive control request: %v\n\033[0m", err)
 			return err
 		default:
 			sheep_id = req.GetSheepId()
-			if ctrl_ctr == 0 { 
-				fmt.Printf("------------ CTRL-REQ -- %v\n", sheep_id)
-			}
 			ctrl_id := req.GetCtrlEntry().GetCtrlId()
 			ctrl_val := req.GetCtrlEntry().GetVal()
 			new_ctrls[ctrl_id] = ctrl_val

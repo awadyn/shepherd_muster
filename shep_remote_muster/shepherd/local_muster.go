@@ -179,13 +179,13 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 					}
 					r, err := stream.CloseAndRecv()
 					done_ctrl = r.GetCtrlComplete()
-					if !done_ctrl { fmt.Println("!!!!! CTRL WAS NOT APPLIED - ", l_m.id, sheep_id) }
+					if !done_ctrl { fmt.Printf("\033[31;1m****** CTRL WAS NOT APPLIED - %v - %v\n\033[0m", l_m.id, sheep_id) }
 					if err != nil { time.Sleep(time.Second/5); continue }
 					break
 				}
 				new_ctrl_reply := control_reply{ctrls: new_ctrls, done: done_ctrl}
 				l_m.pasture[sheep_id].done_ctrl_chan <- new_ctrl_reply
-				fmt.Printf("----------------------- DONE CTRL :  %v - %v - %v\n", l_m.id, sheep_id, new_ctrls)
+				fmt.Printf("\033[35m-------> CTRL REP --  %v - %v - %v\n\033[0m", l_m.id, sheep_id, new_ctrls)
 			}()
 		}
 	}
@@ -220,12 +220,12 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 				coordinate_cmd := req[2]
 
 				<- l_m.pasture[sheep_id].logs[log_id].ready_request_chan
-				//fmt.Printf("\033[32m---- COORD REQ -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd)
+				//fmt.Printf("\033[32m<--- COORD REQ -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd)
 				for {
 					r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd})  
 					
 					if err != nil { time.Sleep(time.Second/2); continue } 
-					fmt.Printf("\033[34m<--- COORD REP -- %v\n\033[0m", r)
+					fmt.Printf("\033[34m---> COORD REP -- %v\n\033[0m", r)
 					l_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 					return
 				}
