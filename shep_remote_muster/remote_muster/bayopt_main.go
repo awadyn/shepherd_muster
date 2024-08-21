@@ -16,7 +16,8 @@ func bayopt_main(n_ip string, n_cores uint8, pulse_server_port int, log_server_p
 	r_m := remote_muster{muster: m}
 	r_m.init(pulse_server_port, log_server_port, ctrl_server_port, coordinate_server_port)
 
-	bayopt_m := bayopt_muster{remote_muster: r_m, logs_dir: home_dir + "/" + r_m.id + "_intlog_logs/"}
+	bayopt_m := bayopt_muster{remote_muster: r_m, 
+				  logs_dir: home_dir + "/" + r_m.id + "_intlog_logs/"}
 	_, err = os.Stat(bayopt_m.logs_dir)
 	if os.IsNotExist(err) {
 		err = os.Mkdir(bayopt_m.logs_dir, 0777)
@@ -32,10 +33,10 @@ func bayopt_main(n_ip string, n_cores uint8, pulse_server_port int, log_server_p
 	//<- bayopt_m.hb_chan
 
 	for sheep_id, _ := range(bayopt_m.pasture) {
-		for log_id, _ := range(bayopt_m.pasture[sheep_id].logs) { 
-			go bayopt_m.log_manage(sheep_id, log_id) 
-			go bayopt_m.ctrl_manage(sheep_id) 
-		}
+//		for log_id, _ := range(bayopt_m.pasture[sheep_id].logs) { 
+		go bayopt_m.log_manage(sheep_id) 
+		go bayopt_m.ctrl_manage(sheep_id) 
+//		}
 	}
 
 	// cleanup

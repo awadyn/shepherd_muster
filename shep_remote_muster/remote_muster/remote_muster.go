@@ -196,10 +196,21 @@ func (r_m *remote_muster) CoordinateLog(ctx context.Context, in *pb.CoordinateLo
 	log_id := in.GetLogId()
 	coordinate_cmd := in.GetCoordinateCmd()
 	fmt.Printf("\033[34m---> COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd)
-	r_m.pasture[sheep_id].logs[log_id].request_log_chan <- coordinate_cmd
-	<- r_m.pasture[sheep_id].logs[log_id].done_log_chan
+	r_m.pasture[sheep_id].request_log_chan <- []string{log_id, coordinate_cmd}
+	<- r_m.pasture[sheep_id].logs[log_id].ready_request_chan
 	//fmt.Printf("\033[34m----DONE COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd)
 	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd}, nil
+}
+
+func (r_m *remote_muster) CoordinateCtrl(ctx context.Context, in *pb.CoordinateCtrlRequest) (*pb.CoordinateCtrlReply, error) {
+	sheep_id := in.GetSheepId()
+	ctrl_id := in.GetCtrlId()
+	fmt.Printf("\033[34m---> COORD REQ %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, ctrl_id)
+	ctrl_val := r_m.pasture[sheep_id].controls[ctrl_id].value
+//	r_m.pasture[sheep_id].request_ctrl_chan <- ctrl_id
+//	<- r_m.pasture[sheep_id].controls[ctrl_id].ready_request_chan
+	////fmt.Printf("\033[34m----DONE COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, ctrl_id, ctrl_val)
+	return &pb.CoordinateCtrlReply{SheepId: sheep_id, CtrlId: ctrl_id, CtrlVal: ctrl_val}, nil
 }
 
 func (r_m *remote_muster) start_coordinator() {

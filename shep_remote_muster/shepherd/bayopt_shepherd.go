@@ -48,9 +48,9 @@ func (bayopt_s *bayopt_shepherd) init() {
 			mem_buff := make([][]uint64, 0)
 			log_c.mem_buff = &mem_buff
 			ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
-			ctrl_dvfs_c := control{id: ctrl_dvfs_id, n_ip: m.ip, knob: "dvfs", value: 0xc00, dirty: false}
+			ctrl_dvfs_c := control{id: ctrl_dvfs_id, n_ip: m.ip, knob: "dvfs", dirty: false, ready_request_chan: make(chan bool, 1)}
 			ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
-			ctrl_itr_c := control{id: ctrl_itr_id, n_ip: m.ip, knob: "itr-delay", value: 1, dirty: false}
+			ctrl_itr_c := control{id: ctrl_itr_id, n_ip: m.ip, knob: "itr-delay", dirty: false, ready_request_chan: make(chan bool, 1)}
 
 			bayopt_s.joules_measure[m_id][sheep_id] = make([]float64, 1)
 			bayopt_s.joules_diff[m_id][sheep_id] = make([]float64, 0)
@@ -61,7 +61,7 @@ func (bayopt_s *bayopt_shepherd) init() {
 			bayopt_s.musters[m_id].pasture[sheep_id].logs[log_c.id].ready_buff_chan <- true
 		}
 	}
-	bayopt_s.init_log_files(bayopt_s.logs_dir)
+//	bayopt_s.init_log_files(bayopt_s.logs_dir)
 }
 
 /* This function assigns a map of log files to each sheep/core.

@@ -16,6 +16,7 @@ func (m *muster) init() {
 
 	/* coordination channels */
 	m.request_log_chan = make(chan []string)
+	m.request_ctrl_chan = make(chan []string)
 
 	m.pasture = make(map[string]*sheep)
 	var c uint8

@@ -35,6 +35,8 @@ type control_reply struct {
 }
 
 type control struct {
+	ready_request_chan chan bool
+
 	dirty bool
 	value uint64
 	knob string
@@ -79,7 +81,9 @@ type muster struct {
 	hb_chan chan *pb.HeartbeatReply
 	full_buff_chan chan []string
 	new_ctrl_chan chan control_request
+
 	request_log_chan chan []string
+	request_ctrl_chan chan []string
 
 	pasture map[string]*sheep
 	id string

@@ -25,7 +25,8 @@ func (s *shepherd) init(nodes []node) {
 	s.musters = make(map[string]*muster)
 	s.local_musters = make(map[string]*local_muster)
 	for n := 0; n < len(nodes); n++ {
-		m_id := "muster-" + nodes[n].ip + "-" + strconv.Itoa(n)
+		m_id := "muster-" + nodes[n].ip
+		if nodes[n].ip_idx != -1 { m_id = m_id + "-" + strconv.Itoa(nodes[n].ip_idx) }
 		m_n := &muster{id: m_id, node: nodes[n]}
 		m_n.init()
 		l_m := &local_muster{muster: *m_n}
@@ -43,6 +44,7 @@ func (s *shepherd) init_log_files(logs_dir string) {
 	err := os.Mkdir(logs_dir, 0750)
 	if err != nil && !os.IsExist(err) { panic(err) }
 	for _, l_m := range(s.local_musters) {
+
 		l_m.out_f_map = make(map[string](map[string]*os.File))
 		l_m.out_writer_map = make(map[string](map[string]*csv.Writer))
 		l_m.out_f = make(map[string]*os.File)

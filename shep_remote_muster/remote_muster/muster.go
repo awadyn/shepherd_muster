@@ -12,13 +12,14 @@ import (
 
 func (l *log) init() {
 	l.kill_log_chan = make(chan bool, 1)
-	l.request_log_chan = make(chan string)
-	l.done_log_chan = make(chan bool, 1)
+//	l.request_log_chan = make(chan string)
+//	l.done_log_chan = make(chan bool, 1)
+	l.ready_request_chan = make(chan bool, 1)
 	l.ready_buff_chan = make(chan bool, 1)
 }
 
 func (m *muster) init(n_ip string, n_cores uint8, ip_idx string) {
-	n := node{ip:n_ip, ncores: uint8(n_cores)}
+	n := node{ip: n_ip, ncores: uint8(n_cores)}
 	m_id := "muster-" + n.ip
 	if ip_idx != "" { m_id = m_id + "-" + ip_idx }
 	m.id = m_id
@@ -26,11 +27,10 @@ func (m *muster) init(n_ip string, n_cores uint8, ip_idx string) {
 	m.pasture = make(map[string]*sheep)
 
 	m.hb_chan = make(chan bool)
-
-	m.exit_chan = make(chan bool, 1)
+//	m.exit_chan = make(chan bool, 1)
 	m.full_buff_chan = make(chan []string)
 	m.new_ctrl_chan = make(chan ctrl_req)
-	m.done_chan = make(chan []string)
+//	m.done_chan = make(chan []string)
 
 	var core uint8
 	for core = 0; core < n.ncores; core ++ {
@@ -39,11 +39,14 @@ func (m *muster) init(n_ip string, n_cores uint8, ip_idx string) {
 		sheep_c := sheep{id: sheep_id, core: core,
 				 logs: make(map[string]*log),
 				 controls: make(map[string]*control),
-				 request_ctrl_chan: make(chan map[string]uint64),
+				 new_ctrl_chan: make(chan map[string]uint64),
 				 ready_ctrl_chan: make(chan bool, 1),
 				 done_ctrl_chan: make(chan bool, 1),
+				 request_log_chan: make(chan []string),
+				 request_ctrl_chan: make(chan string),
 				 detach_native_logger: make(chan bool, 1),
-				 done_kill_chan: make(chan bool, 1)}
+				 //done_kill_chan: make(chan bool, 1)
+				}
 		m.pasture[sheep_id] = &sheep_c
 	}
 }
@@ -119,12 +122,7 @@ func (m *muster) sync_new_ctrl() {
 		case new_ctrl_req := <- m.new_ctrl_chan:
 			sheep_id := new_ctrl_req.sheep_id
 			new_ctrls := new_ctrl_req.ctrls
-			m.pasture[sheep_id].request_ctrl_chan <- new_ctrls
-//			sheep := m.pasture[sheep_id]
-//			for ctrl_id, ctrl_val := range(new_ctrls) {
-//				sheep.controls[ctrl_id].value = ctrl_val
-//			}
-//			m.pasture[sheep.id].ready_ctrl_chan <- true
+			m.pasture[sheep_id].new_ctrl_chan <- new_ctrls
 		}
 	}
 }

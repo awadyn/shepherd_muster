@@ -32,7 +32,7 @@ func (bayopt_m *bayopt_muster) init() {
 		return
 	}
 
-	ctrl_itr_shared := control{n_ip: bayopt_m.ip, knob: "itr-delay", dirty: false}  
+	ctrl_itr_shared := control{n_ip: bayopt_m.ip, knob: "itr-delay", dirty: false, ready_request_chan: make(chan bool, 1)}
 	rx_usecs_reading := ctrl_itr_shared.getter(0, read_rx_usecs, iface)  
 
 	if rx_usecs_reading == 0 {
@@ -54,11 +54,10 @@ func (bayopt_m *bayopt_muster) init() {
 			     mem_buff: &mem_buff,
 			     log_wait_factor: 3,
 			     kill_log_chan: make(chan bool, 1),
-			     request_log_chan: make(chan string),
-			     done_log_chan: make(chan bool, 1),
+			     ready_request_chan: make(chan bool, 1),
 			     ready_buff_chan: make(chan bool, 1)}
 
-		ctrl_dvfs := control{n_ip: bayopt_m.ip, knob: "dvfs", dirty: false}
+		ctrl_dvfs := control{n_ip: bayopt_m.ip, knob: "dvfs", dirty: false, ready_request_chan: make(chan bool, 1)}
 		ctrl_dvfs.id = "ctrl-dvfs-" + c_str + "-" + bayopt_m.ip
 		ctrl_dvfs.value = ctrl_dvfs.getter(core, read_dvfs)
 		ctrl_itr := ctrl_itr_shared
@@ -205,7 +204,7 @@ func do_bayopt_log(shared_log *log, reader *csv.Reader) error {
 
 func (bayopt_m *bayopt_muster) assign_log_files(sheep_id string) {
 	c_str := strconv.Itoa(int(bayopt_m.pasture[sheep_id].core))
-	log_fname := "/users/awadyn/shepherd_muster/shep_remote_muster/intlog_logs/" + c_str
+	log_fname := bayopt_m.logs_dir + "/" + c_str
 	if bayopt_m.log_f_map[sheep_id] != nil {
 		bayopt_m.log_f_map[sheep_id].Close()
 	}
@@ -221,7 +220,7 @@ func (bayopt_m *bayopt_muster) assign_log_files(sheep_id string) {
 func (bayopt_m *bayopt_muster) attach_native_logger(sheep_id string, log_id string) {
 	c_str := strconv.Itoa(int(bayopt_m.pasture[sheep_id].core))
 	src_fname := "/proc/ixgbe_stats/core/" + c_str
-	log_fname := "/users/awadyn/shepherd_muster/shep_remote_muster/intlog_logs/" + c_str
+	log_fname := bayopt_m.logs_dir + "/" + c_str
 
 	cmd := exec.Command("bash", "-c", "cat " + src_fname)
 	if err := cmd.Run(); err != nil { panic(err) }
@@ -244,12 +243,12 @@ func (bayopt_m *bayopt_muster) attach_native_logger(sheep_id string, log_id stri
 
 
 func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
-	fmt.Printf("\033[36m-- SHEEP %v -- STARTING CONTROL MANAGER\n\033[0m", sheep_id)
+	fmt.Printf("\033[36m-- SHEEP %v - STARTING CONTROL MANAGER\n\033[0m", sheep_id)
 	sheep := bayopt_m.pasture[sheep_id]
 	var err error
 	for {
 		select {
-		case new_ctrls := <- sheep.request_ctrl_chan:
+		case new_ctrls := <- sheep.new_ctrl_chan:
 			for ctrl_id, ctrl_val := range(new_ctrls) {
 				switch {
 				case sheep.controls[ctrl_id].knob == "dvfs":
@@ -267,21 +266,24 @@ func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
 }
 
 
-func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
-	fmt.Printf("\033[34m-- SHEEP %v - LOG %v -- STARTING LOG MANAGER\n\033[0m", sheep_id, log_id)
+//func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
+func (bayopt_m *bayopt_muster) log_manage(sheep_id string) {
+	fmt.Printf("\033[34m-- SHEEP %v - STARTING LOG MANAGER\n\033[0m", sheep_id)
 	for {
 		select {
-		case cmd := <- bayopt_m.pasture[sheep_id].logs[log_id].request_log_chan:
+		case req := <- bayopt_m.pasture[sheep_id].request_log_chan:
+			log_id := req[0]
+			cmd := req[1]
 			switch {
 			case cmd == "start":
 				// start communication with native logger
 				bayopt_m.assign_log_files(sheep_id)
 				bayopt_m.attach_native_logger(sheep_id, log_id)
-				bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
+				bayopt_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 			case cmd == "stop":
 				// stop communication with native logger
 				bayopt_m.pasture[sheep_id].detach_native_logger <- true
-				bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
+				bayopt_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 			case cmd == "first":
 				// get first instance from native logger
 				go func() {
@@ -294,11 +296,11 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 					err := bayopt_m.sync_with_logger(sheep_id, log_id, reader, do_bayopt_log, 1)
 					if err == io.EOF {
 						fmt.Println("************** FILE IS EMPTY *************", log_id) 
-						bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
+						bayopt_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 						return
 					}
 					if err != nil { panic(err) }
-					bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
+					bayopt_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 				} ()
 			case cmd == "last":
 				// get last instance from native logger
@@ -316,7 +318,7 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 					len_rows := len(rows)
 					if len_rows == 0 {
 						fmt.Println("************** FILE IS EMPTY *************", log_id) 
-						bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
+						bayopt_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 						return
 					}
 
@@ -338,7 +340,7 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 
 					err = bayopt_m.sync_with_logger(sheep_id, log_id, reader2, do_bayopt_log, 1)
 					if err != nil { panic(err) }
-					bayopt_m.pasture[sheep_id].logs[log_id].done_log_chan <- true
+					bayopt_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 				} ()
 			default:
 				fmt.Println("************ UNKNOWN BAYOPT_LOG COMMAND: ", cmd)

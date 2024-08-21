@@ -19,20 +19,17 @@ type node struct {
 }
 
 type log struct {
-	ready_buff_chan chan bool
-	kill_log_chan chan bool
-	//do_log_chan chan bool
-	request_log_chan chan string
-	done_log_chan chan bool
-
+	n_ip string
+	id string
 	mem_buff *[][]uint64
 	max_size uint64
 	metrics []string
 
 	log_wait_factor time.Duration		// seconds to wait before appending to log filesys rep
 						// TODO: buff_wait_factor ??
-	n_ip string
-	id string
+	ready_buff_chan chan bool
+	ready_request_chan chan bool
+	kill_log_chan chan bool
 }
 
 type control struct {
@@ -41,6 +38,7 @@ type control struct {
 	knob string
 	n_ip string
 	id string
+	ready_request_chan chan bool		//signals ctrl request done
 }
 
 type Control interface {
@@ -58,9 +56,13 @@ type sheep struct {
 	logs map[string]*log
 	controls map[string]*control
 
-	request_ctrl_chan chan map[string]uint64 
+	request_log_chan chan []string		//signals get current logs
+	request_ctrl_chan chan string		//signals get current ctrls
+
+	new_ctrl_chan chan map[string]uint64	//signals set new ctrls 
 	ready_ctrl_chan chan bool
 	done_ctrl_chan chan bool
+
 
 	detach_native_logger chan bool
 	done_kill_chan chan bool
