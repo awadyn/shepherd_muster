@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
 )
 
 /*********************************************/
 
-var exp_timeout time.Duration = time.Second * 75
 var mirror_ip string;
 
 func main() {

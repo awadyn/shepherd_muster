@@ -11,7 +11,7 @@ import (
 /*********************************************/
 
 func (l *log) init() {
-	l.kill_log_chan = make(chan bool, 1)
+//	l.kill_log_chan = make(chan bool, 1)
 //	l.request_log_chan = make(chan string)
 //	l.done_log_chan = make(chan bool, 1)
 	l.ready_request_chan = make(chan bool, 1)
@@ -26,10 +26,10 @@ func (m *muster) init(n_ip string, n_cores uint8, ip_idx string) {
 	m.node = n 
 	m.pasture = make(map[string]*sheep)
 
-	m.hb_chan = make(chan bool)
+//	m.hb_chan = make(chan bool)
 //	m.exit_chan = make(chan bool, 1)
 	m.full_buff_chan = make(chan []string)
-	m.new_ctrl_chan = make(chan ctrl_req)
+	m.new_ctrl_chan = make(chan control_request)
 //	m.done_chan = make(chan []string)
 
 	var core uint8
@@ -41,7 +41,7 @@ func (m *muster) init(n_ip string, n_cores uint8, ip_idx string) {
 				 controls: make(map[string]*control),
 				 new_ctrl_chan: make(chan map[string]uint64),
 				 ready_ctrl_chan: make(chan bool, 1),
-				 done_ctrl_chan: make(chan bool, 1),
+//				 done_ctrl_chan: make(chan bool, 1),
 				 request_log_chan: make(chan []string),
 				 request_ctrl_chan: make(chan string),
 				 detach_native_logger: make(chan bool, 1),

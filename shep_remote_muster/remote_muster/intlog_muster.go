@@ -27,7 +27,7 @@ func (intlog_m *intlog_muster) init() {
 			     metrics: intlog_m.intlog_metrics,
 			     max_size: intlog_m.buff_max_size,
 			     mem_buff: &mem_buff,
-			     kill_log_chan: make(chan bool, 1),
+			     //kill_log_chan: make(chan bool, 1),
 			     ready_buff_chan: make(chan bool, 1)}
 		ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + intlog_m.ip
 		ctrl_itr_id := "ctrl-itr-" + c_str + "-" + intlog_m.ip
@@ -159,8 +159,8 @@ func (r_m *intlog_muster) intlog_log(sheep_id string, log_id string, core uint8)
 		// --> sync_with_logger: syncs one mem_buff at a time with local muster
 		// --> do_intlog_log: fills one mem_buff at a time from log file
 		select {
-		case <- r_m.pasture[sheep_id].logs[log_id].kill_log_chan:
-			return
+//		case <- r_m.pasture[sheep_id].logs[log_id].kill_log_chan:
+//			return
 		default:
 			err = r_m.sync_with_logger(sheep_id, log_id, reader, do_intlog_log, -1)
 			if err == io.EOF { 

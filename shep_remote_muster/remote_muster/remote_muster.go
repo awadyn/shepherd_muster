@@ -23,6 +23,7 @@ import (
 */
 func (r_m *remote_muster) init(pulse_server_port int, log_server_port int, 
 				ctrl_server_port int, coordinate_server_port int) {
+	r_m.hb_chan = make(chan bool)
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
 					  mirror_ip + ":" + strconv.Itoa(log_server_port), 
 					  "address of mirror local_muster log sync server")
@@ -143,7 +144,7 @@ func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) err
 		switch {
 		case err == io.EOF:
 			fmt.Printf("\033[35m-----> CTRL-REQ -- %v - %v\n\033[0m", sheep_id, new_ctrls)
-			r_m.new_ctrl_chan <- ctrl_req{sheep_id: sheep_id, ctrls: new_ctrls}
+			r_m.new_ctrl_chan <- control_request{sheep_id: sheep_id, ctrls: new_ctrls}
 			<- r_m.pasture[sheep_id].ready_ctrl_chan
 			fmt.Printf("\033[35m<----- CTRL REP -- %v - %v\n\033[0m", sheep_id, new_ctrls)
 			return stream.SendAndClose(&pb.ControlReply{CtrlComplete: true})

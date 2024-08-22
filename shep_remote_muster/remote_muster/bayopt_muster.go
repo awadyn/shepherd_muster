@@ -53,7 +53,7 @@ func (bayopt_m *bayopt_muster) init() {
 			     max_size: bayopt_m.buff_max_size,
 			     mem_buff: &mem_buff,
 			     log_wait_factor: 3,
-			     kill_log_chan: make(chan bool, 1),
+			     //kill_log_chan: make(chan bool, 1),
 			     ready_request_chan: make(chan bool, 1),
 			     ready_buff_chan: make(chan bool, 1)}
 
