@@ -260,7 +260,7 @@ func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
 				if err != nil { panic(err) }
 				sheep.controls[ctrl_id].value = ctrl_val
 			}
-			bayopt_m.pasture[sheep.id].ready_ctrl_chan <- true
+			bayopt_m.pasture[sheep.id].ready_ctrl_chan <- control_reply{done: true, ctrls: new_ctrls}
 		}
 	}
 }

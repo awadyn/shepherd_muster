@@ -186,7 +186,7 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 					break
 				}
 				new_ctrl_reply := control_reply{ctrls: new_ctrls, done: done_ctrl}
-				l_m.pasture[sheep_id].done_ctrl_chan <- new_ctrl_reply
+				l_m.pasture[sheep_id].ready_ctrl_chan <- new_ctrl_reply
 				fmt.Printf("\033[35m-------> CTRL REP --  %v - %v - %v\n\033[0m", l_m.id, sheep_id, new_ctrls)
 			}()
 		}

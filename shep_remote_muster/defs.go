@@ -71,9 +71,7 @@ type sheep struct {
 	//finish_run_chan chan bool
 
 	new_ctrl_chan chan map[string]uint64	//signals set new ctrls 
-	done_ctrl_chan chan control_reply
-	ready_ctrl_chan chan bool
-
+	ready_ctrl_chan chan control_reply	//syncs application of ctrl change
 	request_log_chan chan []string		//signals get current logs
 	request_ctrl_chan chan string		//signals get current ctrls
 	detach_native_logger chan bool
