@@ -24,9 +24,9 @@ func (m *muster) init(n_ip string, n_cores uint8, ip_idx string) {
 	m.node = n 
 	m.pasture = make(map[string]*sheep)
 
-//	m.exit_chan = make(chan bool, 1)
 	m.full_buff_chan = make(chan []string)
 	m.new_ctrl_chan = make(chan control_request)
+//	m.exit_chan = make(chan bool, 1)
 //	m.done_chan = make(chan []string)
 
 	var core uint8

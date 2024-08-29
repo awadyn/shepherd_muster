@@ -30,13 +30,10 @@ func bayopt_main(n_ip string, n_cores uint8, pulse_server_port int, log_server_p
 	go bayopt_m.sync_new_ctrl()
 	go bayopt_m.start_coordinator()
 	bayopt_m.start_logger()
-	//<- bayopt_m.hb_chan
 
 	for sheep_id, _ := range(bayopt_m.pasture) {
-//		for log_id, _ := range(bayopt_m.pasture[sheep_id].logs) { 
 		go bayopt_m.log_manage(sheep_id) 
 		go bayopt_m.ctrl_manage(sheep_id) 
-//		}
 	}
 
 	// cleanup

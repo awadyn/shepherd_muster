@@ -28,8 +28,8 @@ func main() {
 	var ip_idx string = ""
 	if len(os.Args) > 8 { ip_idx = os.Args[8] }
 
-//	flink_main(n_ip, n_cores, pulse_server_port, log_server_port, ctrl_server_port, coordinate_server_port)
-	bayopt_main(n_ip, n_cores, pulse_server_port, log_server_port, ctrl_server_port, coordinate_server_port, ip_idx)
+	flink_main(n_ip, n_cores, pulse_server_port, log_server_port, ctrl_server_port, coordinate_server_port, ip_idx)
+//	bayopt_main(n_ip, n_cores, pulse_server_port, log_server_port, ctrl_server_port, coordinate_server_port, ip_idx)
 }
 
 

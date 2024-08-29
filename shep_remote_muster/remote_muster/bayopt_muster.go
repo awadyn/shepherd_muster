@@ -69,21 +69,21 @@ func (bayopt_m *bayopt_muster) init() {
 		bayopt_m.pasture[sheep_id].controls[ctrl_itr.id] = &ctrl_itr
 	}
 
-	bayopt_m.init_log_files()
+	bayopt_m.init_log_files(bayopt_m.logs_dir)
 }
 
-func (bayopt_m *bayopt_muster) init_log_files() {
-	bayopt_m.log_f_map = make(map[string]*os.File)
-	bayopt_m.log_reader_map = make(map[string]*csv.Reader)
-	for sheep_id, _ := range(bayopt_m.pasture) {
-		core := bayopt_m.pasture[sheep_id].core
-		c_str := strconv.Itoa(int(core))
-		log_fname := bayopt_m.logs_dir + c_str
-		f, err := os.Create(log_fname)
-		if err != nil { panic(err) }
-		bayopt_m.log_f_map[sheep_id] = f
-	}
-}
+//func (bayopt_m *bayopt_muster) init_log_files() {
+//	bayopt_m.log_f_map = make(map[string]*os.File)
+//	bayopt_m.log_reader_map = make(map[string]*csv.Reader)
+//	for sheep_id, _ := range(bayopt_m.pasture) {
+//		core := bayopt_m.pasture[sheep_id].core
+//		c_str := strconv.Itoa(int(core))
+//		log_fname := bayopt_m.logs_dir + c_str
+//		f, err := os.Create(log_fname)
+//		if err != nil { panic(err) }
+//		bayopt_m.log_f_map[sheep_id] = f
+//	}
+//}
 
 func read_dvfs(core uint8, extra_args ...string) uint64 {
 	c_str := strconv.Itoa(int(core))
@@ -243,7 +243,7 @@ func (bayopt_m *bayopt_muster) attach_native_logger(sheep_id string, log_id stri
 
 
 func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
-	fmt.Printf("\033[36m-- SHEEP %v - STARTING CONTROL MANAGER\n\033[0m", sheep_id)
+	fmt.Printf("\033[36m-- MUSTER %v -- SHEEP %v - STARTING CONTROL MANAGER\n\033[0m", bayopt_m.id, sheep_id)
 	sheep := bayopt_m.pasture[sheep_id]
 	var err error
 	for {
@@ -266,9 +266,8 @@ func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
 }
 
 
-//func (bayopt_m *bayopt_muster) log_manage(sheep_id string, log_id string) {
 func (bayopt_m *bayopt_muster) log_manage(sheep_id string) {
-	fmt.Printf("\033[34m-- SHEEP %v - STARTING LOG MANAGER\n\033[0m", sheep_id)
+	fmt.Printf("\033[34m-- MUSTER %v --SHEEP %v - STARTING LOG MANAGER\n\033[0m", bayopt_m.id, sheep_id)
 	for {
 		select {
 		case req := <- bayopt_m.pasture[sheep_id].request_log_chan:

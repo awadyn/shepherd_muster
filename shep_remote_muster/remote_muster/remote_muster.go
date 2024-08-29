@@ -27,11 +27,11 @@ func (r_m *remote_muster) init(pulse_server_port int, log_server_port int,
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
 					  mirror_ip + ":" + strconv.Itoa(log_server_port), 
 					  "address of mirror local_muster log sync server")
-	r_m.pulse_server_port = flag.Int("pulse_port", pulse_server_port, 
+	r_m.pulse_server_port = flag.Int("pulse_port_" + r_m.id, pulse_server_port, 
 						"remote_muster pulse server port")
-	r_m.ctrl_server_port = flag.Int("ctrl_port", ctrl_server_port, 
+	r_m.ctrl_server_port = flag.Int("ctrl_port_" + r_m.id, ctrl_server_port, 
 						"remote_muster ctrl server port")
-	r_m.coordinate_server_port = flag.Int("coordinate_port", coordinate_server_port, 
+	r_m.coordinate_server_port = flag.Int("coordinate_port_" + r_m.id, coordinate_server_port, 
 						"remote muster coordinate server port")
 }
 

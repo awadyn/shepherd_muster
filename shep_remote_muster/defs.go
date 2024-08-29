@@ -162,12 +162,15 @@ type Shepherd interface {
 
 /* SPECIALIZATIONS */
 
-type ep_shepherd struct {
-	shepherd
-}
-
 type intlog_shepherd struct {
 	shepherd
+	logs_dir string
+	intlog_metrics []string
+	buff_max_size uint64
+}
+
+type intlog_muster struct {
+	remote_muster
 	logs_dir string
 	intlog_metrics []string
 	buff_max_size uint64
@@ -182,27 +185,6 @@ type bayopt_shepherd struct {
 	joules_diff map[string](map[string][]float64)
 }
 
-type flink_shepherd struct {
-	shepherd
-	logs_dir string
-	flink_metrics []string
-	buff_max_size uint64
-}
-
-type test_muster struct {
-	remote_muster
-	done_log_map map[string](map[string]chan bool)
-	log_f_map map[string](map[string]*os.File)
-	log_reader_map map[string](map[string]*csv.Reader)
-}
-
-type intlog_muster struct {
-	remote_muster
-	logs_dir string
-	intlog_metrics []string
-	buff_max_size uint64
-}
-
 type bayopt_muster struct {
 	remote_muster
 	logs_dir string
@@ -211,20 +193,38 @@ type bayopt_muster struct {
 	buff_max_size uint64
 }
 
-type flink_muster struct {
+type flink_shepherd struct {
+	shepherd
+	flink_musters map[string]*flink_local_muster
+}
+
+type flink_local_muster struct {
+	base_muster *local_muster
+	logs_dir string
+	flink_metrics []string
+	buff_max_size uint64
+}
+
+type flink_worker_muster struct {
+	bayopt_muster
+}
+
+type flink_source_muster struct {
 	remote_muster
 	logs_dir string
 	flink_metrics []string
 	buff_max_size uint64
-
 }
 
-type flink_energy_muster struct {
-	flink_muster
+type ep_shepherd struct {
+	shepherd
 }
 
-type flink_backpressure_muster struct {
-	flink_muster
+type test_muster struct {
+	remote_muster
+	done_log_map map[string](map[string]chan bool)
+	log_f_map map[string](map[string]*os.File)
+	log_reader_map map[string](map[string]*csv.Reader)
 }
 
 
@@ -238,28 +238,40 @@ func (l_ptr *log) show() {
 
 }
 
-func (m *muster) show() {
-	fmt.Printf("-- MUSTER %v --\n", m.id)
-	fmt.Printf("-- -- NODE -- -- %v\n", m.node)
-	fmt.Printf("-- -- PASTURE -- -- %v\n", m.pasture)
-}
-
 func (r_m *remote_muster) show() {
 	fmt.Printf("-- REMOTE MUSTER :  %v \n", r_m.id)
+	fmt.Printf("-- ROLE : %v \n", r_m.role)
 	fmt.Printf("-- NODE :  %v \n", r_m.node)
 	fmt.Printf("   -- PULSE SERVE PORT :  %v \n", *r_m.pulse_server_port)
 	fmt.Printf("   -- LOG CLIENT PORT :  %v \n", *r_m.log_server_addr)
 	fmt.Printf("   -- CONTROL SERVE PORT :  %v \n", *r_m.ctrl_server_port)
+	fmt.Printf("   -- COORDINATION SERVE PORT :  %v \n", *r_m.coordinate_server_port)
 	fmt.Printf("   -- PASTURE :  \n")
-	for sheep_id, _ := range(r_m.pasture) {
-		fmt.Printf("      -- SHEEP %v \n", sheep_id)
+	r_m.muster.show()
+}
+
+func (l_m *local_muster) show() {
+	fmt.Printf("-- LOCAL MUSTER :  %v \n", l_m.id)
+	fmt.Printf("-- ROLE : %v \n", l_m.role)
+	fmt.Printf("-- NODE :  %v \n", l_m.node)
+	fmt.Printf("   -- PULSE SERVE PORT :  %v \n", *l_m.pulse_server_addr)
+	fmt.Printf("   -- LOG CLIENT PORT :  %v \n", *l_m.log_server_port)
+	fmt.Printf("   -- CONTROL SERVE PORT :  %v \n", *l_m.ctrl_server_addr)
+	fmt.Printf("   -- COORDINATION SERVE PORT :  %v \n", *l_m.coordinate_server_addr)
+	fmt.Printf("   -- PASTURE :  \n")
+	l_m.muster.show()
+}
+
+func (m *muster) show() {
+	for sheep_id, _ := range(m.pasture) {
+		fmt.Printf("      -- SHEEP : %v \n", sheep_id)
 		fmt.Printf("         -- LOGS :  \n")
-		for log_id, _ := range(r_m.pasture[sheep_id].logs) {
-			fmt.Printf("            %v \n", r_m.pasture[sheep_id].logs[log_id])
+		for log_id, _ := range(m.pasture[sheep_id].logs) {
+			fmt.Printf("            %v \n", m.pasture[sheep_id].logs[log_id])
 		} 
 		fmt.Printf("         -- CONTROLS :  \n")
-		for ctrl_id, _ := range(r_m.pasture[sheep_id].controls) {
-			fmt.Printf("            %v \n", r_m.pasture[sheep_id].controls[ctrl_id])
+		for ctrl_id, _ := range(m.pasture[sheep_id].controls) {
+			fmt.Printf("            %v \n", m.pasture[sheep_id].controls[ctrl_id])
 		}
 	}
 	fmt.Println()
