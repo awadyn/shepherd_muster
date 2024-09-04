@@ -15,21 +15,29 @@ func main() {
 	mirror_ip = os.Args[2]
 	arg3, err := strconv.Atoi(os.Args[3])
 	if err != nil {fmt.Printf("** ** ** ERROR: bad n_cores argument: %v\n", err)}
-	n_cores := uint8(arg3)
+	ncores := uint8(arg3)
 
-	pulse_server_port, err := strconv.Atoi(os.Args[4])
+	pulse_port, err := strconv.Atoi(os.Args[4])
 	if err != nil {fmt.Printf("** ** ** ERROR: bad n_port argument: %v\n", err)}
-	log_server_port, err := strconv.Atoi(os.Args[5])
+	log_port, err := strconv.Atoi(os.Args[5])
 	if err != nil {fmt.Printf("** ** ** ERROR: bad n_port argument: %v\n", err)}
-	ctrl_server_port, err := strconv.Atoi(os.Args[6])
+	ctrl_port, err := strconv.Atoi(os.Args[6])
 	if err != nil {fmt.Printf("** ** ** ERROR: bad n_port argument: %v\n", err)}
-	coordinate_server_port, err := strconv.Atoi(os.Args[7])
+	coordinate_port, err := strconv.Atoi(os.Args[7])
 	if err != nil {fmt.Printf("** ** ** ERROR: bad n_port argument: %v\n", err)}
-	var ip_idx string = ""
-	if len(os.Args) > 8 { ip_idx = os.Args[8] }
+	var ip_idx int = -1
+	if len(os.Args) > 8 { 
+		ip_idx, err = strconv.Atoi(os.Args[8])
+		if err != nil {fmt.Printf("** ** ** ERROR: bad ip_idx argument: %v\n", err)}
+	}
 
-	flink_main(n_ip, n_cores, pulse_server_port, log_server_port, ctrl_server_port, coordinate_server_port, ip_idx)
+	remote_node := node{ip: n_ip, ip_idx: ip_idx, ncores: ncores, 
+			    pulse_port: pulse_port, log_port: log_port, 
+			    ctrl_port: ctrl_port, coordinate_port: coordinate_port}
+
+//	flink_main(n_ip, n_cores, pulse_server_port, log_server_port, ctrl_server_port, coordinate_server_port, ip_idx)
 //	bayopt_main(n_ip, n_cores, pulse_server_port, log_server_port, ctrl_server_port, coordinate_server_port, ip_idx)
+	bayopt_main(remote_node)
 }
 
 

@@ -25,14 +25,17 @@ func (s *shepherd) init(nodes []node) {
 	s.musters = make(map[string]*muster)
 	s.local_musters = make(map[string]*local_muster)
 	for n := 0; n < len(nodes); n++ {
-		m_id := "muster-" + nodes[n].ip
-		if nodes[n].ip_idx != -1 { m_id = m_id + "-" + strconv.Itoa(nodes[n].ip_idx) }
-		m_n := &muster{id: m_id, node: nodes[n]}
+//		m_id := "muster-" + nodes[n].ip
+//		ip_idx_str := strconv.Itoa(nodes[n].ip_idx)
+//		if nodes[n].ip_idx != -1 { m_id = m_id + "-" + ip_idx_str }
+		m_n := &muster{node: nodes[n]}
+//		m_n := &muster{id: m_id, node: n}
+//		m_n.init(n.ip, n.ncores, ip_idx_str)
 		m_n.init()
 		l_m := &local_muster{muster: *m_n}
 		l_m.init()
-		s.musters[m_id] = m_n
-		s.local_musters[m_id] = l_m
+		s.musters[m_n.id] = m_n
+		s.local_musters[l_m.id] = l_m
 	}
 }
 

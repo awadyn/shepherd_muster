@@ -1,7 +1,7 @@
 package main
 
 import ( "time"
-//	 "os"
+	 "os"
 //	 "os/exec" 
 //	"fmt"
 )
@@ -54,21 +54,26 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 }
 
 func bayopt_main(nodes []node) {
+	home_dir, err := os.Getwd()
+	if err != nil { panic(err) }
+
 	// initialize generic shepherd
 	s := shepherd{id: "sheperd-bayopt"}
 	s.init(nodes)
 	// initialize specialized energy-performance shepherd
-	bayopt_s := bayopt_shepherd{shepherd:s}
+	bayopt_s := bayopt_shepherd{shepherd:s,
+				    logs_dir: home_dir + "/shepherd_intlog_logs/"}
 	bayopt_s.init()
+	bayopt_s.init_local()
 	
 	// start all management and coordination threads
 	bayopt_s.deploy_musters()
 	go bayopt_s.listen_heartbeats()
-	go bayopt_s.process_logs()
-	go bayopt_s.compute_control()
-	for _, l_m := range(bayopt_s.local_musters) {
-		go bayopt_s.run_workload(l_m.id)
-	}
+//	go bayopt_s.process_logs()
+//	go bayopt_s.compute_control()
+//	for _, l_m := range(bayopt_s.local_musters) {
+//		go bayopt_s.run_workload(l_m.id)
+//	}
 
 	time.Sleep(exp_timeout)
 

@@ -14,54 +14,63 @@ import (
 var joules_idx int
 var timestamp_idx int
 
+type bayopt_muster struct {
+	local_muster
+	logs_dir string
+	ixgbe_metrics []string
+	// bayopt_metrics []string
+	buff_max_size uint64
+}
+
+type bayopt_shepherd struct {
+	shepherd
+	bayopt_musters map[string]*bayopt_muster 
+	logs_dir string
+	ixgbe_metrics []string
+	buff_max_size uint64
+	joules_measure map[string](map[string][]float64)
+	joules_diff map[string](map[string][]float64)
+}
+
 /* 
    This function initializes a specialized shepherd for energy-and-performance 
-   supervision. Each muster under this shepherd's supervision logs energy and
-   performance metrics - i.e. joules and timestamp counters - and controls
-   energy and performance settings - i.e. interrupt delay 
-   and dynamic-voltage-frequency-scaling - for each core under its supervision.
+   management. Each muster under shepherd supervision produces energy and
+   performance logs and applies control changes to energy and performance 
+   settings - i.e. interrupt delay and dynamic-voltage-frequency-scaling - 
+   upon shepherd decision-making for each core under muster supervision.
 */
 func (bayopt_s *bayopt_shepherd) init() {
-	bayopt_s.logs_dir = "/users/awadyn/shepherd_muster/shep_remote_muster/shepherd_intlog_logs/"
-	bayopt_s.intlog_metrics = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
+	bayopt_s.ixgbe_metrics = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
 	                                "instructions", "cycles", "ref_cycles", "llc_miss",
 	                                "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
 	bayopt_s.buff_max_size = 1
-	joules_idx = slices.Index(bayopt_s.intlog_metrics, "joules")
-	timestamp_idx = slices.Index(bayopt_s.intlog_metrics, "timestamp")
+	bayopt_s.bayopt_musters = make(map[string]*bayopt_muster)
+	joules_idx = slices.Index(bayopt_s.ixgbe_metrics, "joules")
+	timestamp_idx = slices.Index(bayopt_s.ixgbe_metrics, "timestamp")
 	bayopt_s.joules_measure = make(map[string](map[string][]float64))
 	bayopt_s.joules_diff = make(map[string](map[string][]float64))
-	for m_id, m := range(bayopt_s.musters) {
-		bayopt_s.joules_measure[m_id] = make(map[string][]float64)
-		bayopt_s.joules_diff[m_id] = make(map[string][]float64)
-		var c uint8
-		for c = 0; c < m.ncores; c++ {
-			c_str := strconv.Itoa(int(c))
-			sheep_id := "sheep-" + c_str + "-" + m.ip
-			log_id := "log-" + c_str + "-" + m.ip 
-			log_c := log{id: log_id, n_ip: m.ip,
-					metrics: bayopt_s.intlog_metrics, 
-					max_size: bayopt_s.buff_max_size, 
-					ready_request_chan: make(chan bool, 1),
-					ready_buff_chan: make(chan bool, 1),
-					ready_process_chan: make(chan bool, 1)}
-			mem_buff := make([][]uint64, 0)
-			log_c.mem_buff = &mem_buff
-			ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
-			ctrl_dvfs_c := control{id: ctrl_dvfs_id, n_ip: m.ip, knob: "dvfs", dirty: false, ready_request_chan: make(chan bool, 1)}
-			ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
-			ctrl_itr_c := control{id: ctrl_itr_id, n_ip: m.ip, knob: "itr-delay", dirty: false, ready_request_chan: make(chan bool, 1)}
 
-			bayopt_s.joules_measure[m_id][sheep_id] = make([]float64, 1)
-			bayopt_s.joules_diff[m_id][sheep_id] = make([]float64, 0)
-			bayopt_s.musters[m_id].pasture[sheep_id].logs[log_id] = &log_c
-			bayopt_s.musters[m_id].pasture[sheep_id].controls[ctrl_dvfs_c.id] = &ctrl_dvfs_c
-			bayopt_s.musters[m_id].pasture[sheep_id].controls[ctrl_itr_c.id] = &ctrl_itr_c
-			bayopt_s.musters[m_id].pasture[sheep_id].logs[log_c.id].ready_request_chan <- true
-			bayopt_s.musters[m_id].pasture[sheep_id].logs[log_c.id].ready_buff_chan <- true
-		}
+	for _, l_m := range(bayopt_s.local_musters) {
+		bayopt_s.joules_measure[l_m.id] = make(map[string][]float64)
+		bayopt_s.joules_diff[l_m.id] = make(map[string][]float64)
+		bayopt_m := bayopt_muster{local_muster: *l_m}
+		bayopt_m.init()
+		bayopt_s.bayopt_musters[bayopt_m.id] = &bayopt_m
 	}
-//	bayopt_s.init_log_files(bayopt_s.logs_dir)
+}
+
+func (bayopt_s *bayopt_shepherd) init_local() {
+	for _, bayopt_m := range(bayopt_s.bayopt_musters) {
+		for _, sheep := range(bayopt_m.pasture) {
+			bayopt_s.joules_measure[bayopt_m.id][sheep.id] = make([]float64, 1)
+			bayopt_s.joules_diff[bayopt_m.id][sheep.id] = make([]float64, 0)
+			for _, log := range(sheep.logs) {
+				log.ready_request_chan <- true
+				log.ready_buff_chan <- true
+			}
+		}
+		bayopt_m.show()
+	}
 }
 
 /* This function assigns a map of log files to each sheep/core.

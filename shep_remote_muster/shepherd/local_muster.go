@@ -21,7 +21,7 @@ func (l_m *local_muster) init() {
 	l_m.hb_chan = make(chan *pb.HeartbeatReply)
 	var idx string = ""
 	if l_m.ip_idx != -1 { idx = strconv.Itoa(int(l_m.ip_idx)) } 
-	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id + idx, l_m.log_sync_port, 
+	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id + idx, l_m.log_port, 
 					"local muster log syncing server port")
 	l_m.pulse_server_addr = flag.String("pulse_server_addr_" + l_m.id + idx, l_m.ip + ":" + strconv.Itoa(l_m.pulse_port),
 						"address of one remote muster pulse server")

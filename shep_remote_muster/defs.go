@@ -17,7 +17,7 @@ var exp_timeout time.Duration = time.Second * 75
 type node struct {
 	ncores uint8
 	pulse_port int
-	log_sync_port int
+	log_port int
 	ctrl_port int
 	coordinate_port int
 	ip_idx int			//differentiates musters on the same node
@@ -33,6 +33,9 @@ type control struct {
 	knob string
 	n_ip string
 	id string
+
+	getter func(uint8, ...string)uint64
+	setter func(uint8, uint64)error
 }
 
 type control_request struct {
@@ -43,11 +46,6 @@ type control_request struct {
 type control_reply struct {
 	done bool
 	ctrls map[string]uint64
-}
-
-type Control interface {
-	getter()
-	setter()
 }
 
 
@@ -176,22 +174,6 @@ type intlog_muster struct {
 	buff_max_size uint64
 }
 
-type bayopt_shepherd struct {
-	shepherd
-	logs_dir string
-	intlog_metrics []string
-	buff_max_size uint64
-	joules_measure map[string](map[string][]float64)
-	joules_diff map[string](map[string][]float64)
-}
-
-type bayopt_muster struct {
-	remote_muster
-	logs_dir string
-	intlog_metrics []string
-	bayopt_metrics []string
-	buff_max_size uint64
-}
 
 type flink_shepherd struct {
 	shepherd
@@ -239,7 +221,7 @@ func (l_ptr *log) show() {
 }
 
 func (r_m *remote_muster) show() {
-	fmt.Printf("-- REMOTE MUSTER :  %v \n", r_m.id)
+	fmt.Printf("-- REMOTE MUSTER :  %v\n   %v \n", r_m.id, r_m)
 	fmt.Printf("-- ROLE : %v \n", r_m.role)
 	fmt.Printf("-- NODE :  %v \n", r_m.node)
 	fmt.Printf("   -- PULSE SERVE PORT :  %v \n", *r_m.pulse_server_port)
@@ -251,7 +233,7 @@ func (r_m *remote_muster) show() {
 }
 
 func (l_m *local_muster) show() {
-	fmt.Printf("-- LOCAL MUSTER :  %v \n", l_m.id)
+	fmt.Printf("-- LOCAL MUSTER :  %v\n   %v \n", l_m.id, l_m)
 	fmt.Printf("-- ROLE : %v \n", l_m.role)
 	fmt.Printf("-- NODE :  %v \n", l_m.node)
 	fmt.Printf("   -- PULSE SERVE PORT :  %v \n", *l_m.pulse_server_addr)

@@ -17,20 +17,11 @@ import (
 func (source_m *flink_source_muster) init() {
 	source_m.flink_metrics = []string{"i", "backpressure", "timestamp"}
 	source_m.buff_max_size = 1
-	var core uint8
-	for core = 0; core < source_m.ncores; core ++ {
-		c_str := strconv.Itoa(int(core))
-		sheep_id := "sheep-" + c_str + "-" + source_m.ip
-		log_id := "log-" + c_str + "-" + source_m.ip
-		mem_buff := make([][]uint64, source_m.buff_max_size)
-		log_c := log{id: log_id,
-			     metrics: source_m.flink_metrics,
-			     max_size: source_m.buff_max_size,
-			     mem_buff: &mem_buff,
-			     log_wait_factor: 3,
-			     //kill_log_chan: make(chan bool, 1),
-			     ready_request_chan: make(chan bool, 1),
-			     ready_buff_chan: make(chan bool, 1)}
+	for sheep_id, sheep := range(source_m.pasture) {
+		c_str := strconv.Itoa(int(sheep.core))
+		log_id := "backpressure-log-" + c_str + "-" + source_m.ip
+		log_c := log{id: log_id}
+		log_c.init(source_m.buff_max_size, source_m.flink_metrics, 3)
 		source_m.pasture[sheep_id].logs[log_id] = &log_c
 	}
 	source_m.init_log_files(source_m.logs_dir)
