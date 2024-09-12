@@ -11,40 +11,7 @@ import (
 
 /*********************************************/
 
-//func (c *control) init(knob string, getter func(uint8, ...string)uint64, setter func(uint8, uint64)error) {
-//	c.knob = knob
-//	c.dirty = false
-//	c.ready_request_chan = make(chan bool, 1)
-//	c.getter = getter
-//	c.setter = setter
-//}
-//
-//func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.Duration) {
-////func (l *log) init() {
-//	mem_buff := make([][]uint64, buff_max_size)
-//	l.metrics = metrics
-//	l.max_size = buff_max_size
-//	l.mem_buff = &mem_buff
-//	l.log_wait_factor = log_wait_factor
-//	l.ready_request_chan = make(chan bool, 1)
-//	l.ready_buff_chan = make(chan bool, 1)
-////	l.kill_log_chan = make(chan bool, 1)
-//}
-
 func (m *muster) init_remote() {
-//func (m *muster) init(n_ip string, n_cores uint8, ip_idx string) {
-//	n := node{ip: n_ip, ncores: uint8(n_cores)}
-//	m_id := "muster-" + n.ip
-//	if ip_idx != "" { m_id = m_id + "-" + ip_idx }
-//	m.id = m_id
-//	m.node = n 
-
-//	m.pasture = make(map[string]*sheep)
-//	m.full_buff_chan = make(chan []string)
-//	m.new_ctrl_chan = make(chan control_request)
-////	m.exit_chan = make(chan bool, 1)
-////	m.done_chan = make(chan []string)
-
 	for _, sheep := range(m.pasture) {
 		sheep.new_ctrl_chan = make(chan map[string]uint64)
 		sheep.request_log_chan = make(chan []string)
@@ -52,23 +19,6 @@ func (m *muster) init_remote() {
 		sheep.detach_native_logger = make(chan bool, 1)
 		//sheep.done_kill_chan = make(chan bool, 1)
 	}
-
-//	var core uint8
-//	for core = 0; core < n.ncores; core ++ {
-//		c_str := strconv.Itoa(int(core))
-//		sheep_id := "sheep-" + c_str + "-" + m.ip
-//		sheep_c := sheep{id: sheep_id, core: core,
-//				 logs: make(map[string]*log),
-//				 controls: make(map[string]*control),
-//				 new_ctrl_chan: make(chan map[string]uint64),
-//				 ready_ctrl_chan: make(chan control_reply, 1),
-//				 request_log_chan: make(chan []string),
-//				 request_ctrl_chan: make(chan string),
-//				 detach_native_logger: make(chan bool, 1),
-//				 //done_kill_chan: make(chan bool, 1)
-//				}
-//		m.pasture[sheep_id] = &sheep_c
-//	}
 }
 
 func (m *muster) init_log_files(logs_dir string) {

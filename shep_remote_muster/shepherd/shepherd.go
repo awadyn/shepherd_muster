@@ -25,12 +25,7 @@ func (s *shepherd) init(nodes []node) {
 	s.musters = make(map[string]*muster)
 	s.local_musters = make(map[string]*local_muster)
 	for n := 0; n < len(nodes); n++ {
-//		m_id := "muster-" + nodes[n].ip
-//		ip_idx_str := strconv.Itoa(nodes[n].ip_idx)
-//		if nodes[n].ip_idx != -1 { m_id = m_id + "-" + ip_idx_str }
 		m_n := &muster{node: nodes[n]}
-//		m_n := &muster{id: m_id, node: n}
-//		m_n.init(n.ip, n.ncores, ip_idx_str)
 		m_n.init()
 		l_m := &local_muster{muster: *m_n}
 		l_m.init()
@@ -78,7 +73,7 @@ func (s *shepherd) deploy_musters() {
 	for _, l_m := range(s.local_musters) {
 		fmt.Printf("\033[97;1m**** DEPLOYING MUSTER %v ****\n\033[0m", l_m.id)
 		l_m.start_pulser()		// per-muster pulse client	
-		l_m.start_controller()		// per-muster ctrl client
+//		l_m.start_controller()		// per-muster ctrl client
 		l_m.start_coordinator()		// per-muster coordinate client
 		l_m.start_logger()		// per-muster log server
 		go s.log(l_m.id)

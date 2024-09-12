@@ -22,8 +22,6 @@ import (
   each sheep (i.e. core) can be controlled by a list of controls
 */
 func (r_m *remote_muster) init() { 
-//func (r_m *remote_muster) init(pulse_server_port int, log_server_port int, 
-//				ctrl_server_port int, coordinate_server_port int) {
 	r_m.hb_chan = make(chan bool)
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
 					  mirror_ip + ":" + strconv.Itoa(r_m.log_port), 

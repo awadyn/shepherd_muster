@@ -73,40 +73,6 @@ func (bayopt_s *bayopt_shepherd) init_local() {
 	}
 }
 
-/* This function assigns a map of log files to each sheep/core.
-   There can then be a separate sheep log for different controls.
-*/
-//func (intlog_s *intlog_shepherd) init_log_files() {
-//	err := os.Mkdir(logs_dir, 0750)
-//	if err != nil && !os.IsExist(err) { panic(err) }
-//	for _, l_m := range(intlog_s.local_musters) {
-//		l_m.out_f_map = make(map[string](map[string]*os.File))
-//		l_m.out_writer_map = make(map[string](map[string]*csv.Writer))
-//		l_m.out_f = make(map[string]*os.File)
-//		l_m.out_writer = make(map[string]*csv.Writer)
-//
-//		/* initializing log files */
-//		for _, sheep := range(l_m.pasture) {
-//			l_m.out_f_map[sheep.id] = make(map[string]*os.File)
-//			l_m.out_writer_map[sheep.id] = make(map[string]*csv.Writer)
-//			c_str := strconv.Itoa(int(sheep.core))
-//			ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + l_m.ip
-//			ctrl_itr_id := "ctrl-itr-" + c_str + "-" + l_m.ip
-//			ctrl_dvfs := fmt.Sprintf("0x%x", sheep.controls[ctrl_dvfs_id].value)
-//			ctrl_itr := strconv.Itoa(int(sheep.controls[ctrl_itr_id].value))
-//			out_fname := logs_dir + l_m.id + "_" + c_str + "_" + ctrl_itr + "_" + ctrl_dvfs + ".intlog"
-//			f, err := os.Create(out_fname)
-//			if err != nil { panic(err) }
-//			writer := csv.NewWriter(f)
-//			writer.Comma = ' '
-//			l_m.out_f_map[sheep.id][out_fname] = f
-//			l_m.out_writer_map[sheep.id][out_fname] = writer
-//			l_m.out_f[sheep.id] = f
-//			l_m.out_writer[sheep.id] = writer
-//		}
-//	}
-//}
-
 
 /**************************/
 /***** LOG PROCESSING *****/
