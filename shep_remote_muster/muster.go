@@ -26,13 +26,11 @@ func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.
 }
 
 func (m *muster) init() {
-//func (m *muster) init(node n) {
-//func (m *muster) init(n_ip string, n_cores uint8, ip_idx string) {
-//	m.node = n 
-
 	m.id = "muster-" + m.ip
-	ip_idx := strconv.Itoa(m.node.ip_idx)
-	if ip_idx != "" { m.id = m.id + "-" + ip_idx }
+	if m.node.ip_idx >= 0 {
+		ip_idx := strconv.Itoa(m.node.ip_idx)
+		m.id = m.id + "-" + ip_idx 
+	}
 
 	m.pasture = make(map[string]*sheep)
 
