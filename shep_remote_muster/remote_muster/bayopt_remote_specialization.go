@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"os"
+//	"os"
 	"os/exec"
 	"strconv"
 	"encoding/csv"
@@ -26,6 +26,10 @@ type bayopt_muster struct {
 	buff_max_size uint64
 }
 
+/* 
+   read values of bayopt specialization control settings
+   and initialize log files accordingly
+*/
 func (bayopt_m *bayopt_muster) init_remote() {
 	iface := bayopt_m.get_internal_iface()
 	if iface == "" {
@@ -54,6 +58,9 @@ func (bayopt_m *bayopt_muster) init_remote() {
 	bayopt_m.init_log_files(bayopt_m.logs_dir)
 }
 
+/*
+   reads one full memory buffer of log entries
+*/
 func do_bayopt_log(shared_log *log, reader *csv.Reader) error {
 	*shared_log.mem_buff = make([][]uint64, 0)
 	var counter uint64 = 0
@@ -84,14 +91,14 @@ func do_bayopt_log(shared_log *log, reader *csv.Reader) error {
 }
 
 func (bayopt_m *bayopt_muster) assign_log_files(sheep_id string) {
-	c_str := strconv.Itoa(int(bayopt_m.pasture[sheep_id].core))
-	log_fname := bayopt_m.logs_dir + "/" + c_str
-	if bayopt_m.log_f_map[sheep_id] != nil {
-		bayopt_m.log_f_map[sheep_id].Close()
-	}
-	f, err := os.Create(log_fname)
-	if err != nil { panic(err) }
-	bayopt_m.log_f_map[sheep_id] = f
+//	c_str := strconv.Itoa(int(bayopt_m.pasture[sheep_id].core))
+//	log_fname := bayopt_m.logs_dir + "/" + c_str
+//	if bayopt_m.log_f_map[sheep_id] != nil {
+//		bayopt_m.log_f_map[sheep_id].Close()
+//	}
+//	f, err := os.Create(log_fname)
+//	if err != nil { panic(err) }
+//	bayopt_m.log_f_map[sheep_id] = f
 }
 
 
@@ -169,9 +176,11 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string) {
 				go func() {
 					sheep_id := sheep_id
 					log_id := log_id
-					f := bayopt_m.log_f_map[sheep_id]
-					reader := csv.NewReader(f)
-					reader.Comma = ' '
+					f := bayopt_m.pasture[sheep_id].log_f_map[log_id]
+					reader := bayopt_m.pasture[sheep_id].log_reader_map[log_id]
+//					f := bayopt_m.log_f_map[sheep_id]
+//					reader := csv.NewReader(f)
+//					reader.Comma = ' '
 					f.Seek(0, io.SeekStart)
 					err := bayopt_m.sync_with_logger(sheep_id, log_id, reader, do_bayopt_log, 1)
 					if err == io.EOF {
@@ -187,7 +196,8 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string) {
 				go func() {
 					sheep_id := sheep_id
 					log_id := log_id
-					f := bayopt_m.log_f_map[sheep_id]
+					f := bayopt_m.pasture[sheep_id].log_f_map[log_id]
+//					f := bayopt_m.log_f_map[sheep_id]
 					f.Seek(0, io.SeekStart)
 
 					// get length of log file

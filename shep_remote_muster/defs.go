@@ -72,18 +72,21 @@ type sheep struct {
 	ready_ctrl_chan chan control_reply	//syncs application of ctrl change
 	request_log_chan chan []string		//signals get current logs
 	request_ctrl_chan chan string		//signals get current ctrls
-	detach_native_logger chan bool
+	detach_native_logger chan bool		//signals stop logging
 
 	core uint8
 	logs map[string]*log
 	controls map[string]*control
 	id string
+
+	log_f_map map[string]*os.File		//file pointer for each log object
+	log_reader_map map[string]*csv.Reader	//reader pointer for each log file 
+	log_writer_map map[string]*csv.Writer	//writer pointer for each log file 
 }
 
 type muster struct {
 	full_buff_chan chan []string
 	new_ctrl_chan chan control_request
-
 	request_log_chan chan []string
 	request_ctrl_chan chan []string
 
@@ -93,8 +96,8 @@ type muster struct {
 	pasture map[string]*sheep
 	id string
 
-	log_f_map map[string]*os.File
-	log_reader_map map[string]*csv.Reader
+//	log_f_map map[string]*os.File
+//	log_reader_map map[string]*csv.Reader
 }
 
 type local_muster struct {
@@ -106,10 +109,10 @@ type local_muster struct {
 	pulse_server_addr *string
 	coordinate_server_addr *string
 
-	out_f_map map[string](map[string]*os.File)
-	out_writer_map map[string](map[string]*csv.Writer)
-	out_f map[string]*os.File
-	out_writer map[string]*csv.Writer
+//	out_f_map map[string](map[string]*os.File)
+//	out_writer_map map[string](map[string]*csv.Writer)
+//	out_f map[string]*os.File
+//	out_writer map[string]*csv.Writer
 
 	pb.UnimplementedLogServer
 }
@@ -131,6 +134,9 @@ type remote_muster struct {	// i.e. 1st level specialization of a muster
 	conn_local *grpc.ClientConn
 	ctx_local context.Context
 	cancel_local context.CancelFunc 
+
+////	log_f_map map[string]*os.File
+////	log_reader_map map[string]*csv.Reader
 }
 
 type cat struct {

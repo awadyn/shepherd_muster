@@ -65,6 +65,7 @@ func (bayopt_s *bayopt_shepherd) init_local() {
 			bayopt_s.joules_measure[bayopt_m.id][sheep.id] = make([]float64, 1)
 			bayopt_s.joules_diff[bayopt_m.id][sheep.id] = make([]float64, 0)
 			for _, log := range(sheep.logs) {
+				log.ready_process_chan <- true
 				log.ready_request_chan <- true
 				log.ready_buff_chan <- true
 			}
@@ -77,6 +78,23 @@ func (bayopt_s *bayopt_shepherd) init_local() {
 /**************************/
 /***** LOG PROCESSING *****/
 /**************************/
+
+func (sheep_c *sheep) update_log_file(log_id string) {
+	str_mem_buff := make([][]string,0)
+	log := sheep_c.logs[log_id]
+	mem_buff := *(log.mem_buff)
+	for _, row := range(mem_buff) {
+		if len(row) == 0 { break }
+		str_row := []string{}
+		for i := range(len(log.metrics)) {
+			val := strconv.Itoa(int(row[i]))
+			str_row = append(str_row, val)
+		}
+		str_mem_buff = append(str_mem_buff, str_row)
+	}
+	writer := sheep_c.log_writer_map[log_id]
+	writer.WriteAll(str_mem_buff)
+}
 
 /* 
    This function implements the log processing loop of a Baysian optimization shepherd.
@@ -99,6 +117,9 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				log := log
 				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
 				mem_buff := *(log.mem_buff)
+
+				sheep.update_log_file(log.id)
+
 				joules_val := float64(mem_buff[0][joules_idx]) * 0.000061
 				bayopt_s.joules_measure[m_id][sheep_id] = append(bayopt_s.joules_measure[m_id][sheep_id], joules_val)
 				joules_old := bayopt_s.joules_measure[m_id][sheep_id][len(bayopt_s.joules_measure[m_id][sheep_id]) - 2]
@@ -108,7 +129,10 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				fmt.Printf("\033[33m---------- JOULES DIFF: %v\n\033[0m", bayopt_s.joules_diff[l_m.id][sheep.id])
 				fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v - %v\n\033[0m", l_m.id, sheep.id, log.id)	
 				// muster can now overwrite mem_buff for this log
-				sheep.logs[log.id].ready_process_chan <- true
+				select {
+				case sheep.logs[log.id].ready_process_chan <- true:
+				default:
+				}
 				if len(bayopt_s.joules_diff[l_m.id][sheep.id]) % 2 == 0 {
 					select {
 					case bayopt_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:

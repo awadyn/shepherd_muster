@@ -3,7 +3,7 @@ package main
 import ( "time"
 	 "os"
 //	 "os/exec" 
-//	"fmt"
+	"fmt"
 )
 
 /**************************************/
@@ -17,7 +17,7 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 	for _, sheep := range(l_m.pasture) {
 		for _, ctrl := range(sheep.controls) {
 			l_m.request_ctrl_chan <- []string{sheep.id, ctrl.id}
-			<- l_m.pasture[sheep.id].controls[ctrl.id].ready_request_chan
+			<- ctrl.ready_request_chan
 		}
 	}
 
@@ -27,9 +27,10 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 	time.Sleep(time.Second)
 
 	for iter := 0; iter < 2; iter ++ {
-		for sheep_id, sheep := range(l_m.pasture) {
-			for log_id, _ := range(sheep.logs) {
-				l_m.request_log_chan <- []string{sheep_id, log_id, "start"}
+		for _, sheep := range(l_m.pasture) {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "start"}
+				//sheep.request_log_chan <- []string{log.id, "start"}
 			}
 		}
 
@@ -38,22 +39,29 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 		//if err := cmd.Run(); err != nil { panic(err) }
 		time.Sleep(time.Second * 20)
 
-		for sheep_id, sheep := range(l_m.pasture) {
-			for log_id, _ := range(sheep.logs) {
-				l_m.request_log_chan <- []string{sheep_id, log_id, "stop"}
+		for _, sheep := range(l_m.pasture) {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "stop"}
+				//sheep.request_log_chan <- []string{log.id, "stop"}
 			}
 		}
-		for sheep_id, sheep := range(l_m.pasture) {
-			for log_id, _ := range(sheep.logs) {
-				l_m.request_log_chan <- []string{sheep_id, log_id, "first"}
-			}
-		}
-		for sheep_id, sheep := range(l_m.pasture) {
-			for log_id, _ := range(sheep.logs) {
-				l_m.request_log_chan <- []string{sheep_id, log_id, "last"}
+		for _, sheep := range(l_m.pasture) {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "first"}
+				//sheep.request_log_chan <- []string{log.id, "first"}
 			}
 		}
 
+		time.Sleep(time.Second)
+
+		for _, sheep := range(l_m.pasture) {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "last"}
+				//sheep.request_log_chan <- []string{log.id, "last"}
+			}
+		}
+
+		fmt.Println("HERE")
 		time.Sleep(time.Second)
 	}
 }
@@ -83,8 +91,8 @@ func bayopt_main(nodes []node) {
 	time.Sleep(exp_timeout)
 
 	for _, l_m := range(bayopt_s.local_musters) {
-		for sheep_id, _ := range(l_m.pasture) {
-			for _, f := range(l_m.out_f_map[sheep_id]) { f.Close() }
+		for _, sheep := range(l_m.pasture) {
+			for _, f := range(sheep.log_f_map) { f.Close() }
 		}
 	}
 }
