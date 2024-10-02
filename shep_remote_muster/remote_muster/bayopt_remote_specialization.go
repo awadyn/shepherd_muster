@@ -48,8 +48,13 @@ func (bayopt_m *bayopt_muster) init_remote() {
 					ctrl.value = rx_usecs_reading
 				}
 			case ctrl.knob == "dvfs":
-				ctrl.value = ctrl.getter(sheep.core)
-				// TODO error handle
+				dvfs_reading := ctrl.getter(sheep.core)
+				if dvfs_reading == 0 {
+					fmt.Printf("**** PROBLEM: %v cannot read dvfs value.. assuming default value 0xffff\n", bayopt_m.id)
+					ctrl.value = 0xffff
+				} else {
+					ctrl.value = dvfs_reading
+				}
 			default:
 				fmt.Printf("**** PROBLEM: UNKOWN CTRL KNOB -- %v - %v - %v\n", bayopt_m.id, sheep.id, ctrl.id)
 			}
@@ -111,7 +116,11 @@ func (bayopt_m *bayopt_muster) attach_native_logger(sheep_id string, log_id stri
 	log_fname := bayopt_m.logs_dir + "/" + c_str
 
 	cmd := exec.Command("bash", "-c", "cat " + src_fname)
-	if err := cmd.Run(); err != nil { panic(err) }
+	if err := cmd.Run(); err != nil { 
+		//panic(err)
+		fmt.Printf("**** PROBLEM: %v cannot attach to native logger.. aborting\n", bayopt_m.id)
+		return
+	}
 
 	go func() {
 		sheep_id := sheep_id

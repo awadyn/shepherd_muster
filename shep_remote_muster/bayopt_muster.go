@@ -69,7 +69,8 @@ func read_dvfs(core uint8, extra_args ...string) uint64 {
 	if err != nil { 
 		stderr_str := stderr.String()
 		fmt.Println(stderr_str)
-		panic(err) 
+		//panic(err)
+		return 0
 	}
 	out_str := out.String()
 	if out_str[len(out_str)-1] == '\n' { out_str = out_str[0:len(out_str)-1] }
