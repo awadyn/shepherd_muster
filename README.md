@@ -26,3 +26,17 @@ user@node:$ export PATH=$PATH:/usr/local/go/bin					// add go binary to bash she
 ```
 
 ## Running MustHerd Test
+#### Checking shepherd-to-muster connections and pulsing:
+On the shepherd node:
+```bash
+user@shepherd:$ cd shepherd_muster/shep_remote_muster
+user@shepherd:$ go run shepherd/*
+```
+
+On the muster nodes:
+```bash
+user@muster:$ cd shepherd_muster/shep_remote_muster
+user@muster:$ #go run remote_muster/* <muster_ip> <shepherd_ip> <num_cores> <pluse_port> <log_port> <ctrl_port> <coord_port> <optional_ip_idx>
+user@muster:$ go run remote_muster/* 10.10.1.2 10.10.1.1 16 50051 50061 50071 50081
+```
+
