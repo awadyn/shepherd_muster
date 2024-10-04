@@ -110,16 +110,15 @@ func (bayopt_m *bayopt_muster) assign_log_files(sheep_id string) {
 /* The following functions associate each sheep with its
    intlog data in /proc/ixgbe_stats/core/sheep.core
 */
-func (bayopt_m *bayopt_muster) attach_native_logger(sheep_id string, log_id string) {
+func (bayopt_m *bayopt_muster) attach_native_logger(sheep_id string, log_id string) error {
 	c_str := strconv.Itoa(int(bayopt_m.pasture[sheep_id].core))
 	src_fname := "/proc/ixgbe_stats/core/" + c_str
 	log_fname := bayopt_m.logs_dir + "/" + c_str
 
 	cmd := exec.Command("bash", "-c", "cat " + src_fname)
 	if err := cmd.Run(); err != nil { 
-		//panic(err)
-		fmt.Printf("**** PROBLEM: %v cannot attach to native logger.. aborting\n", bayopt_m.id)
-		return
+		fmt.Printf("\033[31;1m****** PROBLEM: %v cannot attach to native logger.. aborting\n\033[0m", bayopt_m.id)
+		return err
 	}
 
 	go func() {
@@ -136,6 +135,8 @@ func (bayopt_m *bayopt_muster) attach_native_logger(sheep_id string, log_id stri
 			}
 		}
 	} ()
+
+	return nil
 }
 
 
@@ -165,6 +166,7 @@ func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
 
 func (bayopt_m *bayopt_muster) log_manage(sheep_id string) {
 	fmt.Printf("\033[34m-- MUSTER %v --SHEEP %v - STARTING LOG MANAGER\n\033[0m", bayopt_m.id, sheep_id)
+	var err error
 	for {
 		select {
 		case req := <- bayopt_m.pasture[sheep_id].request_log_chan:
@@ -174,8 +176,12 @@ func (bayopt_m *bayopt_muster) log_manage(sheep_id string) {
 			case cmd == "start":
 				// start communication with native logger
 				bayopt_m.assign_log_files(sheep_id)
-				bayopt_m.attach_native_logger(sheep_id, log_id)
-				bayopt_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+				err = bayopt_m.attach_native_logger(sheep_id, log_id)
+				if err != nil { 
+					bayopt_m.pasture[sheep_id].logs[log_id].ready_request_chan <- false
+				} else {
+					bayopt_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+				}
 			case cmd == "stop":
 				// stop communication with native logger
 				bayopt_m.pasture[sheep_id].detach_native_logger <- true

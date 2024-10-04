@@ -197,9 +197,9 @@ func (r_m *remote_muster) CoordinateLog(ctx context.Context, in *pb.CoordinateLo
 	coordinate_cmd := in.GetCoordinateCmd()
 	fmt.Printf("\033[34m---> COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd)
 	r_m.pasture[sheep_id].request_log_chan <- []string{log_id, coordinate_cmd}
-	<- r_m.pasture[sheep_id].logs[log_id].ready_request_chan
+	cmd_status := <- r_m.pasture[sheep_id].logs[log_id].ready_request_chan
 	//fmt.Printf("\033[34m----DONE COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd)
-	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd}, nil
+	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd, Status: cmd_status}, nil
 }
 
 func (r_m *remote_muster) CoordinateCtrl(ctx context.Context, in *pb.CoordinateCtrlRequest) (*pb.CoordinateCtrlReply, error) {
