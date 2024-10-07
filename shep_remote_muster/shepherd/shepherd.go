@@ -87,7 +87,7 @@ func (s *shepherd) deploy_musters() {
 	for _, l_m := range(s.local_musters) {
 		fmt.Printf("\033[97;1m**** DEPLOYING MUSTER %v ****\n\033[0m", l_m.id)
 		l_m.start_pulser()		// per-muster pulse client	
-//		l_m.start_controller()		// per-muster ctrl client
+		l_m.start_controller()		// per-muster ctrl client
 		l_m.start_coordinator()		// per-muster coordinate client
 		l_m.start_logger()		// per-muster log server
 		go s.log(l_m.id)
