@@ -45,22 +45,13 @@ func (s *shepherd) init_log_files(logs_dir string) {
 	if err != nil && !os.IsExist(err) { panic(err) }
 
 	for _, l_m := range(s.local_musters) {
-//		l_m.out_f_map = make(map[string](map[string]*os.File))
-//		l_m.out_writer_map = make(map[string](map[string]*csv.Writer))
-////		l_m.out_f = make(map[string]*os.File)
-////		l_m.out_writer = make(map[string]*csv.Writer)
 		for _, sheep := range(l_m.pasture) {
-//			l_m.out_f_map[sheep.id] = make(map[string]*os.File)
-//			l_m.out_writer_map[sheep.id] = make(map[string]*csv.Writer)
 			sheep.log_f_map = make(map[string]*os.File)
 			sheep.log_writer_map = make(map[string]*csv.Writer)
-//			c_str := strconv.Itoa(int(sheep.core))
-//			out_fname := logs_dir + l_m.id + "_" + c_str 
 			for log_id, _ := range(sheep.logs) {
 				out_fname := logs_dir + log_id
 				ctrl_ids := maps.Keys(sheep.controls)
 				slices.Sort(ctrl_ids)
-//				for _, ctrl := range(sheep.controls) {
 				for i := 0; i < len(ctrl_ids); i ++ {
 					id := ctrl_ids[i]
 					ctrl := sheep.controls[id]
@@ -74,10 +65,6 @@ func (s *shepherd) init_log_files(logs_dir string) {
 				sheep.log_f_map[log_id] = f
 				sheep.log_writer_map[log_id] = writer
 			}
-//			l_m.out_f_map[sheep.id][out_fname] = f
-//			l_m.out_writer_map[sheep.id][out_fname] = writer
-////			l_m.out_f[sheep.id] = f
-////			l_m.out_writer[sheep.id] = writer
 		}
 	}
 }

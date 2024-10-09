@@ -18,7 +18,6 @@ type bayopt_muster struct {
 	local_muster
 	logs_dir string
 	ixgbe_metrics []string
-	// bayopt_metrics []string
 	buff_max_size uint64
 }
 
@@ -28,7 +27,9 @@ type bayopt_shepherd struct {
 	logs_dir string
 	ixgbe_metrics []string
 	buff_max_size uint64
+	// joules_measure[muster_id][sheep_id] = X
 	joules_measure map[string](map[string][]float64)
+	// joules_diff[muster_id][sheep_id] = Y
 	joules_diff map[string](map[string][]float64)
 }
 
@@ -94,6 +95,8 @@ func (sheep_c *sheep) update_log_file(log_id string) {
 	}
 	writer := sheep_c.log_writer_map[log_id]
 	writer.WriteAll(str_mem_buff)
+	fmt.Println(mem_buff)
+	fmt.Println(str_mem_buff)
 }
 
 /* 
@@ -117,14 +120,12 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				log := log
 				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
 				mem_buff := *(log.mem_buff)
-
 				sheep.update_log_file(log.id)
-
 				joules_val := float64(mem_buff[0][joules_idx]) * 0.000061
 				bayopt_s.joules_measure[m_id][sheep_id] = append(bayopt_s.joules_measure[m_id][sheep_id], joules_val)
 				joules_old := bayopt_s.joules_measure[m_id][sheep_id][len(bayopt_s.joules_measure[m_id][sheep_id]) - 2]
 				bayopt_s.joules_diff[m_id][sheep_id] = append(bayopt_s.joules_diff[m_id][sheep_id], joules_val - joules_old)
-				//fmt.Printf("\033[33m---------- %v\n\033[0m", mem_buff)
+				fmt.Printf("\033[33m---------- %v\n\033[0m", mem_buff)
 				fmt.Printf("\033[33m---------- JOULES MEAS: %v\n\033[0m", bayopt_s.joules_measure[l_m.id][sheep.id])
 				fmt.Printf("\033[33m---------- JOULES DIFF: %v\n\033[0m", bayopt_s.joules_diff[l_m.id][sheep.id])
 				fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v - %v\n\033[0m", l_m.id, sheep.id, log.id)	
@@ -133,12 +134,12 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				case sheep.logs[log.id].ready_process_chan <- true:
 				default:
 				}
-				if len(bayopt_s.joules_diff[l_m.id][sheep.id]) % 2 == 0 {
-					select {
-					case bayopt_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:
-					default:
-					}
-				}
+//				if len(bayopt_s.joules_diff[l_m.id][sheep.id]) % 2 == 0 {
+//					select {
+//					case bayopt_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:
+//					default:
+//					}
+//				}
 			} ()
 		}
 	}

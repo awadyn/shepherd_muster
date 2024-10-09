@@ -3,7 +3,6 @@ package main
 import ( "time"
 	 "os"
 //	 "os/exec" 
-	"fmt"
 )
 
 /**************************************/
@@ -20,7 +19,6 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 			<- ctrl.ready_request_chan
 		}
 	}
-
 	// at this point, ctrl values are set in local muster representation
 	bayopt_s.init_log_files(bayopt_s.logs_dir)
 
@@ -30,7 +28,6 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 		for _, sheep := range(l_m.pasture) {
 			for _, log := range(sheep.logs) {
 				l_m.request_log_chan <- []string{sheep.id, log.id, "start"}
-				//sheep.request_log_chan <- []string{log.id, "start"}
 			}
 		}
 
@@ -42,13 +39,11 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 		for _, sheep := range(l_m.pasture) {
 			for _, log := range(sheep.logs) {
 				l_m.request_log_chan <- []string{sheep.id, log.id, "stop"}
-				//sheep.request_log_chan <- []string{log.id, "stop"}
 			}
 		}
 		for _, sheep := range(l_m.pasture) {
 			for _, log := range(sheep.logs) {
 				l_m.request_log_chan <- []string{sheep.id, log.id, "first"}
-				//sheep.request_log_chan <- []string{log.id, "first"}
 			}
 		}
 
@@ -57,11 +52,9 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 		for _, sheep := range(l_m.pasture) {
 			for _, log := range(sheep.logs) {
 				l_m.request_log_chan <- []string{sheep.id, log.id, "last"}
-				//sheep.request_log_chan <- []string{log.id, "last"}
 			}
 		}
 
-		fmt.Println("HERE")
 		time.Sleep(time.Second)
 	}
 }
@@ -75,7 +68,7 @@ func bayopt_main(nodes []node) {
 	s.init(nodes)
 	// initialize specialized energy-performance shepherd
 	bayopt_s := bayopt_shepherd{shepherd:s,
-				    logs_dir: home_dir + "/shepherd_intlog_logs/"}
+				    logs_dir: home_dir + "/shepherd_bayopt_logs/"}
 	bayopt_s.init()
 	bayopt_s.init_local()
 	
