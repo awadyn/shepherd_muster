@@ -1,4 +1,4 @@
-kernel=$(ssh $myself@$node 'uname -r')
+kernel=$(uname -r)
 if [[ $kernel != "5.15.89" ]]; 
 then 
 echo "Kernel version $kernel is bad for building intlogger. Installing 5.15.89 instead."
@@ -21,7 +21,6 @@ sudo reboot
 sleep 30
 fi
 
-kernel=$(ssh $myself@$node 'uname -r')
 echo "Kernel version $kernel found. Installing intlogger.."
 sleep 2
 cd ~/

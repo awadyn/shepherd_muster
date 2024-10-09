@@ -8,6 +8,8 @@ import (
 
 /*********************************************/
 
+var debug bool = false
+
 var mirror_ip string;
 
 func main() {
@@ -35,8 +37,8 @@ func main() {
 			    pulse_port: pulse_port, log_port: log_port, 
 			    ctrl_port: ctrl_port, coordinate_port: coordinate_port}
 
-//	bayopt_main(remote_node)
-	nop_main(remote_node)
+	bayopt_main(remote_node)
+	//nop_main(remote_node)
 }
 
 

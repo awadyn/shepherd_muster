@@ -35,7 +35,7 @@ func nop_main(n node) {
 	nop_m.start_logger()
 
 	for sheep_id, _ := range(nop_m.pasture) {
-		go nop_m.log_manage(sheep_id) 
+		go nop_m.log_manage(sheep_id, nop_m.logs_dir, nop_native_log) 
 		go nop_m.ctrl_manage(sheep_id) 
 	}
 

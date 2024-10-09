@@ -18,7 +18,7 @@ func bayopt_main(n node) {
 	r_m.init()
 
 	bayopt_m := bayopt_muster{remote_muster: r_m, 
-				  logs_dir: home_dir + "/" + r_m.id + ".bayopt_intlog_logs/"}
+				  logs_dir: home_dir + "/" + r_m.id + ".bayopt_logs/"}
 	_, err = os.Stat(bayopt_m.logs_dir)
 	if os.IsNotExist(err) {
 		err = os.Mkdir(bayopt_m.logs_dir, 0777)
@@ -35,7 +35,7 @@ func bayopt_main(n node) {
 	bayopt_m.start_logger()
 
 	for sheep_id, _ := range(bayopt_m.pasture) {
-		go bayopt_m.log_manage(sheep_id) 
+		go bayopt_m.log_manage(sheep_id, bayopt_m.logs_dir, ixgbe_native_log) 
 //		go bayopt_m.ctrl_manage(sheep_id) 
 	}
 

@@ -2,16 +2,10 @@ package main
 
 import (
 	"fmt"
-//	"os"
 	"os/exec"
 	"strconv"
-//	"encoding/csv"
-//	"time"
-//	"io"
 	"strings"
 	"bytes"
-//	"slices"
-//	"bufio"
 )
 
 /*********************************************/

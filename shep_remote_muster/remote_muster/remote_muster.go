@@ -40,7 +40,7 @@ func (r_m *remote_muster) init() {
 var hb_counter int = 0
 
 func (r_m *remote_muster) HeartBeat(ctx context.Context, in *pb.HeartbeatRequest) (*pb.HeartbeatReply, error) {
-	if hb_counter % 3 == 0 { fmt.Printf("-- HB REQ %v\n", in.GetShepRequest()) }
+	if debug { if hb_counter % 3 == 0 { fmt.Printf("-- HB REQ %v\n", in.GetShepRequest()) } }
 	select {
 	case r_m.hb_chan <- true:
 	default:
@@ -102,7 +102,7 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 					time.Sleep(time.Second/10)
 					continue
 				}
-				fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep_id, log_id)
+				if debug { fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep_id, log_id) }
 				for _, log_entry := range *(r_m.pasture[sheep_id].logs[log_id].mem_buff) {
 					for {
 						err := stream.Send(&pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogEntry: &pb.LogEntry{Vals: log_entry}})
@@ -120,7 +120,7 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 					time.Sleep(time.Second/10)
 					continue
 				}
-				fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log_id, r.GetSyncComplete())
+				if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log_id, r.GetSyncComplete()) }
 				if r.GetSyncComplete() {
 					r_m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true
 					break
@@ -142,10 +142,10 @@ func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) err
 		req, err := stream.Recv()
 		switch {
 		case err == io.EOF:
-			fmt.Printf("\033[35m-----> CTRL-REQ -- %v - %v\n\033[0m", sheep_id, new_ctrls)
+			if debug { fmt.Printf("\033[35m-----> CTRL-REQ -- %v - %v\n\033[0m", sheep_id, new_ctrls) }
 			r_m.new_ctrl_chan <- control_request{sheep_id: sheep_id, ctrls: new_ctrls}
 			<- r_m.pasture[sheep_id].ready_ctrl_chan
-			fmt.Printf("\033[35m<----- CTRL REP -- %v - %v\n\033[0m", sheep_id, new_ctrls)
+			if debug { fmt.Printf("\033[35m<----- CTRL REP -- %v - %v\n\033[0m", sheep_id, new_ctrls) }
 			return stream.SendAndClose(&pb.ControlReply{CtrlComplete: true})
 		case err != nil:
 			fmt.Printf("\033[31;1m****** ERROR: could not receive control request: %v\n\033[0m", err)
@@ -195,7 +195,7 @@ func (r_m *remote_muster) CoordinateLog(ctx context.Context, in *pb.CoordinateLo
 	sheep_id := in.GetSheepId()
 	log_id := in.GetLogId()
 	coordinate_cmd := in.GetCoordinateCmd()
-	fmt.Printf("\033[34m---> COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd)
+	if debug { fmt.Printf("\033[34m---> COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd) }
 	r_m.pasture[sheep_id].request_log_chan <- []string{log_id, coordinate_cmd}
 	cmd_status := <- r_m.pasture[sheep_id].logs[log_id].ready_request_chan
 	//fmt.Printf("\033[34m----DONE COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd)
@@ -205,7 +205,7 @@ func (r_m *remote_muster) CoordinateLog(ctx context.Context, in *pb.CoordinateLo
 func (r_m *remote_muster) CoordinateCtrl(ctx context.Context, in *pb.CoordinateCtrlRequest) (*pb.CoordinateCtrlReply, error) {
 	sheep_id := in.GetSheepId()
 	ctrl_id := in.GetCtrlId()
-	fmt.Printf("\033[34m---> COORD REQ %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, ctrl_id)
+	if debug { fmt.Printf("\033[34m---> COORD REQ %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, ctrl_id) }
 	ctrl_val := r_m.pasture[sheep_id].controls[ctrl_id].value
 //	r_m.pasture[sheep_id].request_ctrl_chan <- ctrl_id
 //	<- r_m.pasture[sheep_id].controls[ctrl_id].ready_request_chan
