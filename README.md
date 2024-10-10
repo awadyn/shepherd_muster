@@ -30,12 +30,57 @@ user@node:$ export PATH=$PATH:/usr/local/go/bin					// add go binary to bash she
 user@node:$ cd shepherd_muster; ./cloudlab_setup_ixgbe_logger.sh
 ```
 
-###### Running above script checks for a compatible kernel version:
+#### Running above script checks for a compatible kernel version:
 ```bash
+user@node:$ kernel=$(uname -r)								// reads kernel version
+user@node:$ wget https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.15.89.tar.xz	// downloads compatible linux kernel
+user@node:$ tar -xf linux-5.15.89.tar.xz
+user@node:$ cd linux-5.15.89
+user@node:$ cp -v /boot/config-$(uname -r) .config 					// copies current kernel config to compatible kernel code base
+user@node:$ make localmodconfig								// building kernel..
+user@node:$ scripts/config --disable SYSTEM_TRUSTED_KEYS			
+user@node:$ scripts/config --disable SYSTEM_REVOCATION_KEYS
+user@node:$ scripts/config --set-str CONFIG_SYSTEM_TRUSTED_KEYS ""
+user@node:$ scripts/config --set-str CONFIG_SYSTEM_REVOCATION_KEYS ""
+user@node:$ fakeroot make -j8
+user@node:$ sudo make modules_install
+user@node:$ sudo make install
+user@node:$ sudo reboot									// see new kernel version after reboot
 
 ```
 
-#### Running above script builds correct kernel version for ixgbe driver then builds and tests the driver:
+#### Then builds and tests ixgbe driver into compatible kernel:
+```bash
+user@node:$ git clone https://github.com/handong32/intlog.git
+user@node:$ cp -r ~/intlog/linux/linux-5.15.89/drivers/net/ ~/linux-5.15.89/drivers/
+user@node:$ cd linux-5.15.89
+user@node:$ fakeroot make -j8
+```
+
+#### Then sets system hardware settings that can jeopardize correct behavior of ixgbe driver:
+```bash
+user@node:$ echo off | sudo tee /sys/devices/system/cpu/smt/control
+user@node:$ echo "1" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo
+user@node:$ sudo killall irqbalance
+```
+
+#### Next, ixgbe driver is loaded:
+```bash
+user@node:$ sudo rmmod ixgbe
+user@node:$ sudo insmod ~/linux-5.15.89/drivers/net/ethernet/intel/ixgbe/ixgbe.ko
+user@node:$ ieth=$(sudo dmesg | grep "ixgbe" | grep "renamed from eth0" | tail -n 2 | head -n 1 | grep -oP "enp\ds\df\d")
+user@node:$ num=$(uname -a | grep -oP "node\d" | grep -oP "\d")
+user@node:$ node=$(($num + 1))
+user@node:$ ip="10.10.1.$node"
+user@node:$ sudo ip link set dev $ieth up
+user@node:$ sudo ip addr add $ip dev $ieth
+```
+
+#### Finally, set irq to cpu affinity and check ixgbe driver stats:
+```bash
+user@node:$ sudo ~/shepherd_muster/intel_set_irq_affinity.sh $ieth
+user@node:$ for i in {0..15}; do cat /proc/ixgbe_stats/core/$i; echo; done
+```
 
 ## Running MustHerd Test
 #### Checking shepherd-to-muster connections and pulsing:
