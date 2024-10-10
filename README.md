@@ -49,7 +49,7 @@ user@node:$ sudo reboot									// see new kernel version after reboot
 
 ```
 
-#### Then builds and tests ixgbe driver into compatible kernel:
+#### Then builds ixgbe driver into compatible kernel:
 ```bash
 user@node:$ git clone https://github.com/handong32/intlog.git
 user@node:$ cp -r ~/intlog/linux/linux-5.15.89/drivers/net/ ~/linux-5.15.89/drivers/
