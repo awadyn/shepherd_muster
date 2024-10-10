@@ -13,7 +13,7 @@ user@node:$ git clone https://github.com/awadyn/shepherd_muster.git
 user@node:$ cd shepherd_muster; ./cloudlab_setup_golang.sh
 ```
 
-#### Running above script checks for a compatible golang version:
+###### Running above script checks for a compatible golang version:
 ```bash
 user@node:$ go_version=1.22.4							// compatible golang version
 user@node:$ which go								// checks if go runtime is installed
@@ -24,6 +24,18 @@ user@node:$ sudo tar -C /usr/local -xzf go$go_version.linux-amd64.tar.gz	// inst
 user@node:$ echo 'export PATH=$PATH:/usr/local/go/bin' >> .bashrc		// add go binary to bash shell environment
 user@node:$ export PATH=$PATH:/usr/local/go/bin					// add go binary to bash shell path
 ```
+
+## Preparing Example Native Logger Environment
+```bash
+user@node:$ cd shepherd_muster; ./cloudlab_setup_ixgbe_logger.sh
+```
+
+###### Running above script checks for a compatible kernel version:
+```bash
+
+```
+
+#### Running above script builds correct kernel version for ixgbe driver then builds and tests the driver:
 
 ## Running MustHerd Test
 #### Checking shepherd-to-muster connections and pulsing:
