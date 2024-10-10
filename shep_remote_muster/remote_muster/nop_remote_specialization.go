@@ -26,8 +26,7 @@ func (nop_m *nop_muster) assign_log_files(sheep_id string) {
 }
 
 
-func nop_native_log(sheep *sheep, log *log, logs_dir string) error {
-	return nil
+func nop_native_log(sheep *sheep, log *log, logs_dir string) {
 }
 
 func (nop_m *nop_muster) ctrl_manage(sheep_id string) {

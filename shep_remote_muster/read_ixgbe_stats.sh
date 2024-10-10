@@ -6,6 +6,6 @@ dest=$2
 cat $src > /dev/null
 while true
 do 
-	sleep 4
+	sleep 3
 	cat $src >> $dest
 done

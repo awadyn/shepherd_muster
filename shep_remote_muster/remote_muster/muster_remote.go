@@ -123,7 +123,7 @@ func (m *muster) sync_with_logger(sheep_id string, log_id string, reader *csv.Re
 	}
 }
 
-func (r_m *remote_muster) log_manage(sheep_id string, logs_dir string, native_log func(*sheep, *log, string)error) {
+func (r_m *remote_muster) log_manage(sheep_id string, logs_dir string, native_log func(*sheep, *log, string)) {
 	fmt.Printf("\033[34m-- MUSTER %v --SHEEP %v - STARTING LOG MANAGER\n\033[0m", r_m.id, sheep_id)
 	var err error
 	for {
@@ -136,7 +136,7 @@ func (r_m *remote_muster) log_manage(sheep_id string, logs_dir string, native_lo
 			switch {
 			case cmd == "start":
 				// start communication with native logger
-				err = native_log(sheep, log, logs_dir)
+				go native_log(sheep, log, logs_dir)
 				if err != nil { 
 					r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- false
 				} else {

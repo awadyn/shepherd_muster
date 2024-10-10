@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"strconv"
 //	"time"
+	"syscall"
 )
 
 /************************************/
@@ -15,7 +16,6 @@ type bayopt_muster struct {
 	remote_muster
 	logs_dir string
 	ixgbe_metrics []string
-	// bayopt_metrics []string
 	buff_max_size uint64
 }
 
@@ -61,40 +61,38 @@ func (bayopt_m *bayopt_muster) init_remote() {
 /* The following functions associate each sheep with its
    per-interrupt log data in /proc/ixgbe_stats/core/sheep.core
 */
-func ixgbe_native_log(sheep *sheep, log *log, logs_dir string) error {
+func ixgbe_native_log(sheep *sheep, log *log, logs_dir string) {
 	c_str := strconv.Itoa(int(sheep.core))
 	src_fname := "/proc/ixgbe_stats/core/" + c_str
 	log_fname := logs_dir + c_str
 
-	cmd := exec.Command("bash", "-c", "/users/awadyn/shepherd_muster/shep_remote_muster/read_ixgbe_stats.sh " + src_fname + " " + log_fname)
-	if err := cmd.Run(); err != nil { 
+	cmd_flush := exec.Command("bash", "-c", "cat " + src_fname)
+	if err := cmd_flush.Run(); err != nil { 
 		fmt.Printf("\033[31;1m****** PROBLEM: %v cannot attach to native logger.. aborting\n\033[0m", sheep.id)
-		return err
+		return
 	}
-//	cmd := exec.Command("bash", "-c", "cat " + src_fname)
-//	if err := cmd.Run(); err != nil { 
-//		fmt.Printf("\033[31;1m****** PROBLEM: %v cannot attach to native logger.. aborting\n\033[0m", sheep.id)
-//		return err
-//	}
+
+	cmd := exec.Command("bash", "-c", "/users/awadyn/shepherd_muster/shep_remote_muster/read_ixgbe_stats.sh " + src_fname + " " + log_fname)
+	cmd.SysProcAttr = &syscall.SysProcAttr{ Pdeathsig: syscall.SIGTERM }
+
 	go func() {
 		sheep := sheep
 		cmd := cmd
-//		log := log
-//		src_fname := src_fname
 		for {
 			select {
 			case <- sheep.detach_native_logger:
 				err := cmd.Process.Kill()
 				if err != nil { panic(err) }
+				fmt.Printf("\033[36;1m****** ALERT: killed native logger for %v\n\033[0m", sheep.id)
 				return
-//			default:
-//				cmd = exec.Command("bash", "-c", "cat " + src_fname + " >> " + log_fname)
-//				if err := cmd.Run(); err != nil { panic(err) }
-//				time.Sleep(time.Second * log.log_wait_factor)
 			}
 		}
 	} ()
-	return nil
+
+	if err := cmd.Run(); err != nil { 
+		fmt.Printf("\033[31;1m****** PROBLEM: %v cannot access native logger data.. aborting \n\033[0m", sheep.id)
+		return
+	}
 }
 
 
