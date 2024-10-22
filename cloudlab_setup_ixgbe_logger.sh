@@ -4,7 +4,7 @@ cd ~/
 kernel=$(uname -r)
 echo "Kernel version $kernel found. Installing intlogger.."
 sleep 2
-if [ ! -d "~/intlog" ]; then
+if [ ! -d "/users/awadyn/intlog" ]; then
 git clone https://github.com/handong32/intlog.git
 cp -r ~/intlog/linux/linux-5.15.89/drivers/net/ ~/linux-5.15.89/drivers/
 cd linux-5.15.89

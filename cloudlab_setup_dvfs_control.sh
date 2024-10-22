@@ -1,12 +1,21 @@
 #!/bin/bash
 
+kernel=$(uname -r)
+cd ~/linux-$kernel
+echo "Rebuilding linux-$kernel with X86 MSR enabled."
+sleep 1
+source .config
+if [[ ! $CONFIG_X86_MSR == "y" ]]; then
+fakeroot make -j8 CONFIG_X86_MSR=y;
+fi
+
+echo "Downloading and probing msr-tools."
+sleep 1
 sudo apt install msr-tools
 sudo modprobe msr
-echo off | sudo tee /sys/devices/system/cpu/smt/control
-echo "1" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo
 
-# NOTE: if modprobe fails, then probably msr is not set in .config 
-
+echo "Setting up dvfs governor to 'userspace governor'."
+sleep 1
 N=$(nproc)
 for i in $( seq 0 $N); do 
 	if [ $i == $N ]; then break; fi; 
