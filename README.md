@@ -9,11 +9,11 @@ ssh user@node-muster-x 'sudo apt update && sudo apt upgrade -y'
 
 #### Clone MustHerd code base on shepherd node and all muster nodes:
 ```bash
-user@node:$ git clone https://github.com/awadyn/shepherd_muster.git
+user@node:$ git clone git@github.com:awadyn/shepherd_muster.git
 user@node:$ cd shepherd_muster; ./cloudlab_setup_golang.sh
 ```
 
-###### Running above script checks for a compatible golang version:
+Running above script checks for a compatible golang version:
 ```bash
 user@node:$ go_version=1.22.4							// compatible golang version
 user@node:$ which go								// checks if go runtime is installed
@@ -22,15 +22,16 @@ user@node:$ sudo rm -rf /usr/local/bin/go 					// remove current go version
 user@node:$ wget https://go.dev/dl/go$go_version.linux-amd64.tar.gz		// download go version
 user@node:$ sudo tar -C /usr/local -xzf go$go_version.linux-amd64.tar.gz	// install go locally
 user@node:$ echo 'export PATH=$PATH:/usr/local/go/bin' >> .bashrc		// add go binary to bash shell environment
-user@node:$ export PATH=$PATH:/usr/local/go/bin					// add go binary to bash shell path
 ```
+After running the above script, exit and re-enter shell session to apply bashrc changes.
+
 
 ## Preparing Example Native Logger Environment
+#### First build and install compatible kernel version:
 ```bash
-user@node:$ cd shepherd_muster; ./cloudlab_setup_ixgbe_logger.sh
+user@node:$ cd shepherd_muster; ./cloudlab_setup_ixgbe_kernel.sh
 ```
-
-#### Running above script checks for a compatible kernel version:
+Running above script downloads, installs, and builds kernel version:
 ```bash
 user@node:$ kernel=$(uname -r)								// reads kernel version
 user@node:$ wget https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.15.89.tar.xz	// downloads compatible linux kernel
@@ -48,8 +49,11 @@ user@node:$ sudo make install
 user@node:$ sudo reboot									// see new kernel version after reboot
 
 ```
-
-#### Then builds ixgbe driver into compatible kernel:
+#### Then download and build modified ixgbe driver into compatible kernel:
+```bash
+user@node:$ cd shepherd_muster; ./cloudlab_setup_ixgbe_logger.sh
+```
+Running the above script rebuilds kernel with modified ixgbe driver:
 ```bash
 user@node:$ git clone https://github.com/handong32/intlog.git
 user@node:$ cp -r ~/intlog/linux/linux-5.15.89/drivers/net/ ~/linux-5.15.89/drivers/
@@ -57,14 +61,7 @@ user@node:$ cd linux-5.15.89
 user@node:$ fakeroot make -j8
 ```
 
-#### Then sets system hardware settings that can jeopardize correct behavior of ixgbe driver:
-```bash
-user@node:$ echo off | sudo tee /sys/devices/system/cpu/smt/control
-user@node:$ echo "1" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo
-user@node:$ sudo killall irqbalance
-```
-
-#### Next, ixgbe driver is loaded:
+Then, newly built ixgbe driver is loaded:
 ```bash
 user@node:$ sudo rmmod ixgbe
 user@node:$ sudo insmod ~/linux-5.15.89/drivers/net/ethernet/intel/ixgbe/ixgbe.ko
@@ -73,10 +70,18 @@ user@node:$ num=$(uname -a | grep -oP "node\d" | grep -oP "\d")
 user@node:$ node=$(($num + 1))
 user@node:$ ip="10.10.1.$node"
 user@node:$ sudo ip link set dev $ieth up
-user@node:$ sudo ip addr add $ip dev $ieth
+user@node:$ sudo ip addr add $ip/24 dev $ieth
 ```
 
-#### Finally, set irq to cpu affinity and check ixgbe driver stats:
+It also sets system hardware settings that can jeopardize correct behavior of ixgbe driver:
+```bash
+user@node:$ echo off | sudo tee /sys/devices/system/cpu/smt/control
+user@node:$ echo "1" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo
+user@node:$ sudo killall irqbalance
+user@node:$ sudo ~/shepherd_muster/intel_set_irq_affinity.sh <ieth>
+```
+
+Finally, it checks ixgbe driver stats:
 ```bash
 user@node:$ sudo ~/shepherd_muster/intel_set_irq_affinity.sh $ieth
 user@node:$ for i in {0..15}; do cat /proc/ixgbe_stats/core/$i; echo; done
