@@ -102,3 +102,22 @@ user@muster:$ #go run remote_muster/* <muster_ip> <shepherd_ip> <num_cores> <plu
 user@muster:$ go run remote_muster/* 10.10.1.2 10.10.1.1 16 50051 50061 50071 50081
 ```
 
+## Preparing Example Control Environment
+#### Here we enable userspace dynamic voltage/frequency scaling on a muster node:
+```bash
+user@shepherd:$ cd shepherd_muster/; ./cloudlab_setup_dvfs_control.sh
+```
+
+Running the above script re-configures kernel to enable x86 msr manipulation:
+```bash
+user@node:$ fakeroot make -j8 CONFIG_X86_MSR=y
+user@node:$ sudo apt install msr-tools
+user@node:$ sudo modprobe msr
+```
+
+It then sets userspace scaling governor for all active cores:
+```bash
+user@node:$ N=$(nproc)
+user@node:$ for i in $( seq 0 $N); do if [ $i == $N ]; then break; fi; echo "userspace" | sudo tee /sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor; done
+```
+
