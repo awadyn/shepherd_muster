@@ -41,8 +41,8 @@ func (sheep_c *sheep) update_log_file(log_id string) {
 	}
 	writer := sheep_c.log_writer_map[log_id]
 	writer.WriteAll(str_mem_buff)
-	fmt.Println(mem_buff)
-	fmt.Println(str_mem_buff)
+//	fmt.Println(mem_buff)
+//	fmt.Println(str_mem_buff)
 }
 
 func (m *muster) init() {
