@@ -167,14 +167,6 @@ type Shepherd interface {
 
 /* SPECIALIZATIONS */
 
-type intlog_shepherd struct {
-	shepherd
-	logs_dir string
-	intlog_metrics []string
-	buff_max_size uint64
-}
-
-
 type flink_shepherd struct {
 	shepherd
 	flink_musters map[string]*flink_local_muster

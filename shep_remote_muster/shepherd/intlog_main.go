@@ -1,9 +1,8 @@
 package main
 
 import ( "time"
-//	 "fmt"
-//	 "os"
-	 "os/exec" 
+	 "os"
+//	 "os/exec" 
 )
 
 /**************************************/
@@ -12,26 +11,60 @@ func (intlog_s *intlog_shepherd) run_workload(m_id string) {
 	l_m := intlog_s.local_musters[m_id]
 	<- l_m.hb_chan
 
-	for iter := 0; iter < 3; iter ++ {
-		cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=32 --measure_qps=2000 --qps=400000 --time=10")
-		if err := cmd.Run(); err != nil { panic(err) }
+	// establish connection with remote muster and
+	// get current remote node control state
+	for _, sheep := range(l_m.pasture) {
+		for _, ctrl := range(sheep.controls) {
+			l_m.request_ctrl_chan <- []string{sheep.id, ctrl.id}
+			<- ctrl.ready_request_chan
+		}
 	}
+	// at this point, ctrl values are set in local muster representation
+	intlog_s.init_log_files(intlog_s.logs_dir)
+	time.Sleep(time.Second)
 
+	for iter := 0; iter < 1; iter ++ {
+		for _, sheep := range(l_m.pasture) {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "start"}
+			}
+		}
+		time.Sleep(time.Second * 2)
+		//cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=32 --measure_qps=2000 --qps=200000 --time=10")
+		//cmd.Stdout = os.Stdout
+		//if err := cmd.Run(); err != nil { panic(err) }
+		for _, sheep := range(l_m.pasture) {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "all"}
+			}
+		}
+		time.Sleep(time.Second * 20)
+		for _, sheep := range(l_m.pasture) {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "stop"}
+			}
+		}
+	}
 }
 
-func intlog_main() {
-	// assume that a list of nodes is known apriori
-	nodes := []node{{ip: "10.10.1.1", ncores: 16, pulse_port: 50051, log_sync_port:50061, ctrl_port: 50071, coordinate_port: 50081}}
+func intlog_main(nodes []node) {
+	home_dir, err := os.Getwd()
+	if err != nil { panic(err) }
 
 	// initialize generic shepherd
 	s := shepherd{id: "sheperd-intlog"}
 	s.init(nodes)
-
-	intlog_s := intlog_shepherd{shepherd:s}
+	// initialize specialized energy-performance shepherd
+	intlog_s := intlog_shepherd{shepherd:s,
+				    logs_dir: home_dir + "/shepherd-intlog_logs/"}
 	intlog_s.init()
+	intlog_s.init_local()
+	
+	// start all management and coordination threads
 	intlog_s.deploy_musters()
 	go intlog_s.listen_heartbeats()
 	go intlog_s.process_logs()
+//	go bayopt_s.compute_control()
 	for _, l_m := range(intlog_s.local_musters) {
 		go intlog_s.run_workload(l_m.id)
 	}
@@ -39,8 +72,8 @@ func intlog_main() {
 	time.Sleep(exp_timeout)
 
 	for _, l_m := range(intlog_s.local_musters) {
-		for sheep_id, _ := range(l_m.pasture) {
-			for _, f := range(l_m.out_f_map[sheep_id]) { f.Close() }
+		for _, sheep := range(l_m.pasture) {
+			for _, f := range(sheep.log_f_map) { f.Close() }
 		}
 	}
 }
