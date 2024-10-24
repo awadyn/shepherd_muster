@@ -53,6 +53,7 @@ type log struct {
 	ready_request_chan chan bool	//syncs access to log object 
 	ready_buff_chan chan bool	//syncs access to log memory buffer
 	ready_process_chan chan bool	//..? 
+	kill_log_chan chan bool
 
 	mem_buff *[][]uint64
 	max_size uint64

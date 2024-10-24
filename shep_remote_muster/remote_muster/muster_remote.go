@@ -143,6 +143,10 @@ func (r_m *remote_muster) log_manage(sheep_id string, logs_dir string, native_lo
 					r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 				}
 			case cmd == "stop":
+				select {
+				case r_m.pasture[sheep_id].logs[log_id].kill_log_chan <- true:
+				default:
+				}
 				// stop communication with native logger
 				r_m.pasture[sheep_id].detach_native_logger <- true
 				r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
@@ -201,6 +205,29 @@ func (r_m *remote_muster) log_manage(sheep_id string, logs_dir string, native_lo
 					err = r_m.sync_with_logger(sheep_id, log_id, reader2, do_log, 1)
 					if err != nil { panic(err) }
 					r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+				} ()
+			case cmd == "all":
+				go func() {
+					sheep_id := sheep_id
+					log_id := log_id
+					f := r_m.pasture[sheep_id].log_f_map[log_id]
+					reader := r_m.pasture[sheep_id].log_reader_map[log_id]
+					f.Seek(0, io.SeekStart)
+					for {
+						select {
+						case <- r_m.pasture[sheep_id].logs[log_id].kill_log_chan:
+							return
+						default:
+							err := r_m.sync_with_logger(sheep_id, log_id, reader, do_log, 1)
+							if err == io.EOF {
+								fmt.Println("************** FILE IS EMPTY *************", log_id) 
+								r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+								//return
+								time.Sleep(time.Second)
+							}
+							if err != nil { panic(err) }
+						}
+					}
 				} ()
 			default:
 				fmt.Println("************ UNKNOWN LOG COMMAND: ", cmd)
