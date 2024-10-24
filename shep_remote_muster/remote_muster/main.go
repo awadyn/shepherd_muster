@@ -8,7 +8,7 @@ import (
 
 /*********************************************/
 
-var debug bool = true
+var debug bool = false
 
 var mirror_ip string;
 
