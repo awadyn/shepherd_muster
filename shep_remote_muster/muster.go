@@ -23,7 +23,7 @@ func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.
 	l.ready_process_chan = make(chan bool, 1)
 	l.ready_request_chan = make(chan bool, 1)
 	l.ready_buff_chan = make(chan bool, 1)
-//	l.kill_log_chan = make(chan bool, 1)
+	l.kill_log_chan = make(chan bool, 1)
 }
 
 func (m *muster) init() {

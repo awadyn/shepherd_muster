@@ -53,6 +53,7 @@ type log struct {
 	ready_request_chan chan bool	//syncs access to log object 
 	ready_buff_chan chan bool	//syncs access to log memory buffer
 	ready_process_chan chan bool	//..? 
+	kill_log_chan chan bool
 
 	mem_buff *[][]uint64
 	max_size uint64
@@ -168,13 +169,6 @@ type Shepherd interface {
 
 type intlog_shepherd struct {
 	shepherd
-	logs_dir string
-	intlog_metrics []string
-	buff_max_size uint64
-}
-
-type intlog_muster struct {
-	remote_muster
 	logs_dir string
 	intlog_metrics []string
 	buff_max_size uint64
