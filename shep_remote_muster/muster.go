@@ -26,6 +26,25 @@ func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.
 //	l.kill_log_chan = make(chan bool, 1)
 }
 
+func (sheep_c *sheep) update_log_file(log_id string) {
+	str_mem_buff := make([][]string,0)
+	log := sheep_c.logs[log_id]
+	mem_buff := *(log.mem_buff)
+	for _, row := range(mem_buff) {
+		if len(row) == 0 { break }
+		str_row := []string{}
+		for i := range(len(log.metrics)) {
+			val := strconv.Itoa(int(row[i]))
+			str_row = append(str_row, val)
+		}
+		str_mem_buff = append(str_mem_buff, str_row)
+	}
+	writer := sheep_c.log_writer_map[log_id]
+	writer.WriteAll(str_mem_buff)
+	fmt.Println(mem_buff)
+	fmt.Println(str_mem_buff)
+}
+
 func (m *muster) init() {
 	m.id = "muster-" + m.ip
 	if m.node.ip_idx >= 0 {
