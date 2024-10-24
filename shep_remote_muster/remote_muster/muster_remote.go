@@ -213,12 +213,13 @@ func (r_m *remote_muster) log_manage(sheep_id string, logs_dir string, native_lo
 					f := r_m.pasture[sheep_id].log_f_map[log_id]
 					reader := r_m.pasture[sheep_id].log_reader_map[log_id]
 					f.Seek(0, io.SeekStart)
+					r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 					for {
 						select {
 						case <- r_m.pasture[sheep_id].logs[log_id].kill_log_chan:
 							return
 						default:
-							err := r_m.sync_with_logger(sheep_id, log_id, reader, do_log, 1)
+							err := r_m.sync_with_logger(sheep_id, log_id, reader, do_log, -1)
 							if err == io.EOF {
 								fmt.Println("************** FILE IS EMPTY *************", log_id) 
 								r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
