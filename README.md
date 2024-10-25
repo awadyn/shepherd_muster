@@ -105,7 +105,7 @@ user@muster:$ go run remote_muster/* 10.10.1.2 10.10.1.1 16 50051 50061 50071 50
 ## Preparing Example Control Environment
 #### Here we enable userspace dynamic voltage/frequency scaling on a muster node:
 ```bash
-user@shepherd:$ cd shepherd_muster/; ./cloudlab_setup_dvfs_control.sh
+user@muster:$ cd shepherd_muster/; ./cloudlab_setup_dvfs_control.sh
 ```
 
 Running the above script re-configures kernel to enable x86 msr manipulation:
@@ -121,3 +121,16 @@ user@node:$ N=$(nproc)
 user@node:$ for i in $( seq 0 $N); do if [ $i == $N ]; then break; fi; echo "userspace" | sudo tee /sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor; done
 ```
 
+## Preparing Example Workload Environment
+#### Here we enable memcached as a workload on a muster node:
+```bash
+user@muster:$ cd shepherd_muster/; ./cloudlab_setup_memcached.sh
+user@muster:$ cd ~/; ./memcached/memcached --help
+```
+
+#### Here we enable mutilate load generator to drive memcached workload:
+This must be done on all nodes involved in a mutilate cluster load generation:
+```bash
+user@node:$ cd shepherd_muster/; ./cloudlab_setup_mutilate.sh
+user@node:$ cd ~/; ./mutilate/mutilate --help
+```
