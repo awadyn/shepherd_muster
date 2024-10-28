@@ -27,7 +27,7 @@ func (intlog_s *intlog_shepherd) init() {
 	intlog_s.ixgbe_metrics = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
 	                                "instructions", "cycles", "ref_cycles", "llc_miss",
 	                                "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
-	intlog_s.buff_max_size = 1
+	intlog_s.buff_max_size = 4096
 	intlog_s.intlog_musters = make(map[string]*intlog_muster)
 	for _, l_m := range(intlog_s.local_musters) {
 		intlog_m := intlog_muster{local_muster: *l_m}
@@ -74,9 +74,9 @@ func (intlog_s intlog_shepherd) process_logs() {
 				sheep := sheep
 				log := log
 				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
-				mem_buff := *(log.mem_buff)
+//				mem_buff := *(log.mem_buff)
 				sheep.update_log_file(log.id)
-				fmt.Printf("\033[33m---------- %v\n\033[0m", mem_buff)
+//				fmt.Printf("\033[33m---------- %v\n\033[0m", mem_buff)
 				// muster can now overwrite mem_buff for this log
 				select {
 				case sheep.logs[log.id].ready_process_chan <- true:

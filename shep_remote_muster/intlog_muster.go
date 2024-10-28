@@ -10,7 +10,7 @@ func (intlog_m *intlog_muster) init() {
 	intlog_m.ixgbe_metrics = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
 				    "instructions", "cycles", "ref_cycles", "llc_miss", 
 				    "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
-	intlog_m.buff_max_size = 1
+	intlog_m.buff_max_size = 4096
 
 	ctrl_itr_shared := control{id: "itr-ctrl-" + intlog_m.ip, n_ip: intlog_m.ip}
 	ctrl_itr_shared.init("itr-delay", read_rx_usecs, write_rx_usecs)
