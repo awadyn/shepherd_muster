@@ -2,7 +2,7 @@ package main
 
 import ( "time"
 	 "os"
-//	 "os/exec" 
+	 "os/exec" 
 )
 
 /**************************************/
@@ -21,7 +21,7 @@ func (intlog_s *intlog_shepherd) run_workload(m_id string) {
 	}
 	// at this point, ctrl values are set in local muster representation
 	intlog_s.init_log_files(intlog_s.logs_dir)
-	time.Sleep(time.Second)
+//	time.Sleep(time.Second)
 
 	for iter := 0; iter < 1; iter ++ {
 		for _, sheep := range(l_m.pasture) {
@@ -29,16 +29,20 @@ func (intlog_s *intlog_shepherd) run_workload(m_id string) {
 				l_m.request_log_chan <- []string{sheep.id, log.id, "start"}
 			}
 		}
-		time.Sleep(time.Second * 2)
-		//cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=32 --measure_qps=2000 --qps=200000 --time=10")
-		//cmd.Stdout = os.Stdout
-		//if err := cmd.Run(); err != nil { panic(err) }
+//		time.Sleep(time.Second)
 		for _, sheep := range(l_m.pasture) {
 			for _, log := range(sheep.logs) {
 				l_m.request_log_chan <- []string{sheep.id, log.id, "all"}
 			}
 		}
-		time.Sleep(time.Second * 20)
+
+		cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
+		if err := cmd.Run(); err != nil { panic(err) }
+		cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=16 --measure_qps=2000 --qps=100000 --time=30")
+		cmd.Stdout = os.Stdout
+		if err := cmd.Run(); err != nil { panic(err) }
+
+		time.Sleep(time.Second * 2)
 		for _, sheep := range(l_m.pasture) {
 			for _, log := range(sheep.logs) {
 				l_m.request_log_chan <- []string{sheep.id, log.id, "stop"}
