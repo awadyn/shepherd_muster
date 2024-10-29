@@ -69,10 +69,7 @@ func (bayopt_s *bayopt_shepherd) init_local() {
 				log.ready_buff_chan <- true
 			}
 			for _, ctrl := range(sheep.controls) {
-				select {
-				case ctrl.ready_request_chan <- true:
-				default:
-				}
+				ctrl.ready_request_chan <- true
 			}
 		}
 		bayopt_m.show()

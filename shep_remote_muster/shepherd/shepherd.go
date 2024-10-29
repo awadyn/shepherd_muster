@@ -27,12 +27,12 @@ func (s *shepherd) init(nodes []node) {
 	s.musters = make(map[string]*muster)
 	s.local_musters = make(map[string]*local_muster)
 	for n := 0; n < len(nodes); n++ {
-		m_n := &muster{node: nodes[n]}
+		m_n := muster{node: nodes[n]}
 		m_n.init()
-		l_m := &local_muster{muster: *m_n}
+		l_m := local_muster{muster: m_n}
 		l_m.init()
-		s.musters[m_n.id] = m_n
-		s.local_musters[l_m.id] = l_m
+		s.musters[m_n.id] = &m_n
+		s.local_musters[l_m.id] = &l_m
 	}
 }
 
