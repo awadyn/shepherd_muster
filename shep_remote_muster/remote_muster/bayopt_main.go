@@ -29,14 +29,14 @@ func bayopt_main(n node) {
 	bayopt_m.show()
 
 	go bayopt_m.start_pulser()
-//	go bayopt_m.start_controller()
-//	go bayopt_m.sync_new_ctrl()
+	go bayopt_m.start_controller()
+	go bayopt_m.sync_new_ctrl()
 	go bayopt_m.start_coordinator()
 	bayopt_m.start_logger()
 
 	for sheep_id, _ := range(bayopt_m.pasture) {
 		go bayopt_m.log_manage(sheep_id, bayopt_m.logs_dir, ixgbe_native_log) 
-//		go bayopt_m.ctrl_manage(sheep_id) 
+		go bayopt_m.ctrl_manage(sheep_id) 
 	}
 
 	// cleanup
