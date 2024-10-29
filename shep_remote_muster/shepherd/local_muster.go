@@ -118,7 +118,7 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 			/* i.e. all log entries have been copied to mem_buff*/
 			l_m.full_buff_chan <- []string{sheep_id, log_id}
 			<- l_m.pasture[sheep_id].logs[log_id].ready_buff_chan
-			fmt.Printf("\033[36m<----- SYNC-REP -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id)
+//			fmt.Printf("\033[36m<----- SYNC-REP -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id)
 			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:true})
 		case err != nil:
 			fmt.Printf("\033[31;1m****** ERROR: could not receive sync log request from stream\n\033[0m")
@@ -128,7 +128,7 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 			log_id = sync_req.GetLogId()
 			mem_buff := l_m.pasture[sheep_id].logs[log_id].mem_buff
 			if buff_ctr == 0 { 
-				fmt.Printf("\033[36m-----> SYNC-REQ -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) 
+//				fmt.Printf("\033[36m-----> SYNC-REQ -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) 
 				*(l_m.pasture[sheep_id].logs[log_id].mem_buff)  = make([][]uint64, 0)
 			}	
 			*mem_buff = append(*mem_buff, sync_req.GetLogEntry().GetVals())
@@ -222,6 +222,7 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 				coordinate_cmd := req[2]
 
 				<- l_m.pasture[sheep_id].logs[log_id].ready_request_chan
+				if coordinate_cmd == "close" { return }
 				//fmt.Printf("\033[34m<--- COORD REQ -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd)
 				for {
 					r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd})  
@@ -236,7 +237,7 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 				req := req
 				sheep_id := req[0]
 				ctrl_id := req[1]
-//				<- l_m.pasture[sheep_id].controls[ctrl_id].ready_request_chan
+				<- l_m.pasture[sheep_id].controls[ctrl_id].ready_request_chan
 				//fmt.Printf("\033[34m<--- COORD REQ -- %v -- %v\n\033[0m", sheep_id, ctrl_id)
 				for {
 					r, err := c.CoordinateCtrl(ctx, &pb.CoordinateCtrlRequest{SheepId: sheep_id, CtrlId: ctrl_id})  

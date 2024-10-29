@@ -27,9 +27,7 @@ type bayopt_shepherd struct {
 	logs_dir string
 	ixgbe_metrics []string
 	buff_max_size uint64
-	// joules_measure[muster_id][sheep_id] = X
 	joules_measure map[string](map[string][]float64)
-	// joules_diff[muster_id][sheep_id] = Y
 	joules_diff map[string](map[string][]float64)
 }
 
@@ -70,6 +68,12 @@ func (bayopt_s *bayopt_shepherd) init_local() {
 				log.ready_request_chan <- true
 				log.ready_buff_chan <- true
 			}
+			for _, ctrl := range(sheep.controls) {
+				select {
+				case ctrl.ready_request_chan <- true:
+				default:
+				}
+			}
 		}
 		bayopt_m.show()
 	}
@@ -106,8 +110,8 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				bayopt_s.joules_measure[m_id][sheep_id] = append(bayopt_s.joules_measure[m_id][sheep_id], joules_val)
 				joules_old := bayopt_s.joules_measure[m_id][sheep_id][len(bayopt_s.joules_measure[m_id][sheep_id]) - 2]
 				bayopt_s.joules_diff[m_id][sheep_id] = append(bayopt_s.joules_diff[m_id][sheep_id], joules_val - joules_old)
-				fmt.Printf("\033[33m---------- %v\n\033[0m", mem_buff)
-				fmt.Printf("\033[33m---------- JOULES MEAS: %v\n\033[0m", bayopt_s.joules_measure[l_m.id][sheep.id])
+//				fmt.Printf("\033[33m---------- %v\n\033[0m", mem_buff)
+//				fmt.Printf("\033[33m---------- JOULES MEAS: %v\n\033[0m", bayopt_s.joules_measure[l_m.id][sheep.id])
 				fmt.Printf("\033[33m---------- JOULES DIFF: %v\n\033[0m", bayopt_s.joules_diff[l_m.id][sheep.id])
 				fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v - %v\n\033[0m", l_m.id, sheep.id, log.id)	
 				// muster can now overwrite mem_buff for this log
@@ -115,6 +119,7 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				case sheep.logs[log.id].ready_process_chan <- true:
 				default:
 				}
+//				// TODO this is a hack; change..
 //				if len(bayopt_s.joules_diff[l_m.id][sheep.id]) % 2 == 0 {
 //					select {
 //					case bayopt_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:
@@ -130,22 +135,39 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 /********* CONTROL *********/
 /***************************/
 
-func (bayopt_s *bayopt_shepherd) bayopt_ctrl(m_id string, sheep_id string) map[string]uint64 {
-	new_ctrls := make(map[string]uint64)
+func (bayopt_s *bayopt_shepherd) bayopt_ctrl(m_id string, sheep_id string) map[string]*control {
+	dvfs_list := []uint64{0xc00, 0xe00, 0x1100, 0x1300, 0x1500, 0x1700, 0x1900, 0x1a00}
+	itr_list := []uint64{50, 100, 200, 400}
+
 	m := bayopt_s.musters[m_id]
 	sheep := m.pasture[sheep_id]
-	c_str := strconv.Itoa(int(sheep.core))
-	ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
-//	ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
+	new_ctrls := make(map[string]*control)
 
-	dvfs_list := []uint64{0xc00, 0xe00, 0x1100, 0x1300, 0x1500, 0x1700, 0x1900, 0x1a00}
-//	itr_list := []uint64{2, 100, 400}
-	dvfs_idx := rand.Intn(len(dvfs_list))
-	new_dvfs := dvfs_list[dvfs_idx]
+	var new_ctrl uint64
+	for _, ctrl := range(sheep.controls) {
+		new_ctrls[ctrl.id] = ctrl
+		switch {
+		case ctrl.knob == "dvfs":
+			dvfs_idx := rand.Intn(len(dvfs_list))
+			new_ctrl = dvfs_list[dvfs_idx]
+		case ctrl.knob == "itr-delay":
+			itr_idx := rand.Intn(len(itr_list))
+			new_ctrl = itr_list[itr_idx]
+		default:
+			fmt.Println("********* Unknown control knob")
+		}
+		new_ctrls[ctrl.id].value = new_ctrl
+	}
+
+//	c_str := strconv.Itoa(int(sheep.core))
+//	new_ctrls := make(map[string]uint64)
+//	ctrl_dvfs_id := "dvfs-ctrl-" + c_str + "-" + m.ip
+//	ctrl_itr_id := "itr-ctrl-"  + m.ip
+//	dvfs_idx := rand.Intn(len(dvfs_list))
+//	new_dvfs := dvfs_list[dvfs_idx]
 //	itr_idx := rand.Intn(len(itr_list))
 //	new_itr := itr_list[itr_idx]
-
-	new_ctrls[ctrl_dvfs_id] = new_dvfs
+//	new_ctrls[ctrl_dvfs_id] = new_dvfs
 //	new_ctrls[ctrl_itr_id] = new_itr
 	return new_ctrls
 }
@@ -165,16 +187,42 @@ func (bayopt_s bayopt_shepherd) compute_control() {
 				l_m := l_m
 				sheep := sheep
 				new_ctrls := bayopt_s.bayopt_ctrl(l_m.id, sheep.id)
-				fmt.Printf("\033[35m<------- CTRL REQ --  %v - %v - %v\n\033[0m", l_m.id, sheep.id, new_ctrls)
-				l_m.new_ctrl_chan <- control_request{sheep_id: sheep.id, ctrls: new_ctrls}
-				ctrl_reply := <- sheep.ready_ctrl_chan
-				ctrls := ctrl_reply.ctrls
-				done_ctrl := ctrl_reply.done
-				if done_ctrl { 
-					for ctrl_id, ctrl_val := range(ctrls) {
-						sheep.controls[ctrl_id].value = ctrl_val
+				fmt.Printf("\033[35m<------- CTRL REQ --  %v - %v\n\033[0m", l_m.id, new_ctrls)
+//				new_ctrls := bayopt_s.bayopt_ctrl(l_m.id, l_m.id)
+//				fmt.Printf("\033[35m<------- CTRL REQ --  %v - %v - %v\n\033[0m", l_m.id, sheep.id, new_ctrls)
+				for _, sheep := range(l_m.pasture) {
+					sheep_new_ctrls := make(map[string]uint64)
+					c_str := strconv.Itoa(int(sheep.core))
+					ctrl_dvfs_id := "dvfs-ctrl-" + c_str + "-" + l_m.ip
+					ctrl_itr_id := "itr-ctrl-"  + l_m.ip
+					for _, ctrl := range(new_ctrls) {
+						if ctrl.knob == "dvfs" { 
+							sheep_new_ctrls[ctrl_dvfs_id] = ctrl.value
+						} else {
+							if ctrl.knob == "itr-delay" {
+								sheep_new_ctrls[ctrl_itr_id] = ctrl.value
+							}
+						}
+					}
+					l_m.new_ctrl_chan <- control_request{sheep_id: sheep.id, ctrls: sheep_new_ctrls}
+					ctrl_reply := <- sheep.ready_ctrl_chan
+					ctrls := ctrl_reply.ctrls
+					done_ctrl := ctrl_reply.done
+					if done_ctrl { 
+						for ctrl_id, ctrl_val := range(ctrls) {
+							sheep.controls[ctrl_id].value = ctrl_val
+						}
 					}
 				}
+//				l_m.new_ctrl_chan <- control_request{sheep_id: l_m.id, ctrls: new_ctrls}
+//				ctrl_reply := <- sheep.ready_ctrl_chan
+//				ctrls := ctrl_reply.ctrls
+//				done_ctrl := ctrl_reply.done
+//				if done_ctrl { 
+//					for ctrl_id, ctrl_val := range(ctrls) {
+//						sheep.controls[ctrl_id].value = ctrl_val
+//					}
+//				}
 			} ()
 		}
 	}
