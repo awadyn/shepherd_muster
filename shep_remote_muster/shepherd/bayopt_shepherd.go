@@ -156,16 +156,6 @@ func (bayopt_s *bayopt_shepherd) bayopt_ctrl(m_id string, sheep_id string) map[s
 		new_ctrls[ctrl.id].value = new_ctrl
 	}
 
-//	c_str := strconv.Itoa(int(sheep.core))
-//	new_ctrls := make(map[string]uint64)
-//	ctrl_dvfs_id := "dvfs-ctrl-" + c_str + "-" + m.ip
-//	ctrl_itr_id := "itr-ctrl-"  + m.ip
-//	dvfs_idx := rand.Intn(len(dvfs_list))
-//	new_dvfs := dvfs_list[dvfs_idx]
-//	itr_idx := rand.Intn(len(itr_list))
-//	new_itr := itr_list[itr_idx]
-//	new_ctrls[ctrl_dvfs_id] = new_dvfs
-//	new_ctrls[ctrl_itr_id] = new_itr
 	return new_ctrls
 }
 
