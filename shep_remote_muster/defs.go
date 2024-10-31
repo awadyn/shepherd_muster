@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/grpc"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
+	pb_opt "github.com/awadyn/shep_remote_muster/shep_optimizer"
 )
 /************************************/
 
@@ -20,6 +21,7 @@ type node struct {
 	log_port int
 	ctrl_port int
 	coordinate_port int
+	optimize_port int
 	ip_idx int			//differentiates musters on the same node
 	ip string
 }
@@ -104,10 +106,12 @@ type muster struct {
 type local_muster struct {
 	muster
 	hb_chan chan *pb.HeartbeatReply
+	start_optimizer_chan chan *pb_opt.StartOptimizerReply
 
 	log_server_port *int
 	ctrl_server_addr *string
 	pulse_server_addr *string
+	optimize_server_addr *string
 	coordinate_server_addr *string
 
 //	out_f_map map[string](map[string]*os.File)

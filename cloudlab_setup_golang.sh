@@ -14,3 +14,10 @@ else echo "golang not found.. Downloading go$go_version:"; sleep 1;
 	which go; go version;
 fi
 
+# installing protobuf-compiler
+# sudo apt install -y protobuf-compiler
+# go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+# go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+# use protobuf-compiler
+# protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto-dir/file.proto
+# python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. shep_optimizer/shep_optimizer.proto

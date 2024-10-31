@@ -2,6 +2,7 @@ package main
 
 import ( 
 	"time"
+	"strconv"
 	"os"
 	"os/exec" 
 //	"fmt"
@@ -13,17 +14,17 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 	l_m := bayopt_s.local_musters[m_id]
 	<- l_m.hb_chan
 
-	// establish connection with remote muster and
-	// get current remote node control state
-	for _, sheep := range(l_m.pasture) {
-		for _, ctrl := range(sheep.controls) {
-			l_m.request_ctrl_chan <- []string{sheep.id, ctrl.id}
-		}
-	}
+//	// establish connection with remote muster and
+//	// get current remote node control state
+//	for _, sheep := range(l_m.pasture) {
+//		for _, ctrl := range(sheep.controls) {
+//			l_m.request_ctrl_chan <- []string{sheep.id, ctrl.id}
+//		}
+//	}
 	// at this point, ctrl values are set in local muster representation
 	bayopt_s.init_log_files(bayopt_s.logs_dir)
 
-	for iter := 0; iter < 2; iter ++ {
+	for iter := 0; iter < 1; iter ++ {
 		for _, sheep := range(l_m.pasture) {
 			for _, log := range(sheep.logs) {
 				l_m.request_log_chan <- []string{sheep.id, log.id, "start"}
@@ -82,7 +83,7 @@ func bayopt_main(nodes []node) {
 	s.init(nodes)
 	// initialize specialized energy-performance shepherd
 	bayopt_s := bayopt_shepherd{shepherd:s,
-				    logs_dir: home_dir + "/shepherd_bayopt_logs/"}
+				    logs_dir: home_dir + "/shepherd-bayopt-logs/"}
 	bayopt_s.init()
 	bayopt_s.init_local()
 	
@@ -91,17 +92,53 @@ func bayopt_main(nodes []node) {
 	go bayopt_s.listen_heartbeats()
 	go bayopt_s.process_logs()
 	go bayopt_s.compute_control()
+
 	for _, l_m := range(bayopt_s.local_musters) {
+		var ctrl_dvfs_id string
+		var ctrl_itr_id string
+		var ctrl_dvfs_val uint64
+		var ctrl_itr_val uint64
+		l_m.start_optimizer()
+		r := <- l_m.start_optimizer_chan
+		ctrls := r.GetCtrls()
+		for _, ctrl := range(ctrls) {
+			switch {
+			case ctrl.Knob == "dvfs":
+				ctrl_dvfs_id = "dvfs-ctrl-"
+				ctrl_dvfs_val = ctrl.Val
+			case ctrl.Knob == "itr-delay":
+				ctrl_itr_id = "itr-ctrl-" + l_m.ip
+				ctrl_itr_val = ctrl.Val
+			default:
+			}
+		}
+
+		for _, sheep := range(l_m.pasture) {
+			c_str := strconv.Itoa(int(sheep.core))
+			ctrl_dvfs_id = "dvfs-ctrl-" + c_str + "-" + l_m.ip
+			start_ctrls := make(map[string]uint64)
+			start_ctrls[ctrl_dvfs_id] = ctrl_dvfs_val
+			start_ctrls[ctrl_itr_id] = ctrl_itr_val
+			l_m.new_ctrl_chan <- control_request{sheep_id: sheep.id, ctrls: start_ctrls}
+			ctrl_reply := <- sheep.ready_ctrl_chan
+			set_ctrls := ctrl_reply.ctrls
+			done_ctrl := ctrl_reply.done
+			if done_ctrl {
+				for ctrl_id, ctrl_val := range(set_ctrls) {
+				        sheep.controls[ctrl_id].value = ctrl_val
+				}
+			}
+		}
 		go bayopt_s.run_workload(l_m.id)
 	}
 
-	time.Sleep(exp_timeout)
 
 	for _, l_m := range(bayopt_s.local_musters) {
 		for _, sheep := range(l_m.pasture) {
-			for _, f := range(sheep.log_f_map) { f.Close() }
+			for _, f := range(sheep.log_f_map) { defer f.Close() }
 		}
 	}
+	time.Sleep(exp_timeout)
 }
 
 

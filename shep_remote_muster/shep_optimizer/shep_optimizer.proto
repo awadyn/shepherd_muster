@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option go_package = "github.com/awadyn/shep_remote_muster";
+
+package shepherd;
+
+service Optimize {
+	rpc StartOptimizer (StartOptimizerRequest) returns (StartOptimizerReply);
+}
+
+message StartOptimizerRequest {
+	uint32 n_trials = 1;
+}
+
+message StartOptimizerReply {
+	bool done = 1;
+	repeated ControlEntry ctrls = 2;
+}
+
+message ControlEntry {
+	string knob = 1;
+	uint64 val = 2;
+}
+
+

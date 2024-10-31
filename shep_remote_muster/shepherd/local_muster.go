@@ -13,12 +13,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
+	pb_opt "github.com/awadyn/shep_remote_muster/shep_optimizer"
 )
 
 /************************************/
 
 func (l_m *local_muster) init() {
 	l_m.hb_chan = make(chan *pb.HeartbeatReply)
+	l_m.start_optimizer_chan = make(chan *pb_opt.StartOptimizerReply, 1)
 	var idx string = ""
 	if l_m.ip_idx != -1 { idx = strconv.Itoa(int(l_m.ip_idx)) } 
 	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id + idx, l_m.log_port, 
@@ -29,6 +31,8 @@ func (l_m *local_muster) init() {
 						"address of one remote muster control server")
 	l_m.coordinate_server_addr = flag.String("coordinate_server_addr_" + l_m.id + idx, l_m.ip + ":" + strconv.Itoa(l_m.coordinate_port),
 							"address of remote muster  coordination server")
+	l_m.optimize_server_addr = flag.String("optimize_server_addr_" + l_m.id + idx,  "localhost:" + strconv.Itoa(l_m.optimize_port),
+						"address of optimization server")
 }
 
 
@@ -260,5 +264,31 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 }
 
 
+func (l_m *local_muster) start_optimizer() {
+	fmt.Printf("\033[34;1m-- STARTING LOCAL OPTIMIZER :  %v\n\033[0m", l_m.id)
+	conn, err := grpc.Dial(*l_m.optimize_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Printf("****** ERROR: %v could not create connection to optimizer server:\n****** %v\n", l_m.id, err)
+	}
+	c := pb_opt.NewOptimizeClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
+	fmt.Printf("\033[36m---- %v -- Initialized optimizer client\n\033[0m", l_m.id)
+	go l_m.optimize(conn, c, ctx, cancel)
+}
+
+func (l_m *local_muster) optimize(conn *grpc.ClientConn, c pb_opt.OptimizeClient, ctx context.Context, cancel context.CancelFunc) {
+	defer conn.Close()
+	defer cancel()
+	r, err := c.StartOptimizer(ctx, &pb_opt.StartOptimizerRequest{NTrials: 1})  
+	if err != nil {
+		fmt.Printf("\033[31;1m***** COULD NOT START OPTIMIZER:  %v\n\033[0m", l_m.id)
+		return
+	} else {
+		fmt.Printf("\033[34;1m***** STARTED OPTIMIZER:  %v - %v - %v\n\033[0m", l_m.id, r.GetDone(), r.GetCtrls())
+		if r.GetDone() == true {
+			l_m.start_optimizer_chan <- r
+		}
+	}
+}
 
 
