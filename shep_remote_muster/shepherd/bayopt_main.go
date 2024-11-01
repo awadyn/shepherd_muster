@@ -24,7 +24,7 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 	// at this point, ctrl values are set in local muster representation
 	bayopt_s.init_log_files(bayopt_s.logs_dir)
 
-	for iter := 0; iter < 1; iter ++ {
+	for iter := 0; iter < 2; iter ++ {
 		for _, sheep := range(l_m.pasture) {
 			for _, log := range(sheep.logs) {
 				l_m.request_log_chan <- []string{sheep.id, log.id, "start"}
@@ -98,27 +98,31 @@ func bayopt_main(nodes []node) {
 		var ctrl_itr_id string
 		var ctrl_dvfs_val uint64
 		var ctrl_itr_val uint64
-		l_m.start_optimizer()
-		r := <- l_m.start_optimizer_chan
-		ctrls := r.GetCtrls()
+
+		//starting optimization process..
+		l_m.start_optimize_chan <- optimize_request{ntrials: 1}
+		opt_rep := <- l_m.ready_optimize_chan
+		ctrls := opt_rep.settings
 		for _, ctrl := range(ctrls) {
 			switch {
-			case ctrl.Knob == "dvfs":
+			case ctrl.knob == "dvfs":
 				ctrl_dvfs_id = "dvfs-ctrl-"
-				ctrl_dvfs_val = ctrl.Val
-			case ctrl.Knob == "itr-delay":
+				ctrl_dvfs_val = ctrl.val
+			case ctrl.knob == "itr-delay":
 				ctrl_itr_id = "itr-ctrl-" + l_m.ip
-				ctrl_itr_val = ctrl.Val
+				ctrl_itr_val = ctrl.val
 			default:
 			}
 		}
-
+		//setting initial/start ctrl settings..
 		for _, sheep := range(l_m.pasture) {
 			c_str := strconv.Itoa(int(sheep.core))
 			ctrl_dvfs_id = "dvfs-ctrl-" + c_str + "-" + l_m.ip
 			start_ctrls := make(map[string]uint64)
 			start_ctrls[ctrl_dvfs_id] = ctrl_dvfs_val
 			start_ctrls[ctrl_itr_id] = ctrl_itr_val
+			//applying ctrl..
+			//TODO refactor
 			l_m.new_ctrl_chan <- control_request{sheep_id: sheep.id, ctrls: start_ctrls}
 			ctrl_reply := <- sheep.ready_ctrl_chan
 			set_ctrls := ctrl_reply.ctrls
@@ -129,6 +133,7 @@ func bayopt_main(nodes []node) {
 				}
 			}
 		}
+		//running workload with optimization ready..
 		go bayopt_s.run_workload(l_m.id)
 	}
 

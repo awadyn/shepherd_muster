@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	Optimize_StartOptimizer_FullMethodName = "/shepherd.Optimize/StartOptimizer"
+	Optimize_OptimizeReward_FullMethodName = "/shepherd.Optimize/OptimizeReward"
 )
 
 // OptimizeClient is the client API for Optimize service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OptimizeClient interface {
 	StartOptimizer(ctx context.Context, in *StartOptimizerRequest, opts ...grpc.CallOption) (*StartOptimizerReply, error)
+	OptimizeReward(ctx context.Context, in *OptimizeRewardRequest, opts ...grpc.CallOption) (*OptimizeRewardReply, error)
 }
 
 type optimizeClient struct {
@@ -47,11 +49,22 @@ func (c *optimizeClient) StartOptimizer(ctx context.Context, in *StartOptimizerR
 	return out, nil
 }
 
+func (c *optimizeClient) OptimizeReward(ctx context.Context, in *OptimizeRewardRequest, opts ...grpc.CallOption) (*OptimizeRewardReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OptimizeRewardReply)
+	err := c.cc.Invoke(ctx, Optimize_OptimizeReward_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OptimizeServer is the server API for Optimize service.
 // All implementations must embed UnimplementedOptimizeServer
 // for forward compatibility.
 type OptimizeServer interface {
 	StartOptimizer(context.Context, *StartOptimizerRequest) (*StartOptimizerReply, error)
+	OptimizeReward(context.Context, *OptimizeRewardRequest) (*OptimizeRewardReply, error)
 	mustEmbedUnimplementedOptimizeServer()
 }
 
@@ -64,6 +77,9 @@ type UnimplementedOptimizeServer struct{}
 
 func (UnimplementedOptimizeServer) StartOptimizer(context.Context, *StartOptimizerRequest) (*StartOptimizerReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartOptimizer not implemented")
+}
+func (UnimplementedOptimizeServer) OptimizeReward(context.Context, *OptimizeRewardRequest) (*OptimizeRewardReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OptimizeReward not implemented")
 }
 func (UnimplementedOptimizeServer) mustEmbedUnimplementedOptimizeServer() {}
 func (UnimplementedOptimizeServer) testEmbeddedByValue()                  {}
@@ -104,6 +120,24 @@ func _Optimize_StartOptimizer_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Optimize_OptimizeReward_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OptimizeRewardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OptimizeServer).OptimizeReward(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Optimize_OptimizeReward_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OptimizeServer).OptimizeReward(ctx, req.(*OptimizeRewardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Optimize_ServiceDesc is the grpc.ServiceDesc for Optimize service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -114,6 +148,10 @@ var Optimize_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartOptimizer",
 			Handler:    _Optimize_StartOptimizer_Handler,
+		},
+		{
+			MethodName: "OptimizeReward",
+			Handler:    _Optimize_OptimizeReward_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

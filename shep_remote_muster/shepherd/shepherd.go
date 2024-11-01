@@ -78,6 +78,7 @@ func (s *shepherd) deploy_musters() {
 		l_m.start_coordinator()		// per-muster coordinate client
 		l_m.start_logger()		// per-muster log server
 		go s.log(l_m.id)
+		if optimize_on { l_m.start_optimizer() }
 	}
 }
 

@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#shep_optimizer/shep_optimizer.proto\x12\x08shepherd\")\n\x15StartOptimizerRequest\x12\x10\n\x08n_trials\x18\x01 \x01(\r\"J\n\x13StartOptimizerReply\x12\x0c\n\x04\x64one\x18\x01 \x01(\x08\x12%\n\x05\x63trls\x18\x02 \x03(\x0b\x32\x16.shepherd.ControlEntry\")\n\x0c\x43ontrolEntry\x12\x0c\n\x04knob\x18\x01 \x01(\t\x12\x0b\n\x03val\x18\x02 \x01(\x04\x32\\\n\x08Optimize\x12P\n\x0eStartOptimizer\x12\x1f.shepherd.StartOptimizerRequest\x1a\x1d.shepherd.StartOptimizerReplyB&Z$github.com/awadyn/shep_remote_musterb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#shep_optimizer/shep_optimizer.proto\x12\x08shepherd\")\n\x0c\x43ontrolEntry\x12\x0c\n\x04knob\x18\x01 \x01(\t\x12\x0b\n\x03val\x18\x02 \x01(\x04\"&\n\x0bRewardEntry\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0b\n\x03val\x18\x02 \x01(\x04\")\n\x15StartOptimizerRequest\x12\x10\n\x08n_trials\x18\x01 \x01(\r\"J\n\x13StartOptimizerReply\x12\x0c\n\x04\x64one\x18\x01 \x01(\x08\x12%\n\x05\x63trls\x18\x02 \x03(\x0b\x32\x16.shepherd.ControlEntry\"?\n\x15OptimizeRewardRequest\x12&\n\x07rewards\x18\x01 \x03(\x0b\x32\x15.shepherd.RewardEntry\"J\n\x13OptimizeRewardReply\x12\x0c\n\x04\x64one\x18\x01 \x01(\x08\x12%\n\x05\x63trls\x18\x02 \x03(\x0b\x32\x16.shepherd.ControlEntry2\xae\x01\n\x08Optimize\x12P\n\x0eStartOptimizer\x12\x1f.shepherd.StartOptimizerRequest\x1a\x1d.shepherd.StartOptimizerReply\x12P\n\x0eOptimizeReward\x12\x1f.shepherd.OptimizeRewardRequest\x1a\x1d.shepherd.OptimizeRewardReplyB&Z$github.com/awadyn/shep_remote_musterb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,12 +32,18 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'shep_optimizer.shep_optimiz
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z$github.com/awadyn/shep_remote_muster'
-  _globals['_STARTOPTIMIZERREQUEST']._serialized_start=49
-  _globals['_STARTOPTIMIZERREQUEST']._serialized_end=90
-  _globals['_STARTOPTIMIZERREPLY']._serialized_start=92
-  _globals['_STARTOPTIMIZERREPLY']._serialized_end=166
-  _globals['_CONTROLENTRY']._serialized_start=168
-  _globals['_CONTROLENTRY']._serialized_end=209
-  _globals['_OPTIMIZE']._serialized_start=211
-  _globals['_OPTIMIZE']._serialized_end=303
+  _globals['_CONTROLENTRY']._serialized_start=49
+  _globals['_CONTROLENTRY']._serialized_end=90
+  _globals['_REWARDENTRY']._serialized_start=92
+  _globals['_REWARDENTRY']._serialized_end=130
+  _globals['_STARTOPTIMIZERREQUEST']._serialized_start=132
+  _globals['_STARTOPTIMIZERREQUEST']._serialized_end=173
+  _globals['_STARTOPTIMIZERREPLY']._serialized_start=175
+  _globals['_STARTOPTIMIZERREPLY']._serialized_end=249
+  _globals['_OPTIMIZEREWARDREQUEST']._serialized_start=251
+  _globals['_OPTIMIZEREWARDREQUEST']._serialized_end=314
+  _globals['_OPTIMIZEREWARDREPLY']._serialized_start=316
+  _globals['_OPTIMIZEREWARDREPLY']._serialized_end=390
+  _globals['_OPTIMIZE']._serialized_start=393
+  _globals['_OPTIMIZE']._serialized_end=567
 # @@protoc_insertion_point(module_scope)

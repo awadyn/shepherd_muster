@@ -2,6 +2,7 @@ package main
 
 /**************************************/
 
+var optimize_on bool = true
 
 func main() {
 	// assume that a list of nodes is known apriori

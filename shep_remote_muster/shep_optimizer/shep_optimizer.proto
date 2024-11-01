@@ -6,6 +6,17 @@ package shepherd;
 
 service Optimize {
 	rpc StartOptimizer (StartOptimizerRequest) returns (StartOptimizerReply);
+	rpc OptimizeReward (OptimizeRewardRequest) returns (OptimizeRewardReply);
+}
+
+message ControlEntry {
+	string knob = 1;
+	uint64 val = 2;
+}
+
+message RewardEntry {
+	string id = 1;
+	uint64 val = 2;
 }
 
 message StartOptimizerRequest {
@@ -17,9 +28,13 @@ message StartOptimizerReply {
 	repeated ControlEntry ctrls = 2;
 }
 
-message ControlEntry {
-	string knob = 1;
-	uint64 val = 2;
+message OptimizeRewardRequest {
+	repeated RewardEntry rewards = 1;
+}
+
+message OptimizeRewardReply {
+	bool done = 1;
+	repeated ControlEntry ctrls = 2;
 }
 
 

@@ -20,7 +20,9 @@ import (
 
 func (l_m *local_muster) init() {
 	l_m.hb_chan = make(chan *pb.HeartbeatReply)
-	l_m.start_optimizer_chan = make(chan *pb_opt.StartOptimizerReply, 1)
+	l_m.start_optimize_chan = make(chan optimize_request, 1)
+	l_m.ready_optimize_chan = make(chan optimize_reply, 1)
+	l_m.request_optimize_chan = make(chan reward_request, 1)
 	var idx string = ""
 	if l_m.ip_idx != -1 { idx = strconv.Itoa(int(l_m.ip_idx)) } 
 	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id + idx, l_m.log_port, 
@@ -279,14 +281,43 @@ func (l_m *local_muster) start_optimizer() {
 func (l_m *local_muster) optimize(conn *grpc.ClientConn, c pb_opt.OptimizeClient, ctx context.Context, cancel context.CancelFunc) {
 	defer conn.Close()
 	defer cancel()
-	r, err := c.StartOptimizer(ctx, &pb_opt.StartOptimizerRequest{NTrials: 1})  
-	if err != nil {
-		fmt.Printf("\033[31;1m***** COULD NOT START OPTIMIZER:  %v\n\033[0m", l_m.id)
-		return
-	} else {
-		fmt.Printf("\033[34;1m***** STARTED OPTIMIZER:  %v - %v - %v\n\033[0m", l_m.id, r.GetDone(), r.GetCtrls())
-		if r.GetDone() == true {
-			l_m.start_optimizer_chan <- r
+	for {
+		select {
+		case opt_req := <- l_m.start_optimize_chan:
+			ntrials := opt_req.ntrials
+			r, err := c.StartOptimizer(ctx, &pb_opt.StartOptimizerRequest{NTrials: ntrials})  
+			if err != nil {
+				fmt.Printf("\033[31;1m***** COULD NOT START OPTIMIZER:  %v\n\033[0m", l_m.id)
+				return
+			} else {
+				fmt.Printf("\033[34;1m***** STARTED OPTIMIZER:  %v - %v - %v\n\033[0m", l_m.id, r.GetDone(), r.GetCtrls())
+				if r.GetDone() == true {
+					start_settings := make([]optimize_setting, 0)
+					for _, ctrl := range(r.GetCtrls()) {
+						start_settings = append(start_settings, optimize_setting{knob: ctrl.Knob, val: ctrl.Val})
+					}
+					l_m.ready_optimize_chan <- optimize_reply{settings: start_settings}
+				}
+			}
+		case req := <- l_m.request_optimize_chan:
+			new_rewards := req.rewards 
+			rewards := make([]*pb_opt.RewardEntry, 0)
+			rewards = append(rewards, &pb_opt.RewardEntry{Id: new_rewards[0].id, Val: new_rewards[0].val})
+			rewards = append(rewards, &pb_opt.RewardEntry{Id: new_rewards[1].id, Val: new_rewards[1].val})
+			r, err := c.OptimizeReward(ctx, &pb_opt.OptimizeRewardRequest{Rewards: rewards})  
+			if err != nil {
+				fmt.Printf("\033[31;1m***** COULD NOT OPTIMIZE REWARD:  %v\n\033[0m", l_m.id)
+				return
+			} else {
+				fmt.Printf("\033[34;1m***** OPTIMIZED REWARD - NEW CONTROLS:  %v - %v - %v\n\033[0m", l_m.id, r.GetDone(), r.GetCtrls())
+				if r.GetDone() == true {
+					opt_settings := make([]optimize_setting, 0)
+					for _, ctrl := range(r.GetCtrls()) {
+						opt_settings = append(opt_settings, optimize_setting{knob: ctrl.Knob, val: ctrl.Val})
+					}
+					l_m.ready_optimize_chan <- optimize_reply{settings: opt_settings}
+				}
+			}
 		}
 	}
 }

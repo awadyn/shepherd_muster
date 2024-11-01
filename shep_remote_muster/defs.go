@@ -9,7 +9,7 @@ import (
 
 	"google.golang.org/grpc"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
-	pb_opt "github.com/awadyn/shep_remote_muster/shep_optimizer"
+//	pb_opt "github.com/awadyn/shep_remote_muster/shep_optimizer"
 )
 /************************************/
 
@@ -50,6 +50,27 @@ type control_reply struct {
 	ctrls map[string]uint64
 }
 
+type optimize_setting struct {
+	knob string
+	val uint64
+}
+
+type optimize_request struct {
+	ntrials uint32
+}
+
+type optimize_reply struct {
+	settings []optimize_setting 
+}
+
+type reward struct {
+	id string
+	val uint64
+}
+
+type reward_request struct {
+	rewards []reward
+}
 
 type log struct {
 	ready_request_chan chan bool	//syncs access to log object 
@@ -106,7 +127,9 @@ type muster struct {
 type local_muster struct {
 	muster
 	hb_chan chan *pb.HeartbeatReply
-	start_optimizer_chan chan *pb_opt.StartOptimizerReply
+	start_optimize_chan chan optimize_request
+	request_optimize_chan chan reward_request
+	ready_optimize_chan chan optimize_reply
 
 	log_server_port *int
 	ctrl_server_addr *string

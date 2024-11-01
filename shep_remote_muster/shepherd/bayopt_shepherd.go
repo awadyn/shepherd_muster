@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"strconv"
-	"math/rand"
+//	"math/rand"
 	"slices"
 )
 
@@ -132,29 +132,37 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 /********* CONTROL *********/
 /***************************/
 
-func (bayopt_s *bayopt_shepherd) bayopt_ctrl(m_id string, sheep_id string) map[string]*control {
-	dvfs_list := []uint64{0xc00, 0xe00, 0x1100, 0x1300, 0x1500, 0x1700, 0x1900, 0x1a00}
-	itr_list := []uint64{50, 100, 200, 400}
+//func (bayopt_s *bayopt_shepherd) bayopt_ctrl(m_id string, sheep_id string) map[string]*control {
+func (bayopt_s *bayopt_shepherd) bayopt_ctrl(m_id string, sheep_id string) []optimize_setting {
+	l_m := bayopt_s.local_musters[m_id]
 
-	m := bayopt_s.musters[m_id]
-	sheep := m.pasture[sheep_id]
-	new_ctrls := make(map[string]*control)
+	current_rewards := make([]reward,0)
+	current_rewards = append(current_rewards, reward{id: "joules", val: 123})
+	current_rewards = append(current_rewards, reward{id: "latency", val: 456})
 
-	var new_ctrl uint64
-	for _, ctrl := range(sheep.controls) {
-		new_ctrls[ctrl.id] = ctrl
-		switch {
-		case ctrl.knob == "dvfs":
-			dvfs_idx := rand.Intn(len(dvfs_list))
-			new_ctrl = dvfs_list[dvfs_idx]
-		case ctrl.knob == "itr-delay":
-			itr_idx := rand.Intn(len(itr_list))
-			new_ctrl = itr_list[itr_idx]
-		default:
-			fmt.Println("********* Unknown control knob")
-		}
-		new_ctrls[ctrl.id].value = new_ctrl
-	}
+	l_m.request_optimize_chan <- reward_request{rewards: current_rewards}
+	opt_rep := <- l_m.ready_optimize_chan
+	new_ctrls := opt_rep.settings
+
+//	sheep := l_m.pasture[sheep_id]
+//	dvfs_list := []uint64{0xc00, 0xe00, 0x1100, 0x1300, 0x1500, 0x1700, 0x1900, 0x1a00}
+//	itr_list := []uint64{50, 100, 200, 400}
+//	new_ctrls := make(map[string]*control)
+//	var new_ctrl uint64
+//	for _, ctrl := range(sheep.controls) {
+//		new_ctrls[ctrl.id] = ctrl
+//		switch {
+//		case ctrl.knob == "dvfs":
+//			dvfs_idx := rand.Intn(len(dvfs_list))
+//			new_ctrl = dvfs_list[dvfs_idx]
+//		case ctrl.knob == "itr-delay":
+//			itr_idx := rand.Intn(len(itr_list))
+//			new_ctrl = itr_list[itr_idx]
+//		default:
+//			fmt.Println("********* Unknown control knob")
+//		}
+//		new_ctrls[ctrl.id].value = new_ctrl
+//	}
 
 	return new_ctrls
 }
@@ -174,8 +182,9 @@ func (bayopt_s bayopt_shepherd) compute_control() {
 				l_m := l_m
 				sheep := sheep
 				new_ctrls := bayopt_s.bayopt_ctrl(l_m.id, sheep.id)
+
+				//setting same ctrl for all sheep
 				fmt.Printf("\033[35m<------- CTRL REQ --  %v - %v\n\033[0m", l_m.id, new_ctrls)
-//				new_ctrls := bayopt_s.bayopt_ctrl(l_m.id, l_m.id)
 //				fmt.Printf("\033[35m<------- CTRL REQ --  %v - %v - %v\n\033[0m", l_m.id, sheep.id, new_ctrls)
 				for _, sheep := range(l_m.pasture) {
 					sheep_new_ctrls := make(map[string]uint64)
@@ -184,10 +193,10 @@ func (bayopt_s bayopt_shepherd) compute_control() {
 					ctrl_itr_id := "itr-ctrl-"  + l_m.ip
 					for _, ctrl := range(new_ctrls) {
 						if ctrl.knob == "dvfs" { 
-							sheep_new_ctrls[ctrl_dvfs_id] = ctrl.value
+							sheep_new_ctrls[ctrl_dvfs_id] = ctrl.val
 						} else {
 							if ctrl.knob == "itr-delay" {
-								sheep_new_ctrls[ctrl_itr_id] = ctrl.value
+								sheep_new_ctrls[ctrl_itr_id] = ctrl.val
 							}
 						}
 					}
@@ -201,6 +210,9 @@ func (bayopt_s bayopt_shepherd) compute_control() {
 						}
 					}
 				}
+
+//				//setting ctrl for single sheep
+//				new_ctrls := bayopt_s.bayopt_ctrl(l_m.id, l_m.id)
 //				l_m.new_ctrl_chan <- control_request{sheep_id: l_m.id, ctrls: new_ctrls}
 //				ctrl_reply := <- sheep.ready_ctrl_chan
 //				ctrls := ctrl_reply.ctrls

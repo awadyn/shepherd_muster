@@ -39,12 +39,23 @@ class OptimizeStub(object):
                 request_serializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerRequest.SerializeToString,
                 response_deserializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerReply.FromString,
                 _registered_method=True)
+        self.OptimizeReward = channel.unary_unary(
+                '/shepherd.Optimize/OptimizeReward',
+                request_serializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardRequest.SerializeToString,
+                response_deserializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardReply.FromString,
+                _registered_method=True)
 
 
 class OptimizeServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def StartOptimizer(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def OptimizeReward(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -57,6 +68,11 @@ def add_OptimizeServicer_to_server(servicer, server):
                     servicer.StartOptimizer,
                     request_deserializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerRequest.FromString,
                     response_serializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerReply.SerializeToString,
+            ),
+            'OptimizeReward': grpc.unary_unary_rpc_method_handler(
+                    servicer.OptimizeReward,
+                    request_deserializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardRequest.FromString,
+                    response_serializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -86,6 +102,33 @@ class Optimize(object):
             '/shepherd.Optimize/StartOptimizer',
             shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerRequest.SerializeToString,
             shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerReply.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def OptimizeReward(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/shepherd.Optimize/OptimizeReward',
+            shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardRequest.SerializeToString,
+            shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardReply.FromString,
             options,
             channel_credentials,
             insecure,
