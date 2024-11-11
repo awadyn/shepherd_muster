@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class OptimizeStub(object):
+class SetupOptimizeStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -35,18 +35,13 @@ class OptimizeStub(object):
             channel: A grpc.Channel.
         """
         self.StartOptimizer = channel.unary_unary(
-                '/shepherd.Optimize/StartOptimizer',
+                '/shepherd.SetupOptimize/StartOptimizer',
                 request_serializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerRequest.SerializeToString,
                 response_deserializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerReply.FromString,
                 _registered_method=True)
-        self.OptimizeReward = channel.unary_unary(
-                '/shepherd.Optimize/OptimizeReward',
-                request_serializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardRequest.SerializeToString,
-                response_deserializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardReply.FromString,
-                _registered_method=True)
 
 
-class OptimizeServicer(object):
+class SetupOptimizeServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def StartOptimizer(self, request, context):
@@ -55,34 +50,23 @@ class OptimizeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def OptimizeReward(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
 
-
-def add_OptimizeServicer_to_server(servicer, server):
+def add_SetupOptimizeServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'StartOptimizer': grpc.unary_unary_rpc_method_handler(
                     servicer.StartOptimizer,
                     request_deserializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerRequest.FromString,
                     response_serializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerReply.SerializeToString,
             ),
-            'OptimizeReward': grpc.unary_unary_rpc_method_handler(
-                    servicer.OptimizeReward,
-                    request_deserializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardRequest.FromString,
-                    response_serializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardReply.SerializeToString,
-            ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'shepherd.Optimize', rpc_method_handlers)
+            'shepherd.SetupOptimize', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('shepherd.Optimize', rpc_method_handlers)
+    server.add_registered_method_handlers('shepherd.SetupOptimize', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
-class Optimize(object):
+class SetupOptimize(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -99,7 +83,7 @@ class Optimize(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/shepherd.Optimize/StartOptimizer',
+            '/shepherd.SetupOptimize/StartOptimizer',
             shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerRequest.SerializeToString,
             shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerReply.FromString,
             options,
@@ -112,8 +96,53 @@ class Optimize(object):
             metadata,
             _registered_method=True)
 
+
+class OptimizeStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.EvaluateOptimizer = channel.unary_unary(
+                '/shepherd.Optimize/EvaluateOptimizer',
+                request_serializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeRequest.SerializeToString,
+                response_deserializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeReply.FromString,
+                _registered_method=True)
+
+
+class OptimizeServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def EvaluateOptimizer(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_OptimizeServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'EvaluateOptimizer': grpc.unary_unary_rpc_method_handler(
+                    servicer.EvaluateOptimizer,
+                    request_deserializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeRequest.FromString,
+                    response_serializer=shep__optimizer_dot_shep__optimizer__pb2.OptimizeReply.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'shepherd.Optimize', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('shepherd.Optimize', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class Optimize(object):
+    """Missing associated documentation comment in .proto file."""
+
     @staticmethod
-    def OptimizeReward(request,
+    def EvaluateOptimizer(request,
             target,
             options=(),
             channel_credentials=None,
@@ -126,9 +155,9 @@ class Optimize(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/shepherd.Optimize/OptimizeReward',
-            shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardRequest.SerializeToString,
-            shep__optimizer_dot_shep__optimizer__pb2.OptimizeRewardReply.FromString,
+            '/shepherd.Optimize/EvaluateOptimizer',
+            shep__optimizer_dot_shep__optimizer__pb2.OptimizeRequest.SerializeToString,
+            shep__optimizer_dot_shep__optimizer__pb2.OptimizeReply.FromString,
             options,
             channel_credentials,
             insecure,

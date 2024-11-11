@@ -9,7 +9,7 @@ import (
 
 	"google.golang.org/grpc"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
-//	pb_opt "github.com/awadyn/shep_remote_muster/shep_optimizer"
+	pb_opt "github.com/awadyn/shep_remote_muster/shep_optimizer"
 )
 /************************************/
 
@@ -21,7 +21,8 @@ type node struct {
 	log_port int
 	ctrl_port int
 	coordinate_port int
-	optimize_port int
+	optimizer_client_port int
+	optimizer_server_port int
 	ip_idx int			//differentiates musters on the same node
 	ip string
 }
@@ -50,16 +51,16 @@ type control_reply struct {
 	ctrls map[string]uint64
 }
 
+type start_optimize_request struct {
+	ntrials uint32
+}
+
 type optimize_setting struct {
 	knob string
 	val uint64
 }
 
 type optimize_request struct {
-	ntrials uint32
-}
-
-type optimize_reply struct {
 	settings []optimize_setting 
 }
 
@@ -68,7 +69,7 @@ type reward struct {
 	val uint64
 }
 
-type reward_request struct {
+type reward_reply struct {
 	rewards []reward
 }
 
@@ -127,14 +128,15 @@ type muster struct {
 type local_muster struct {
 	muster
 	hb_chan chan *pb.HeartbeatReply
-	start_optimize_chan chan optimize_request
-	request_optimize_chan chan reward_request
-	ready_optimize_chan chan optimize_reply
+	start_optimize_chan chan start_optimize_request
+	request_optimize_chan chan optimize_request
+	ready_optimize_chan chan bool
 
 	log_server_port *int
 	ctrl_server_addr *string
 	pulse_server_addr *string
 	optimize_server_addr *string
+	optimize_server_port *int
 	coordinate_server_addr *string
 
 //	out_f_map map[string](map[string]*os.File)
@@ -143,6 +145,7 @@ type local_muster struct {
 //	out_writer map[string]*csv.Writer
 
 	pb.UnimplementedLogServer
+	pb_opt.UnimplementedOptimizeServer
 }
 
 type remote_muster struct {	// i.e. 1st level specialization of a muster

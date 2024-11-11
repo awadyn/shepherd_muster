@@ -20,21 +20,27 @@ import (
 
 func (l_m *local_muster) init() {
 	l_m.hb_chan = make(chan *pb.HeartbeatReply)
-	l_m.start_optimize_chan = make(chan optimize_request, 1)
-	l_m.ready_optimize_chan = make(chan optimize_reply, 1)
-	l_m.request_optimize_chan = make(chan reward_request, 1)
+	l_m.start_optimize_chan = make(chan start_optimize_request, 1)
+	l_m.request_optimize_chan = make(chan optimize_request, 1)
+	l_m.ready_optimize_chan = make(chan bool, 1)
 	var idx string = ""
-	if l_m.ip_idx != -1 { idx = strconv.Itoa(int(l_m.ip_idx)) } 
-	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id + idx, l_m.log_port, 
-					"local muster log syncing server port")
+	if l_m.ip_idx != -1 { idx = strconv.Itoa(int(l_m.ip_idx)) }
+	// muster servers
 	l_m.pulse_server_addr = flag.String("pulse_server_addr_" + l_m.id + idx, l_m.ip + ":" + strconv.Itoa(l_m.pulse_port),
 						"address of one remote muster pulse server")
 	l_m.ctrl_server_addr = flag.String("ctrl_server_addr_" + l_m.id + idx, l_m.ip + ":" + strconv.Itoa(l_m.ctrl_port),
 						"address of one remote muster control server")
-	l_m.coordinate_server_addr = flag.String("coordinate_server_addr_" + l_m.id + idx, l_m.ip + ":" + strconv.Itoa(l_m.coordinate_port),
-							"address of remote muster  coordination server")
-	l_m.optimize_server_addr = flag.String("optimize_server_addr_" + l_m.id + idx,  "localhost:" + strconv.Itoa(l_m.optimize_port),
-						"address of optimization server")
+	l_m.coordinate_server_addr = flag.String("coordinate_server_addr_" + l_m.id + idx, 
+						l_m.ip + ":" + strconv.Itoa(l_m.coordinate_port),
+						"address of remote muster  coordination server")
+	l_m.optimize_server_addr = flag.String("optimize_server_addr_" + l_m.id + idx,  
+						"localhost:" + strconv.Itoa(l_m.optimizer_client_port),
+						"address of optimization client")
+	// shepherd servers
+	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id + idx, l_m.log_port, 
+					"local muster log syncing server port")
+	l_m.optimize_server_port = flag.Int("optimize_server_port_" + l_m.id + idx, l_m.optimizer_server_port, 
+						"local muster optimization server port")
 }
 
 
@@ -268,17 +274,44 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 
 func (l_m *local_muster) start_optimizer() {
 	fmt.Printf("\033[34;1m-- STARTING LOCAL OPTIMIZER :  %v\n\033[0m", l_m.id)
+	// start optimization server
+	go l_m.optimize_server()
+
 	conn, err := grpc.Dial(*l_m.optimize_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		fmt.Printf("****** ERROR: %v could not create connection to optimizer server:\n****** %v\n", l_m.id, err)
 	}
-	c := pb_opt.NewOptimizeClient(conn)
+	c := pb_opt.NewSetupOptimizeClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
 	fmt.Printf("\033[36m---- %v -- Initialized optimizer client\n\033[0m", l_m.id)
-	go l_m.optimize(conn, c, ctx, cancel)
+	// start optimization client
+	go l_m.optimize_client(conn, c, ctx, cancel)
+
 }
 
-func (l_m *local_muster) optimize(conn *grpc.ClientConn, c pb_opt.OptimizeClient, ctx context.Context, cancel context.CancelFunc) {
+func (l_m *local_muster) optimize_server() {
+	flag.Parse()
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *l_m.optimize_server_port))
+	if err != nil {
+		fmt.Printf("\033[31;1m****** ERROR: %v failed to listen at %v: %v\n\033[0m", l_m.id, *l_m.optimize_server_port, err)
+	}
+	s := grpc.NewServer()
+	pb_opt.RegisterOptimizeServer(s, l_m)
+	fmt.Printf("\033[36m---- %v -- Initialized optimization server listening at %v \n\033[0m", l_m.id, lis.Addr())
+	if err := s.Serve(lis); err != nil {
+		fmt.Printf("\033[31;1m****** ERROR: %v failed to start optimization server: %v\n\033[0m", l_m.id, err)
+	}
+}
+
+func (l_m *local_muster) EvaluateOptimizer(ctx context.Context, in *pb_opt.OptimizeRequest) (*pb_opt.OptimizeReply, error) {
+	fmt.Printf("\033[36m-----> OPTIMIZE-REQ -- %v - NEW CTRLS -- %v\n\033[0m", l_m.id, in.GetCtrls())
+	l_m.request_optimize_chan <- optimize_request{settings: in.GetCtrls()}
+	<- l_m.ready_optimize_chan
+	return &pb_opt.OptimizeReply{}, nil
+}
+
+
+func (l_m *local_muster) optimize_client(conn *grpc.ClientConn, c pb_opt.SetupOptimizeClient, ctx context.Context, cancel context.CancelFunc) {
 	defer conn.Close()
 	defer cancel()
 	for {
@@ -290,34 +323,35 @@ func (l_m *local_muster) optimize(conn *grpc.ClientConn, c pb_opt.OptimizeClient
 				fmt.Printf("\033[31;1m***** COULD NOT START OPTIMIZER:  %v\n\033[0m", l_m.id)
 				return
 			} else {
-				fmt.Printf("\033[34;1m***** STARTED OPTIMIZER:  %v - %v - %v\n\033[0m", l_m.id, r.GetDone(), r.GetCtrls())
-				if r.GetDone() == true {
-					start_settings := make([]optimize_setting, 0)
-					for _, ctrl := range(r.GetCtrls()) {
-						start_settings = append(start_settings, optimize_setting{knob: ctrl.Knob, val: ctrl.Val})
-					}
-					l_m.ready_optimize_chan <- optimize_reply{settings: start_settings}
-				}
+				fmt.Printf("\033[34;1m***** STARTED OPTIMIZER:  %v - %v\n\033[0m", l_m.id, r.GetDone())
+				l_m.ready_optimize_chan <- r.GetDone()
+//				if r.GetDone() == true {
+//					start_settings := make([]optimize_setting, 0)
+//					for _, ctrl := range(r.GetCtrls()) {
+//						start_settings = append(start_settings, optimize_setting{knob: ctrl.Knob, val: ctrl.Val})
+//					}
+//					l_m.ready_optimize_chan <- optimize_reply{settings: start_settings}
+//				}
 			}
-		case req := <- l_m.request_optimize_chan:
-			new_rewards := req.rewards 
-			rewards := make([]*pb_opt.RewardEntry, 0)
-			rewards = append(rewards, &pb_opt.RewardEntry{Id: new_rewards[0].id, Val: new_rewards[0].val})
-			rewards = append(rewards, &pb_opt.RewardEntry{Id: new_rewards[1].id, Val: new_rewards[1].val})
-			r, err := c.OptimizeReward(ctx, &pb_opt.OptimizeRewardRequest{Rewards: rewards})  
-			if err != nil {
-				fmt.Printf("\033[31;1m***** COULD NOT OPTIMIZE REWARD:  %v\n\033[0m", l_m.id)
-				return
-			} else {
-				fmt.Printf("\033[34;1m***** OPTIMIZED REWARD - NEW CONTROLS:  %v - %v - %v\n\033[0m", l_m.id, r.GetDone(), r.GetCtrls())
-				if r.GetDone() == true {
-					opt_settings := make([]optimize_setting, 0)
-					for _, ctrl := range(r.GetCtrls()) {
-						opt_settings = append(opt_settings, optimize_setting{knob: ctrl.Knob, val: ctrl.Val})
-					}
-					l_m.ready_optimize_chan <- optimize_reply{settings: opt_settings}
-				}
-			}
+//		case req := <- l_m.request_optimize_chan:
+//			new_rewards := req.rewards 
+//			rewards := make([]*pb_opt.RewardEntry, 0)
+//			rewards = append(rewards, &pb_opt.RewardEntry{Id: new_rewards[0].id, Val: new_rewards[0].val})
+//			rewards = append(rewards, &pb_opt.RewardEntry{Id: new_rewards[1].id, Val: new_rewards[1].val})
+//			r, err := c.OptimizeReward(ctx, &pb_opt.OptimizeRewardRequest{Rewards: rewards})  
+//			if err != nil {
+//				fmt.Printf("\033[31;1m***** COULD NOT OPTIMIZE REWARD:  %v\n\033[0m", l_m.id)
+//				return
+//			} else {
+//				fmt.Printf("\033[34;1m***** OPTIMIZED REWARD - NEW CONTROLS:  %v - %v - %v\n\033[0m", l_m.id, r.GetDone(), r.GetCtrls())
+//				if r.GetDone() == true {
+//					opt_settings := make([]optimize_setting, 0)
+//					for _, ctrl := range(r.GetCtrls()) {
+//						opt_settings = append(opt_settings, optimize_setting{knob: ctrl.Knob, val: ctrl.Val})
+//					}
+//					l_m.ready_optimize_chan <- optimize_reply{settings: opt_settings}
+//				}
+//			}
 		}
 	}
 }

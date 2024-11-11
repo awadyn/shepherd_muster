@@ -4,9 +4,12 @@ option go_package = "github.com/awadyn/shep_remote_muster";
 
 package shepherd;
 
-service Optimize {
+service SetupOptimize {
 	rpc StartOptimizer (StartOptimizerRequest) returns (StartOptimizerReply);
-	rpc OptimizeReward (OptimizeRewardRequest) returns (OptimizeRewardReply);
+}
+
+service Optimize {
+	rpc EvaluateOptimizer (OptimizeRequest) returns (OptimizeReply);
 }
 
 message ControlEntry {
@@ -25,16 +28,15 @@ message StartOptimizerRequest {
 
 message StartOptimizerReply {
 	bool done = 1;
-	repeated ControlEntry ctrls = 2;
 }
 
-message OptimizeRewardRequest {
-	repeated RewardEntry rewards = 1;
+message OptimizeRequest {
+	repeated ControlEntry ctrls = 1;
 }
 
-message OptimizeRewardReply {
+message OptimizeReply {
 	bool done = 1;
-	repeated ControlEntry ctrls = 2;
+	repeated RewardEntry rewards = 2;
 }
 
 
