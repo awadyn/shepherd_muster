@@ -10,7 +10,6 @@ import (
 
 type bayopt_muster struct {
 	remote_muster
-	logs_dir string
 	ixgbe_metrics []string
 	buff_max_size uint64
 }

@@ -13,7 +13,7 @@ import (
 )
 /************************************/
 
-var exp_timeout time.Duration = time.Second * 75
+var exp_timeout time.Duration = time.Second * 150
 
 type node struct {
 	ncores uint8
@@ -121,8 +121,7 @@ type muster struct {
 	pasture map[string]*sheep
 	id string
 
-//	log_f_map map[string]*os.File
-//	log_reader_map map[string]*csv.Reader
+	logs_dir string
 }
 
 type local_muster struct {

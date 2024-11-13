@@ -17,8 +17,8 @@ func bayopt_main(n node) {
 	r_m := remote_muster{muster: m}
 	r_m.init()
 
-	bayopt_m := bayopt_muster{remote_muster: r_m, 
-				  logs_dir: home_dir + "/" + r_m.id + ".bayopt_logs/"}
+	bayopt_m := bayopt_muster{remote_muster: r_m}
+	bayopt_m.logs_dir = home_dir + "/" + r_m.id + ".bayopt_logs/" 
 	_, err = os.Stat(bayopt_m.logs_dir)
 	if os.IsNotExist(err) {
 		err = os.Mkdir(bayopt_m.logs_dir, 0777)
