@@ -13,7 +13,7 @@ import (
 )
 /************************************/
 
-var exp_timeout time.Duration = time.Second * 75
+var exp_timeout time.Duration = time.Second * 150
 
 type node struct {
 	ncores uint8
@@ -61,12 +61,14 @@ type optimize_setting struct {
 }
 
 type optimize_request struct {
+	m_id string
+	sheep_id string
 	settings []optimize_setting 
 }
 
 type reward struct {
 	id string
-	val uint64
+	val float32
 }
 
 type reward_reply struct {
@@ -94,7 +96,8 @@ type sheep struct {
 	//finish_run_chan chan bool
 
 	new_ctrl_chan chan map[string]uint64	//signals set new ctrls 
-	ready_ctrl_chan chan control_reply	//syncs application of ctrl change
+	done_ctrl_chan chan control_reply	//syncs application of ctrl change
+	ready_ctrl_chan chan bool
 	request_log_chan chan []string		//signals get current logs
 	request_ctrl_chan chan string		//signals get current ctrls
 	detach_native_logger chan bool		//signals stop logging
@@ -121,8 +124,7 @@ type muster struct {
 	pasture map[string]*sheep
 	id string
 
-//	log_f_map map[string]*os.File
-//	log_reader_map map[string]*csv.Reader
+	logs_dir string
 }
 
 type local_muster struct {
@@ -130,6 +132,7 @@ type local_muster struct {
 	hb_chan chan *pb.HeartbeatReply
 	start_optimize_chan chan start_optimize_request
 	request_optimize_chan chan optimize_request
+	ready_reward_chan chan reward_reply
 	ready_optimize_chan chan bool
 
 	log_server_port *int
@@ -178,7 +181,7 @@ type cat struct {
 type shepherd struct {
 	hb_chan chan *pb.HeartbeatReply
 	process_buff_chan chan []string
-	compute_ctrl_chan chan []string
+//	compute_ctrl_chan chan []string
 
 	//complete_run_chan chan []string
 

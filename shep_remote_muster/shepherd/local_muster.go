@@ -22,6 +22,7 @@ func (l_m *local_muster) init() {
 	l_m.hb_chan = make(chan *pb.HeartbeatReply)
 	l_m.start_optimize_chan = make(chan start_optimize_request, 1)
 	l_m.request_optimize_chan = make(chan optimize_request, 1)
+	l_m.ready_reward_chan = make(chan reward_reply, 1)
 	l_m.ready_optimize_chan = make(chan bool, 1)
 	var idx string = ""
 	if l_m.ip_idx != -1 { idx = strconv.Itoa(int(l_m.ip_idx)) }
@@ -198,7 +199,7 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 					break
 				}
 				new_ctrl_reply := control_reply{ctrls: new_ctrls, done: done_ctrl}
-				l_m.pasture[sheep_id].ready_ctrl_chan <- new_ctrl_reply
+				l_m.pasture[sheep_id].done_ctrl_chan <- new_ctrl_reply
 				fmt.Printf("\033[35m-------> CTRL REP --  %v - %v - %v\n\033[0m", l_m.id, sheep_id, new_ctrls)
 			}()
 		}
@@ -303,11 +304,21 @@ func (l_m *local_muster) optimize_server() {
 	}
 }
 
+// TODO add core number to optimize_request
 func (l_m *local_muster) EvaluateOptimizer(ctx context.Context, in *pb_opt.OptimizeRequest) (*pb_opt.OptimizeReply, error) {
 	fmt.Printf("\033[36m-----> OPTIMIZE-REQ -- %v - NEW CTRLS -- %v\n\033[0m", l_m.id, in.GetCtrls())
-	l_m.request_optimize_chan <- optimize_request{settings: in.GetCtrls()}
-	<- l_m.ready_optimize_chan
-	return &pb_opt.OptimizeReply{}, nil
+	opt_settings := make([]optimize_setting,0)
+	for _, ctrl := range(in.GetCtrls()) {
+		opt_settings = append(opt_settings, optimize_setting{knob: ctrl.Knob, val: ctrl.Val})
+	}
+	l_m.request_optimize_chan <- optimize_request{settings: opt_settings} 
+	reward_rep := <- l_m.ready_reward_chan
+	rewards := make([]*pb_opt.RewardEntry, 0)
+	for _, reward := range(reward_rep.rewards) {
+		rewards = append(rewards, &pb_opt.RewardEntry{Id: reward.id, Val: reward.val})
+	}
+	fmt.Println("rewards: ", rewards)
+	return &pb_opt.OptimizeReply{Done: true, Rewards: rewards}, nil
 }
 
 
@@ -325,33 +336,7 @@ func (l_m *local_muster) optimize_client(conn *grpc.ClientConn, c pb_opt.SetupOp
 			} else {
 				fmt.Printf("\033[34;1m***** STARTED OPTIMIZER:  %v - %v\n\033[0m", l_m.id, r.GetDone())
 				l_m.ready_optimize_chan <- r.GetDone()
-//				if r.GetDone() == true {
-//					start_settings := make([]optimize_setting, 0)
-//					for _, ctrl := range(r.GetCtrls()) {
-//						start_settings = append(start_settings, optimize_setting{knob: ctrl.Knob, val: ctrl.Val})
-//					}
-//					l_m.ready_optimize_chan <- optimize_reply{settings: start_settings}
-//				}
 			}
-//		case req := <- l_m.request_optimize_chan:
-//			new_rewards := req.rewards 
-//			rewards := make([]*pb_opt.RewardEntry, 0)
-//			rewards = append(rewards, &pb_opt.RewardEntry{Id: new_rewards[0].id, Val: new_rewards[0].val})
-//			rewards = append(rewards, &pb_opt.RewardEntry{Id: new_rewards[1].id, Val: new_rewards[1].val})
-//			r, err := c.OptimizeReward(ctx, &pb_opt.OptimizeRewardRequest{Rewards: rewards})  
-//			if err != nil {
-//				fmt.Printf("\033[31;1m***** COULD NOT OPTIMIZE REWARD:  %v\n\033[0m", l_m.id)
-//				return
-//			} else {
-//				fmt.Printf("\033[34;1m***** OPTIMIZED REWARD - NEW CONTROLS:  %v - %v - %v\n\033[0m", l_m.id, r.GetDone(), r.GetCtrls())
-//				if r.GetDone() == true {
-//					opt_settings := make([]optimize_setting, 0)
-//					for _, ctrl := range(r.GetCtrls()) {
-//						opt_settings = append(opt_settings, optimize_setting{knob: ctrl.Knob, val: ctrl.Val})
-//					}
-//					l_m.ready_optimize_chan <- optimize_reply{settings: opt_settings}
-//				}
-//			}
 		}
 	}
 }

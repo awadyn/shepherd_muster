@@ -6,6 +6,14 @@ import (
 )
 
 /*********************************************/
+func ctrl_get_remote(core uint8, extra_args ...string) uint64 {
+	return 0
+}
+
+func ctrl_set_remote(core uint8, val uint64) error {
+	return nil
+}
+
 func (c *control) init(knob string, getter func(uint8, ...string)uint64, setter func(uint8, uint64)error) {
 	c.knob = knob
 	c.dirty = false
@@ -65,7 +73,8 @@ func (m *muster) init() {
 		sheep_c := sheep{id: sheep_id, core: c,
 				 logs: make(map[string]*log), 
 				 controls: make(map[string]*control),
-				 ready_ctrl_chan: make(chan control_reply, 1)}
+				 done_ctrl_chan: make(chan control_reply, 1),
+			 	 ready_ctrl_chan: make(chan bool, 1)}
 		m.pasture[sheep_id] = &sheep_c
 	}
 }

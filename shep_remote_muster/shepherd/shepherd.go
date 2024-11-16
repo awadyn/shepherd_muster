@@ -13,6 +13,11 @@ import (
 
 /************************************/
 
+func (m *muster) init_local(logs_dir string) {
+	m.logs_dir = logs_dir
+}
+
+
 /* 
    This function initializes 1) a generic shepherd with a muster representation
    for each node under supervision and 2) a general log and control 
@@ -21,7 +26,7 @@ import (
 func (s *shepherd) init(nodes []node) {
 	s.hb_chan = make(chan *pb.HeartbeatReply)
 	s.process_buff_chan = make(chan []string)
-	s.compute_ctrl_chan = make(chan []string)
+//	s.compute_ctrl_chan = make(chan []string)
 
 	/* init 1 muster for each node and 1 sheep for each core */
 	s.musters = make(map[string]*muster)

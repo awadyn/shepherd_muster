@@ -27,9 +27,9 @@ def mcd_eval(params):
         stub = opt_pb_grpc.OptimizeStub(channel)
         new_ctrls = [opt_pb.ControlEntry(knob="dvfs", val=dvfs), opt_pb.ControlEntry(knob="itr-delay", val=itr)]
         response = stub.EvaluateOptimizer(opt_pb.OptimizeRequest(ctrls=new_ctrls))
-    time.sleep(1)
-    print(response)
-    joules = 1024
+    for reward in response.rewards:
+        print(reward.val)
+    joules = reward.val
     print(f'itr = {itr},  dvfs = {dvfs},  joules = {joules}\n')
     #joules, rth = get_joules_latency(itr, dvfs)
     #print(f'itr = {itr},  dvfs = {dvfs},  joules = {joules}, latency = {latency}\n')
