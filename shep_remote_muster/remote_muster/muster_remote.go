@@ -21,6 +21,20 @@ func (m *muster) init_remote() {
 	}
 }
 
+func (m *muster) flush_log_files(sheep_id string) {
+	sheep := m.pasture[sheep_id]
+	c_str := strconv.Itoa(int(sheep.core))
+	log_fname := m.logs_dir + c_str
+	f, err := os.Create(log_fname)
+	if err != nil { panic(err) }
+	reader := csv.NewReader(f)
+	reader.Comma = ' '
+	for _, log := range(sheep.logs) {
+		sheep.log_f_map[log.id] = f
+		sheep.log_reader_map[log.id] = reader
+	}
+}
+
 func (m *muster) init_log_files(logs_dir string) {
 	err := os.Mkdir(logs_dir, 0750)
 	if err != nil && !os.IsExist(err) { panic(err) }
