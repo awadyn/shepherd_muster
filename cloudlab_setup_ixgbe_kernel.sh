@@ -12,6 +12,7 @@ tar -xf linux-5.15.89.tar.xz
 cd linux-5.15.89
 cp -v /boot/config-$(uname -r) .config 
 make localmodconfig
+scripts/config --enable CONFIG_X86_MSR
 scripts/config --disable SYSTEM_TRUSTED_KEYS
 scripts/config --disable SYSTEM_REVOCATION_KEYS
 scripts/config --set-str CONFIG_SYSTEM_TRUSTED_KEYS ""

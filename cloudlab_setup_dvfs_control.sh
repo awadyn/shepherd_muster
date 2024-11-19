@@ -1,14 +1,5 @@
 #!/bin/bash
 
-kernel=$(uname -r)
-cd ~/linux-$kernel
-echo "Rebuilding linux-$kernel with X86 MSR enabled."
-sleep 1
-source .config
-if [[ ! $CONFIG_X86_MSR == "y" ]]; then
-fakeroot make -j8 CONFIG_X86_MSR=y;
-fi
-
 echo "Downloading and probing msr-tools."
 sleep 1
 sudo apt install msr-tools
