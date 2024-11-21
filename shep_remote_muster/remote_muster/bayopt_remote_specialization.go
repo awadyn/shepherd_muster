@@ -57,6 +57,11 @@ func (bayopt_m *bayopt_muster) init_remote() {
 func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
 	fmt.Printf("\033[36m-- MUSTER %v -- SHEEP %v - STARTING CONTROL MANAGER\n\033[0m", bayopt_m.id, sheep_id)
 	sheep := bayopt_m.pasture[sheep_id]
+	iface := bayopt_m.get_internal_iface()
+	if iface == "" {
+		fmt.Printf("**** PROBLEM: %v cannot get internal network interface name.. aborting\n", bayopt_m.id)
+		return
+	}
 	var err error
 	for {
 		select {
@@ -64,9 +69,9 @@ func (bayopt_m *bayopt_muster) ctrl_manage(sheep_id string) {
 			for ctrl_id, ctrl_val := range(new_ctrls) {
 				switch {
 				case sheep.controls[ctrl_id].knob == "dvfs":
-					err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val)
+					err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val, iface)
 				case sheep.controls[ctrl_id].knob == "itr-delay":
-					err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val)
+					err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val, iface)
 				default:
 				}
 				if err != nil { panic(err) }

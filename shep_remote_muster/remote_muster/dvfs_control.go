@@ -28,7 +28,7 @@ func read_dvfs(core uint8, extra_args ...string) uint64 {
 	return uint64(dvfs_val)
 }
 
-func write_dvfs(core uint8, val uint64) error {
+func write_dvfs(core uint8, val uint64, extra_args ...string) error {
 	c_str := strconv.Itoa(int(core))
 	var out strings.Builder
 	var stderr strings.Builder

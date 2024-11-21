@@ -37,8 +37,10 @@ func read_rx_usecs(core uint8, iface_args ...string) uint64 {
 	return uint64(rx_usecs_val)
 }
 
-func write_rx_usecs(core uint8, val uint64) error {
-	cmd := exec.Command("sudo", "ethtool", "-C", "enp3s0f0", "rx-usecs", strconv.Itoa(int(val))) 
+func write_rx_usecs(core uint8, val uint64, iface_args ...string) error {
+	iface := iface_args[0]
+	cmd_str := "sudo ethtool -C " + iface + " rx-usecs " + strconv.Itoa(int(val))
+	cmd:= exec.Command("bash", "-c", cmd_str)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()

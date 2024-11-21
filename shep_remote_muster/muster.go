@@ -14,7 +14,7 @@ func ctrl_set_remote(core uint8, val uint64) error {
 	return nil
 }
 
-func (c *control) init(knob string, getter func(uint8, ...string)uint64, setter func(uint8, uint64)error) {
+func (c *control) init(knob string, getter func(uint8, ...string)uint64, setter func(uint8, uint64, ...string)error) {
 	c.knob = knob
 	c.dirty = false
 	c.ready_request_chan = make(chan bool, 1)

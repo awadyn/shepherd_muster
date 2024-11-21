@@ -38,7 +38,7 @@ type control struct {
 	id string
 
 	getter func(uint8, ...string)uint64
-	setter func(uint8, uint64)error
+	setter func(uint8, uint64, ...string)error
 }
 
 type control_request struct {
