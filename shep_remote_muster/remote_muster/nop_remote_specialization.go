@@ -41,7 +41,7 @@ func (nop_m *nop_muster) ctrl_manage(sheep_id string) {
 				if err != nil { panic(err) }
 				sheep.controls[ctrl_id].value = ctrl_val
 			}
-			nop_m.pasture[sheep.id].ready_ctrl_chan <- control_reply{done: true, ctrls: new_ctrls}
+			nop_m.pasture[sheep.id].done_ctrl_chan <- control_reply{done: true, ctrls: new_ctrls}
 		}
 	}
 }

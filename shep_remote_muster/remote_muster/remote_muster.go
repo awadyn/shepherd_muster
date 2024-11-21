@@ -166,7 +166,7 @@ func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) err
 		case err == io.EOF:
 			if debug { fmt.Printf("\033[35m-----> CTRL-REQ -- %v - %v\n\033[0m", sheep_id, new_ctrls) }
 			r_m.new_ctrl_chan <- control_request{sheep_id: sheep_id, ctrls: new_ctrls}
-			<- r_m.pasture[sheep_id].ready_ctrl_chan
+			<- r_m.pasture[sheep_id].done_ctrl_chan
 			r_m.flush_log_files(sheep_id)
 			if debug { fmt.Printf("\033[35m<----- CTRL REP -- %v - %v\n\033[0m", sheep_id, new_ctrls) }
 			return stream.SendAndClose(&pb.ControlReply{CtrlComplete: true})
