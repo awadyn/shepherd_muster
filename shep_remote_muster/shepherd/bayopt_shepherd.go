@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"strconv"
-//	"math/rand"
 	"slices"
 	"os"
 )
@@ -143,14 +142,15 @@ func (bayopt_s bayopt_shepherd) process_logs() {
   This function implements the control computation loop of a Bayesian optimization shepherd.
 */
 func (bayopt_s bayopt_shepherd) compute_control(m_id string) {
-	bayopt_m := bayopt_s.local_musters[m_id]
+	l_m := bayopt_s.local_musters[m_id]
 	var ctrl_dvfs_id string
 	var ctrl_itr_id string
 	var ctrl_dvfs_val uint64
 	var ctrl_itr_val uint64
 	for {
 		select {
-		case opt_req := <- bayopt_m.request_optimize_chan:
+		case opt_req := <- l_m.request_optimize_chan:
+			fmt.Printf("\033[31m-------- REQUEST OPTIMIZE SIGNAL :  %v - %v\n\033[0m", m_id, opt_req)
 			ctrls := opt_req.settings
 			for _, ctrl := range(ctrls) {
 				switch {
@@ -158,7 +158,7 @@ func (bayopt_s bayopt_shepherd) compute_control(m_id string) {
 					ctrl_dvfs_id = "dvfs-ctrl-"
 					ctrl_dvfs_val = ctrl.val
 				case ctrl.knob == "itr-delay":
-					ctrl_itr_id = "itr-ctrl-" + bayopt_m.ip
+					ctrl_itr_id = "itr-ctrl-" + l_m.ip
 					ctrl_itr_val = ctrl.val
 				default:
 					fmt.Println("****** Unimplemented optimization control setting: ", ctrl)
@@ -166,27 +166,18 @@ func (bayopt_s bayopt_shepherd) compute_control(m_id string) {
 			}
 
 			// set settings at remote muster
-			for _, sheep := range(bayopt_m.pasture) {
+			for _, sheep := range(l_m.pasture) {
 				c_str := strconv.Itoa(int(sheep.core))
 				start_ctrls := make(map[string]uint64)
 				start_ctrls[ctrl_itr_id] = ctrl_itr_val
-				ctrl_dvfs_id = "dvfs-ctrl-" + c_str + "-" + bayopt_m.ip
+				ctrl_dvfs_id = "dvfs-ctrl-" + c_str + "-" + l_m.ip
 				start_ctrls[ctrl_dvfs_id] = ctrl_dvfs_val
-				//applying ctrl.. TODO refactor
-				bayopt_m.new_ctrl_chan <- control_request{sheep_id: sheep.id, ctrls: start_ctrls}
-				ctrl_reply := <- sheep.done_ctrl_chan
-				set_ctrls := ctrl_reply.ctrls
-				done_ctrl := ctrl_reply.done
-				if done_ctrl {
-					for ctrl_id, ctrl_val := range(set_ctrls) {
-					        sheep.controls[ctrl_id].value = ctrl_val
-					}
-				}
+				bayopt_s.control(l_m.id, sheep.id, start_ctrls)
 			}
 
 			// at this point, ctrl values are set in local muster representation
 			bayopt_s.init_log_files(bayopt_s.bayopt_musters[m_id].logs_dir)
-			bayopt_m.ready_optimize_chan <- true
+			l_m.ready_optimize_chan <- true
 		}
 	}
 }

@@ -16,7 +16,7 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 
 	cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
 	if err := cmd.Run(); err != nil { panic(err) }
-	cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=16 --measure_qps=2000 --qps=200000 --time=120 &")
+	cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=16 --measure_qps=2000 --qps=300000 --time=120 &")
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil { panic(err) }
 
@@ -91,10 +91,6 @@ func bayopt_main(nodes []node) {
 
 	for _, l_m := range(bayopt_s.local_musters) {
 		go bayopt_s.compute_control(l_m.id)
-	}
-
-	for _, l_m := range(bayopt_s.local_musters) {
-		//starting optimization process..
 		l_m.start_optimize_chan <- start_optimize_request{ntrials: 10}
 		done := <- l_m.ready_optimize_chan
 		if done {

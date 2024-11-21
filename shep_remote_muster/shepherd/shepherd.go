@@ -138,7 +138,19 @@ func (s *shepherd) log(m_id string) {
 	}
 }
 
-
+func (s *shepherd) control(m_id string, sheep_id string, ctrls map[string]uint64) {
+	l_m := s.local_musters[m_id]
+	sheep := l_m.pasture[sheep_id]
+	l_m.new_ctrl_chan <- control_request{sheep_id: sheep_id, ctrls: ctrls}
+	ctrl_reply := <- sheep.done_ctrl_chan
+	new_ctrls := ctrl_reply.ctrls
+	done_ctrl := ctrl_reply.done
+	if done_ctrl {
+		for ctrl_id, ctrl_val := range(new_ctrls) {
+		        sheep.controls[ctrl_id].value = ctrl_val
+		}
+	}
+}
 
 //func (s *shepherd) CompleteRun(ctx context.Context, in *pb.CompleteRunRequest) (*pb.CompleteRunReply, error) {
 //	sheep_id := in.GetSheepId()
