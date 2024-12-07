@@ -10,7 +10,7 @@ func ctrl_get_remote(core uint8, extra_args ...string) uint64 {
 	return 0
 }
 
-func ctrl_set_remote(core uint8, val uint64) error {
+func ctrl_set_remote(core uint8, val uint64, extra_args ...string) error {
 	return nil
 }
 
@@ -31,6 +31,7 @@ func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.
 	l.ready_process_chan = make(chan bool, 1)
 	l.ready_request_chan = make(chan bool, 1)
 	l.ready_buff_chan = make(chan bool, 1)
+	l.ready_file_chan = make(chan bool, 1)
 	l.kill_log_chan = make(chan bool, 1)
 }
 
@@ -62,6 +63,7 @@ func (m *muster) init() {
 
 	/* log and control synchronization channels */
 	m.full_buff_chan = make(chan []string)
+	m.process_buff_chan = make(chan []string)
 	m.new_ctrl_chan = make(chan control_request)
 	/* coordination channels */
 	m.request_log_chan = make(chan []string)
@@ -74,7 +76,8 @@ func (m *muster) init() {
 				 logs: make(map[string]*log), 
 				 controls: make(map[string]*control),
 				 done_ctrl_chan: make(chan control_reply, 1),
-			 	 ready_ctrl_chan: make(chan bool, 1)}
+			 	 ready_ctrl_chan: make(chan bool, 1),
+			 	 perf_data: make(map[string][]float32)}
 		m.pasture[sheep_id] = &sheep_c
 	}
 }

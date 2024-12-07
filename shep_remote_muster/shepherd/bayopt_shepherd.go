@@ -12,7 +12,6 @@ import (
 /**************************************/
 
 var joules_idx int
-var timestamp_idx int
 
 type bayopt_muster struct {
 	local_muster
@@ -25,8 +24,8 @@ type bayopt_shepherd struct {
 	bayopt_musters map[string]*bayopt_muster 
 	ixgbe_metrics []string
 	buff_max_size uint64
-	joules_measure map[string](map[string][]float32)
-	joules_diff map[string](map[string][]float32)
+//	joules_measure map[string](map[string][]float32)
+//	joules_diff map[string](map[string][]float32)
 	joules_reward float32
 	reward_lock_chan chan bool
 }
@@ -46,16 +45,15 @@ func (bayopt_s *bayopt_shepherd) init() {
 	bayopt_s.buff_max_size = 1
 	bayopt_s.bayopt_musters = make(map[string]*bayopt_muster)
 	joules_idx = slices.Index(bayopt_s.ixgbe_metrics, "joules")
-	timestamp_idx = slices.Index(bayopt_s.ixgbe_metrics, "timestamp")
-	bayopt_s.joules_measure = make(map[string](map[string][]float32))
-	bayopt_s.joules_diff = make(map[string](map[string][]float32))
+//	bayopt_s.joules_measure = make(map[string](map[string][]float32))
+//	bayopt_s.joules_diff = make(map[string](map[string][]float32))
 	bayopt_s.joules_reward = 0
 	bayopt_s.reward_lock_chan = make(chan bool, 1)
 	bayopt_s.reward_lock_chan <- true
 
 	for _, l_m := range(bayopt_s.local_musters) {
-		bayopt_s.joules_measure[l_m.id] = make(map[string][]float32)
-		bayopt_s.joules_diff[l_m.id] = make(map[string][]float32)
+//		bayopt_s.joules_measure[l_m.id] = make(map[string][]float32)
+//		bayopt_s.joules_diff[l_m.id] = make(map[string][]float32)
 		bayopt_m := bayopt_muster{local_muster: *l_m}
 		bayopt_m.init()
 		bayopt_s.bayopt_musters[bayopt_m.id] = &bayopt_m
@@ -69,12 +67,15 @@ func (bayopt_s *bayopt_shepherd) init_local() {
 		logs_dir := home_dir + "/" + bayopt_m.id + "-bayopt-logs/"
 		bayopt_m.init_local(logs_dir)
 		for _, sheep := range(bayopt_m.pasture) {
-			bayopt_s.joules_measure[bayopt_m.id][sheep.id] = make([]float32, 1)
-			bayopt_s.joules_diff[bayopt_m.id][sheep.id] = make([]float32, 0)
+			sheep.perf_data["joules_measure"] = make([]float32, 1)
+			sheep.perf_data["joules_diff"] = make([]float32, 0)
+//			bayopt_s.joules_measure[bayopt_m.id][sheep.id] = make([]float32, 1)
+//			bayopt_s.joules_diff[bayopt_m.id][sheep.id] = make([]float32, 0)
 			for _, log := range(sheep.logs) {
 				log.ready_process_chan <- true
 				log.ready_request_chan <- true
 				log.ready_buff_chan <- true
+				log.ready_file_chan <- true
 			}
 			for _, ctrl := range(sheep.controls) {
 				ctrl.ready_request_chan <- true
@@ -95,14 +96,19 @@ func (bayopt_s *bayopt_shepherd) init_local() {
    - bayopt_shepherd expects logs to consist of 99th tail latency + total joules consumed 
      to represent execution for some period of time
 */
-func (bayopt_s bayopt_shepherd) process_logs() {
+//func (bayopt_s bayopt_shepherd) process_logs() {
+func (bayopt_s bayopt_shepherd) process_logs(m_id string) {
+	l_m := bayopt_s.local_musters[m_id]
 	for {
 		select {
-		case ids := <- bayopt_s.process_buff_chan:
-			m_id := ids[0]
-			sheep_id := ids[1]
-			log_id := ids[2]
-			l_m := bayopt_s.local_musters[m_id]
+//		case ids := <- bayopt_s.process_buff_chan:
+		case ids := <- l_m.process_buff_chan:
+//			m_id := ids[0]
+//			sheep_id := ids[1]
+//			log_id := ids[2]
+			sheep_id := ids[0]
+			log_id := ids[1]
+//			l_m := bayopt_s.local_musters[m_id]
 			sheep := l_m.pasture[sheep_id]
 			log := *(sheep.logs[log_id])
 			go func() {
@@ -111,24 +117,37 @@ func (bayopt_s bayopt_shepherd) process_logs() {
 				log := log
 				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
 				mem_buff := *(log.mem_buff)
+
 				// persist log in local log file
+				<- log.ready_file_chan
 				sheep.update_log_file(log.id)
+				select { 
+				case log.ready_file_chan <- true:
+				default:
+				}
+
 				joules_val := float32(mem_buff[0][joules_idx]) * 0.000061
-				bayopt_s.joules_measure[m_id][sheep_id] = append(bayopt_s.joules_measure[m_id][sheep_id], joules_val)
-				joules_old := bayopt_s.joules_measure[m_id][sheep_id][len(bayopt_s.joules_measure[m_id][sheep_id]) - 2]
-				bayopt_s.joules_diff[m_id][sheep_id] = append(bayopt_s.joules_diff[m_id][sheep_id], joules_val - joules_old)
-				fmt.Printf("\033[33m---------- JOULES MEAS: %v\n\033[0m", bayopt_s.joules_measure[l_m.id][sheep.id])
-				fmt.Printf("\033[33m---------- JOULES DIFF: %v\n\033[0m", bayopt_s.joules_diff[l_m.id][sheep.id])
-				fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v - %v\n\033[0m", l_m.id, sheep.id, log.id)	
+				sheep.perf_data["joules_measure"] = append(sheep.perf_data["joules_measure"], joules_val)
+				joules_old := sheep.perf_data["joules_measure"][len(sheep.perf_data["joules_measure"]) - 2]
+				sheep.perf_data["joules_diff"] = append(sheep.perf_data["joules_diff"], joules_val - joules_old)
+//				bayopt_s.joules_measure[m_id][sheep_id] = append(bayopt_s.joules_measure[m_id][sheep_id], joules_val)
+//				joules_old := bayopt_s.joules_measure[m_id][sheep_id][len(bayopt_s.joules_measure[m_id][sheep_id]) - 2]
+//				bayopt_s.joules_diff[m_id][sheep_id] = append(bayopt_s.joules_diff[m_id][sheep_id], joules_val - joules_old)
+//				fmt.Printf("\033[33m---------- JOULES MEAS: %v\n\033[0m", bayopt_s.joules_measure[l_m.id][sheep.id])
+//				fmt.Printf("\033[33m---------- JOULES DIFF: %v\n\033[0m", bayopt_s.joules_diff[l_m.id][sheep.id])
+
 				// muster can now overwrite mem_buff for this log
 				select {
 				case sheep.logs[log.id].ready_process_chan <- true:
 				default:
 				}
 
-				if len(bayopt_s.joules_diff[l_m.id][sheep.id]) % 2 == 0 {
+				//if len(bayopt_s.joules_diff[l_m.id][sheep.id]) % 2 == 0 {
+				if len(sheep.perf_data["joules_diff"]) % 2 == 0 {
 					sheep.ready_ctrl_chan <- true
 				}
+
+				fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v - %v\n\033[0m", l_m.id, sheep.id, log.id)	
 			} ()
 		}
 	}

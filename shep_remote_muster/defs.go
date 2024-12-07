@@ -13,7 +13,7 @@ import (
 )
 /************************************/
 
-var exp_timeout time.Duration = time.Second * 150
+var exp_timeout time.Duration = time.Second * 1260
 
 type node struct {
 	ncores uint8
@@ -78,6 +78,7 @@ type reward_reply struct {
 type log struct {
 	ready_request_chan chan bool	//syncs access to log object 
 	ready_buff_chan chan bool	//syncs access to log memory buffer
+	ready_file_chan chan bool	//syncs access to log file
 	ready_process_chan chan bool	//..? 
 	kill_log_chan chan bool
 
@@ -98,6 +99,7 @@ type sheep struct {
 	new_ctrl_chan chan map[string]uint64	//signals set new ctrls 
 	done_ctrl_chan chan control_reply	//syncs application of ctrl change
 	ready_ctrl_chan chan bool
+	ready_metadata_chan chan bool		//syncs access to metadata of a specialized sheep
 	request_log_chan chan []string		//signals get current logs
 	request_ctrl_chan chan string		//signals get current ctrls
 	detach_native_logger chan bool		//signals stop logging
@@ -110,10 +112,13 @@ type sheep struct {
 	log_f_map map[string]*os.File		//file pointer for each log object
 	log_reader_map map[string]*csv.Reader	//reader pointer for each log file 
 	log_writer_map map[string]*csv.Writer	//writer pointer for each log file 
+
+	perf_data map[string][]float32		//map of <perf-id, perf-val>
 }
 
 type muster struct {
 	full_buff_chan chan []string
+	process_buff_chan chan []string
 	new_ctrl_chan chan control_request
 	request_log_chan chan []string
 	request_ctrl_chan chan []string
@@ -142,11 +147,6 @@ type local_muster struct {
 	optimize_server_port *int
 	coordinate_server_addr *string
 
-//	out_f_map map[string](map[string]*os.File)
-//	out_writer_map map[string](map[string]*csv.Writer)
-//	out_f map[string]*os.File
-//	out_writer map[string]*csv.Writer
-
 	pb.UnimplementedLogServer
 	pb_opt.UnimplementedOptimizeServer
 }
@@ -169,8 +169,6 @@ type remote_muster struct {	// i.e. 1st level specialization of a muster
 	ctx_local context.Context
 	cancel_local context.CancelFunc 
 
-////	log_f_map map[string]*os.File
-////	log_reader_map map[string]*csv.Reader
 }
 
 type cat struct {
@@ -180,8 +178,6 @@ type cat struct {
 
 type shepherd struct {
 	hb_chan chan *pb.HeartbeatReply
-	process_buff_chan chan []string
-//	compute_ctrl_chan chan []string
 
 	//complete_run_chan chan []string
 

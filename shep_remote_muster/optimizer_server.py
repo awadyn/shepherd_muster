@@ -11,7 +11,9 @@ from ax.service.managed_loop import optimize
 from ax.plot.trace import optimization_trace_single_method
 
 
-
+lat_target = 500
+joules = 0.0
+latency = 0.0
 itr_vals = [10, 50, 100, 200, 400]
 dvfs_vals = [0xc00, 0xe00, 0x1100, 0x1300, 0x1500, 0x1700, 0x1900, 0x1a00]
 itr_dict = {'is_ordered': True, 'sort_values': True, 'log_scale': False, 'name': 'itr', 'type': 'choice', 'value_type': 'int', 'values': itr_vals}
@@ -28,11 +30,13 @@ def mcd_eval(params):
         new_ctrls = [opt_pb.ControlEntry(knob="dvfs", val=dvfs), opt_pb.ControlEntry(knob="itr-delay", val=itr)]
         response = stub.EvaluateOptimizer(opt_pb.OptimizeRequest(ctrls=new_ctrls))
     for reward in response.rewards:
-        print(reward.val)
-    joules = reward.val
-    print(f'itr = {itr},  dvfs = {dvfs},  joules = {joules}\n')
-    #joules, rth = get_joules_latency(itr, dvfs)
-    #print(f'itr = {itr},  dvfs = {dvfs},  joules = {joules}, latency = {latency}\n')
+        if reward.id == "joules":
+            joules = reward.val
+        if reward.id == "latency":
+            latency = reward.val
+    print(f'itr = {itr},  dvfs = {dvfs},  joules = {joules}, latency = {latency}\n')
+    if latency > lat_target:
+        joules = joules * (latency - lat_target + 1)
     res = {'mcd': (joules, 0.0)}
     return res
 

@@ -25,8 +25,7 @@ func (m *muster) init_local(logs_dir string) {
 */
 func (s *shepherd) init(nodes []node) {
 	s.hb_chan = make(chan *pb.HeartbeatReply)
-	s.process_buff_chan = make(chan []string)
-//	s.compute_ctrl_chan = make(chan []string)
+//	s.process_buff_chan = make(chan []string)
 
 	/* init 1 muster for each node and 1 sheep for each core */
 	s.musters = make(map[string]*muster)
@@ -123,7 +122,8 @@ func (s *shepherd) log(m_id string) {
 		case ids := <- m.full_buff_chan:
 			sheep_id := ids[0]
 			log_id := ids[1]
-			s.process_buff_chan <- []string{m.id, sheep_id, log_id}
+//			s.process_buff_chan <- []string{m.id, sheep_id, log_id}
+			m.process_buff_chan <- []string{sheep_id, log_id}
 			go func() {
 				m := m
 				sheep_id := sheep_id
