@@ -47,14 +47,13 @@ func (nop_s *nop_shepherd) init_local() {
 /***** LOG PROCESSING *****/
 /**************************/
 
-func (nop_s nop_shepherd) process_logs() {
+func (nop_s nop_shepherd) process_logs(m_id string) {
+	l_m := nop_s.local_musters[m_id]
 	for {
 		select {
-		case ids := <- nop_s.process_buff_chan:
-			m_id := ids[0]
-			sheep_id := ids[1]
-			log_id := ids[2]
-			l_m := nop_s.local_musters[m_id]
+		case ids := <- l_m.process_buff_chan:
+			sheep_id := ids[0]
+			log_id := ids[1]
 			sheep := l_m.pasture[sheep_id]
 			log := *(sheep.logs[log_id])
 			go func() {
@@ -68,10 +67,6 @@ func (nop_s nop_shepherd) process_logs() {
 				case sheep.logs[log.id].ready_process_chan <- true:
 				default:
 				}
-				select {
-				case nop_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:
-				default:
-				}
 			} ()
 		}
 	}
@@ -81,20 +76,12 @@ func (nop_s nop_shepherd) process_logs() {
 /********* CONTROL *********/
 /***************************/
 
-func (nop_s nop_shepherd) compute_control() {
+func (nop_s nop_shepherd) compute_control(m_id string) {
+	l_m := nop_s.local_musters[m_id]
 	for {
 		select {
-		case ids := <- nop_s.compute_ctrl_chan:
-			m_id := ids[0]
-			sheep_id := ids[1]
-			l_m := nop_s.local_musters[m_id]
-			sheep := l_m.pasture[sheep_id]
-			go func() {
-				l_m := l_m
-				sheep := sheep
-				new_ctrls := make(map[string]uint64)
-				fmt.Printf("\033[35m<------- CTRL REQ --  %v - %v - %v\n\033[0m", l_m.id, sheep.id, new_ctrls)
-			} ()
+		case opt_req := <- l_m.request_optimize_chan:
+			fmt.Printf("\033[31m-------- REQUEST OPTIMIZE SIGNAL :  %v - %v\n\033[0m", m_id, opt_req)
 		}
 	}
 }

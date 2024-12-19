@@ -59,33 +59,34 @@ func (intlog_s *intlog_shepherd) init_local() {
    - bayopt_shepherd expects logs to consist of 99th tail latency + total joules consumed 
      to represent execution for some period of time
 */
-func (intlog_s intlog_shepherd) process_logs() {
+func (intlog_s intlog_shepherd) process_logs(m_id string) {
+	l_m := intlog_s.local_musters[m_id]
 	for {
 		select {
-		case ids := <- intlog_s.process_buff_chan:
-			m_id := ids[0]
-			sheep_id := ids[1]
-			log_id := ids[2]
-			l_m := intlog_s.local_musters[m_id]
+		case ids := <- l_m.process_buff_chan:
+			sheep_id := ids[0]
+			log_id := ids[1]
 			sheep := l_m.pasture[sheep_id]
 			log := *(sheep.logs[log_id])
 			go func() {
-				//l_m := l_m
+				l_m := l_m
 				sheep := sheep
 				log := log
 				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
-//				mem_buff := *(log.mem_buff)
+				<- log.ready_file_chan
 				sheep.update_log_file(log.id)
-//				fmt.Printf("\033[33m---------- %v\n\033[0m", mem_buff)
+				select {
+				case log.ready_file_chan <- true:
+				default:
+				}
+
 				// muster can now overwrite mem_buff for this log
 				select {
 				case sheep.logs[log.id].ready_process_chan <- true:
 				default:
 				}
-//				select {
-//				case bayopt_s.compute_ctrl_chan <- []string{l_m.id, sheep.id}:
-//				default:
-//				}
+
+				fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v - %v\n\033[0m", l_m.id, sheep.id, log.id)	
 			} ()
 		}
 	}

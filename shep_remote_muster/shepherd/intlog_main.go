@@ -52,29 +52,23 @@ func (intlog_s *intlog_shepherd) run_workload(m_id string) {
 }
 
 func intlog_main(nodes []node) {
-	home_dir, err := os.Getwd()
-	if err != nil { panic(err) }
-
 	// initialize generic shepherd
 	s := shepherd{id: "sheperd-intlog"}
 	s.init(nodes)
 	// initialize specialized energy-performance shepherd
-	intlog_s := intlog_shepherd{shepherd:s,
-				    logs_dir: home_dir + "/shepherd-intlog_logs/"}
+	intlog_s := intlog_shepherd{shepherd:s}
 	intlog_s.init()
 	intlog_s.init_local()
 	
 	// start all management and coordination threads
 	intlog_s.deploy_musters()
 	go intlog_s.listen_heartbeats()
-	go intlog_s.process_logs()
-//	go bayopt_s.compute_control()
 	for _, l_m := range(intlog_s.local_musters) {
-		go intlog_s.run_workload(l_m.id)
+		go intlog_s.process_logs(l_m.id)
+		//go intlog_s.run_workload(l_m.id)
 	}
 
 	time.Sleep(exp_timeout)
-
 	for _, l_m := range(intlog_s.local_musters) {
 		for _, sheep := range(l_m.pasture) {
 			for _, f := range(sheep.log_f_map) { f.Close() }

@@ -103,7 +103,6 @@ func bayopt_main(nodes []node) {
 	// start all management and coordination threads
 	bayopt_s.deploy_musters()
 	go bayopt_s.listen_heartbeats()
-//	go bayopt_s.process_logs()
 
 	for _, l_m := range(bayopt_s.local_musters) {
 		go bayopt_s.process_logs(l_m.id)
