@@ -97,9 +97,11 @@ user@node:$ for i in {0..15}; do cat /proc/ixgbe_stats/core/$i; echo; done
 user@muster:$ cd shepherd_muster/; ./cloudlab_setup_dvfs_control.sh
 ```
 
-Running the above script re-configures kernel to enable x86 msr manipulation:
+Running the above script re-configures kernel to enable x86 msr manipulation (if disabled):
 ```bash
-user@node:$ fakeroot make -j8 CONFIG_X86_MSR=y
+user@node:$ cd ~/linux-5.15.89
+user@node:$ scripts/config --enable CONFIG_X86_MSR
+user@node:$ fakeroot make -j8
 user@node:$ sudo apt install msr-tools
 user@node:$ sudo modprobe msr
 ```
@@ -124,17 +126,44 @@ user@node:$ cd shepherd_muster/; ./cloudlab_setup_mutilate.sh
 user@node:$ cd ~/; ./mutilate/mutilate --help
 ```
 
-## Running MustHerd Test
+## Preparing Example Optimizer Environment
+This must be done on the shepherd node or the node responsible for running optimization processes if different from the shepherd node.
+This particular example prepares a python environment for a bayesian optimizer service:
+```bash
+user@node:$ cd shepherd_muster/shep_remote_muster/
+user@node:$ sudo apt install python3-virtualenv
+user@node:$ virtualenv mustherd-venv
+user@node:$ source mustherd-venv/bin/activate
+(mustherd-venv) user@node:$ pip3 install grpcio
+(mustherd-venv) user@node:$ pip3 install google-api-python-client
+(mustherd-venv) user@node:$ pip3 install ax-platform
+```
+
+## Running MustHerd Memcached Test
 #### Checking shepherd-to-muster connections and pulsing:
-On the shepherd node:
+First, start optimizer service on the shepherd node, terminal A:
+```bash
+user@shepherd:$ cd shepherd_muster/shep_remote_muster
+user@node:$ source mustherd-venv/bin/activate
+(mustherd-venv) user@node:$ python3 optimizer_server.py
+```
+
+Second, start shepherd on the shepherd node, terminal B:
 ```bash
 user@shepherd:$ cd shepherd_muster/shep_remote_muster
 user@shepherd:$ go run shepherd/*
 ```
 
-On the muster nodes:
+First, start Memcached server on the muster nodes, terminal A:
+```bash
+user@node:$ taskset -c 0-15 ~/memcached_latest/memcached -u nobody -t 16 -m 32G -c 8192 -b 8192 -l 10.10.1.2 -B binary
+```
+
+Second, start remote muster on the muster nodes, terminal B:
 ```bash
 user@muster:$ cd shepherd_muster/shep_remote_muster
 user@muster:$ #go run remote_muster/* <muster_ip> <shepherd_ip> <num_cores> <pluse_port> <log_port> <ctrl_port> <coord_port> <optional_ip_idx>
 user@muster:$ go run remote_muster/* 10.10.1.2 10.10.1.1 16 50051 50061 50071 50081
 ```
+
+(Other nodes in this experiment may be used as mutilate load generation agents. MustHerd will not run on these nodes.)
