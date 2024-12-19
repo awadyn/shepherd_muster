@@ -1,4 +1,8 @@
 # MustHerd
+MustHerd is a distributed framework that enables learning-based control decision making on one or more target nodes.
+MustHerd's main components are a centralized shepherd and distributed musters.
+
+(See description in  https://github.com/awadyn/shepherd_muster.wiki.git)
 
 ## Preparing MustHerd Environment
 #### Assuming one shepherd node and at least one muster node:
@@ -87,21 +91,6 @@ user@node:$ sudo ~/shepherd_muster/intel_set_irq_affinity.sh $ieth
 user@node:$ for i in {0..15}; do cat /proc/ixgbe_stats/core/$i; echo; done
 ```
 
-## Running MustHerd Test
-#### Checking shepherd-to-muster connections and pulsing:
-On the shepherd node:
-```bash
-user@shepherd:$ cd shepherd_muster/shep_remote_muster
-user@shepherd:$ go run shepherd/*
-```
-
-On the muster nodes:
-```bash
-user@muster:$ cd shepherd_muster/shep_remote_muster
-user@muster:$ #go run remote_muster/* <muster_ip> <shepherd_ip> <num_cores> <pluse_port> <log_port> <ctrl_port> <coord_port> <optional_ip_idx>
-user@muster:$ go run remote_muster/* 10.10.1.2 10.10.1.1 16 50051 50061 50071 50081
-```
-
 ## Preparing Example Control Environment
 #### Here we enable userspace dynamic voltage/frequency scaling on a muster node:
 ```bash
@@ -133,4 +122,19 @@ This must be done on all nodes involved in a mutilate cluster load generation:
 ```bash
 user@node:$ cd shepherd_muster/; ./cloudlab_setup_mutilate.sh
 user@node:$ cd ~/; ./mutilate/mutilate --help
+```
+
+## Running MustHerd Test
+#### Checking shepherd-to-muster connections and pulsing:
+On the shepherd node:
+```bash
+user@shepherd:$ cd shepherd_muster/shep_remote_muster
+user@shepherd:$ go run shepherd/*
+```
+
+On the muster nodes:
+```bash
+user@muster:$ cd shepherd_muster/shep_remote_muster
+user@muster:$ #go run remote_muster/* <muster_ip> <shepherd_ip> <num_cores> <pluse_port> <log_port> <ctrl_port> <coord_port> <optional_ip_idx>
+user@muster:$ go run remote_muster/* 10.10.1.2 10.10.1.1 16 50051 50061 50071 50081
 ```
