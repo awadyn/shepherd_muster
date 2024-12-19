@@ -7,27 +7,28 @@ import (
 
 /*********************************************/
 
-func flink_main(n_ip string, n_cores uint8, pulse_server_port int, log_server_port int, ctrl_server_port int, coordinate_server_port int, ip_idx string) {
+func flink_main(n node) {
 	home_dir, err := os.Getwd()
 	if err != nil { panic(err) }
 
-	m0 := muster{}
-	m0.init(n_ip, n_cores, ip_idx)
-	m0.id = "worker-" + m0.id
+	m0 := muster{node: n}
+	m0.init()
+	m0.init_remote()
 	r_m_0 := remote_muster{muster: m0}
-	r_m_0.init(pulse_server_port, log_server_port, ctrl_server_port, coordinate_server_port)
-//	r_m_0.show()
+	r_m_0.init()
  
-	m1 := muster{}
-	m1.init(n_ip, n_cores, ip_idx)
-	m1.id = "source-" + m1.id
+	m1 := muster{node: n}
+	m1.init()
+	m1.init_remote()
 	r_m_1 := remote_muster{muster: m1}
-	r_m_1.init(pulse_server_port+1, log_server_port+1, ctrl_server_port+1, coordinate_server_port+1)
-//	r_m_1.show() 
+	r_m_1.init()
 
-	logs_dir := home_dir + "/" + r_m_0.id + "_" + r_m_1.id + "_flink_logs/"
 
-	bayopt_m := bayopt_muster{remote_muster: r_m_0, logs_dir: logs_dir}
+
+
+	logs_dir := home_dir + "/" + r_m_0.id + "." + r_m_1.id + ".flink_logs/"
+	bayopt_m := bayopt_muster{remote_muster: r_m_0}
+	bayopt_m.logs_dir = logs_dir
 	_, err = os.Stat(logs_dir)
 	if os.IsNotExist(err) {
 		err = os.Mkdir(logs_dir, 0777)
@@ -53,16 +54,17 @@ func flink_main(n_ip string, n_cores uint8, pulse_server_port int, log_server_po
 	source_m.start_logger()
 
 	for sheep_id, _ := range(worker_m.pasture) {
-		go worker_m.log_manage(sheep_id) 
+		go worker_m.log_manage(sheep_id, logs_dir, ixgbe_native_log) 
 		go worker_m.ctrl_manage(sheep_id) 
 	}
 	for sheep_id, _ := range(source_m.pasture) {
-		go source_m.log_manage(sheep_id) 
+		go source_m.log_manage(sheep_id, logs_dir, ixgbe_native_log) 
 	}
 
 	// cleanup
 	time.Sleep(exp_timeout)
-//	flink_m.cleanup()
+	source_m.cleanup()
+	worker_m.cleanup()
 }
 
 
