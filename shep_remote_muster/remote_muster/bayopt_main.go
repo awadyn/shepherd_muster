@@ -30,7 +30,6 @@ func bayopt_main(n node) {
 
 	go bayopt_m.start_pulser()
 	go bayopt_m.start_controller()
-	go bayopt_m.sync_new_ctrl()
 	go bayopt_m.start_coordinator()
 	bayopt_m.start_logger()
 

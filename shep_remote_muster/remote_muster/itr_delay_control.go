@@ -9,12 +9,35 @@ import (
 )
 
 /*********************************************/
+func get_internal_iface() string {
+	var out strings.Builder
+	var stderr strings.Builder
+	cmd:= exec.Command("bash", "-c", "ls /sys/class/net | grep enp | grep f0")
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil { panic(err) }
+	iface := out.String()
+	stderr_str := stderr.String()
+	if len(iface) == 0 {
+		if len(stderr_str) > 0 {
+			fmt.Printf("**** PROBLEM: cannot read ethernet interface name.. aborting..\n")
+			return ""
+		}
+	}
+	if iface[len(iface)-1] == '\n' { iface = iface[0:len(iface)-1] }
+	return iface
+}
 
 
 func read_rx_usecs(core uint8, iface_args ...string) uint64 {
 	var out strings.Builder
 	var stderr strings.Builder
-	iface := iface_args[0]
+	iface := get_internal_iface()
+	if iface == "" {
+		fmt.Printf("**** PROBLEM: cannot get internal network interface name.. aborting\n")
+		return 0
+	}
 
 	cmd_str := "ethtool -c " + iface + " | grep \"rx-usecs:\" | cut -d ' ' -f2"
 	cmd:= exec.Command("bash", "-c", cmd_str)
@@ -38,7 +61,12 @@ func read_rx_usecs(core uint8, iface_args ...string) uint64 {
 }
 
 func write_rx_usecs(core uint8, val uint64, iface_args ...string) error {
-	iface := iface_args[0]
+	iface := get_internal_iface()
+	if iface == "" {
+		fmt.Printf("**** PROBLEM: cannot get internal network interface name.. aborting\n")
+		return nil
+	}
+
 	cmd_str := "sudo ethtool -C " + iface + " rx-usecs " + strconv.Itoa(int(val))
 	cmd:= exec.Command("bash", "-c", cmd_str)
 	var stderr bytes.Buffer

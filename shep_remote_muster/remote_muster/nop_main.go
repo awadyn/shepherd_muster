@@ -30,7 +30,6 @@ func nop_main(n node) {
 
 	go nop_m.start_pulser()
 	go nop_m.start_controller()
-	go nop_m.sync_new_ctrl()
 	go nop_m.start_coordinator()
 	nop_m.start_logger()
 

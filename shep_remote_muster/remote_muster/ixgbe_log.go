@@ -32,14 +32,12 @@ func ixgbe_native_log(sheep *sheep, log *log, logs_dir string) {
 			case <- sheep.detach_native_logger:
 				err := cmd.Process.Kill()
 				if err != nil { panic(err) }
-//				fmt.Printf("\033[36;1m****** ALERT: killed native logger for %v\n\033[0m", sheep.id)
 				return
 			}
 		}
 	} ()
 
 	if err := cmd.Run(); err != nil { 
-//		fmt.Printf("\033[31;1m****** PROBLEM: %v cannot access native logger data.. aborting \n\033[0m", sheep.id)
 		return
 	}
 }

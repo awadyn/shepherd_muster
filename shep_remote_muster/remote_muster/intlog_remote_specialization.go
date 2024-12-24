@@ -20,7 +20,7 @@ type intlog_muster struct {
    and initialize log files accordingly
 */
 func (intlog_m *intlog_muster) init_remote() {
-	iface := intlog_m.get_internal_iface()
+	iface := get_internal_iface()
 	if iface == "" {
 		fmt.Printf("**** PROBLEM: %v cannot get internal network interface name.. aborting\n", intlog_m.id)
 		return

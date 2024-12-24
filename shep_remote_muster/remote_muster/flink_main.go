@@ -47,7 +47,6 @@ func flink_main(n node) {
 	go worker_m.start_pulser()
 	go source_m.start_pulser()
 	go worker_m.start_controller()
-	go worker_m.sync_new_ctrl()
 	go worker_m.start_coordinator()
 	go source_m.start_coordinator()
 	worker_m.start_logger()

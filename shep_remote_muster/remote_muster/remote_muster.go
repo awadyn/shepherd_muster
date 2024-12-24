@@ -5,11 +5,11 @@ import (
 	"flag"
 	"context"
 	"strconv"
-	"strings"
+//	"strings"
 	"time"
 	"net"
 	"io"
-	"os/exec"
+//	"os/exec"
 
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 	"google.golang.org/grpc"
@@ -34,26 +34,6 @@ func (r_m *remote_muster) init() {
 						"remote_muster ctrl server port")
 	r_m.coordinate_server_port = flag.Int("coordinate_port_" + r_m.id, r_m.coordinate_port, 
 						"remote muster coordinate server port")
-}
-
-func (r_m *remote_muster) get_internal_iface() string {
-	var out strings.Builder
-	var stderr strings.Builder
-	cmd:= exec.Command("bash", "-c", "ls /sys/class/net | grep enp | grep f0")
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil { panic(err) }
-	iface := out.String()
-	stderr_str := stderr.String()
-	if len(iface) == 0 {
-		if len(stderr_str) > 0 {
-			fmt.Printf("**** PROBLEM: %v cannot read ethernet interface name.. aborting..\n", r_m.id)
-			return ""
-		}
-	}
-	if iface[len(iface)-1] == '\n' { iface = iface[0:len(iface)-1] }
-	return iface
 }
 
 /*****************/
@@ -165,8 +145,13 @@ func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) err
 		switch {
 		case err == io.EOF:
 			if debug { fmt.Printf("\033[35m-----> CTRL-REQ -- %v - %v\n\033[0m", sheep_id, new_ctrls) }
-			r_m.new_ctrl_chan <- control_request{sheep_id: sheep_id, ctrls: new_ctrls}
-			<- r_m.pasture[sheep_id].done_ctrl_chan
+			sheep := r_m.pasture[sheep_id]
+
+			sheep.new_ctrl_chan <- new_ctrls
+			<- sheep.done_ctrl_chan
+			//r_m.new_ctrl_chan <- control_request{sheep_id: sheep_id, ctrls: new_ctrls}
+			//<- r_m.pasture[sheep_id].done_ctrl_chan
+
 			r_m.flush_log_files(sheep_id)
 			if debug { fmt.Printf("\033[35m<----- CTRL REP -- %v - %v\n\033[0m", sheep_id, new_ctrls) }
 			return stream.SendAndClose(&pb.ControlReply{CtrlComplete: true})

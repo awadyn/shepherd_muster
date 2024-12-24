@@ -63,19 +63,6 @@ func (m *muster) cleanup() {
 	}
 }
 
-//func (ctrl *control) getter(core uint8, get_func func(uint8, ...string)uint64, args ...string) uint64 {
-//	var ctrl_val uint64
-//	if len(args) > 0 {
-//		ctrl_val = get_func(core, args[0])
-//	} else {
-//		ctrl_val = get_func(core)
-//	}
-//	return ctrl_val
-//}
-//func (ctrl *control) setter(core uint8, value uint64, set_func func(uint8, uint64)error) error {
-//	err := set_func(core, value)
-//	return err
-//}
 
 /*
    populates one full memory buffer of log entries
@@ -256,16 +243,29 @@ func (r_m *remote_muster) log_manage(sheep_id string, logs_dir string, native_lo
 
 /****/
 
-func (m *muster) sync_new_ctrl() {
+func (r_m *remote_muster) ctrl_manage(sheep_id string) {
+	fmt.Printf("\033[36m-- MUSTER %v -- SHEEP %v - STARTING CONTROL MANAGER\n\033[0m", r_m.id, sheep_id)
+	sheep := r_m.pasture[sheep_id]
+	var err error
 	for {
 		select {
-		case new_ctrl_req := <- m.new_ctrl_chan:
-			sheep := m.pasture[new_ctrl_req.sheep_id]
-			new_ctrls := new_ctrl_req.ctrls
-			sheep.new_ctrl_chan <- new_ctrls
+		case new_ctrls := <- sheep.new_ctrl_chan:
+			for ctrl_id, ctrl_val := range(new_ctrls) {
+				switch {
+				case sheep.controls[ctrl_id].knob == "dvfs":
+					err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val)
+				case sheep.controls[ctrl_id].knob == "itr-delay":
+					err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val)
+				default:
+				}
+				if err != nil { panic(err) }
+				sheep.controls[ctrl_id].value = ctrl_val
+			}
+			sheep.done_ctrl_chan <- control_reply{done: true, ctrls: new_ctrls}
 		}
 	}
 }
+
 
 
 
