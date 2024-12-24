@@ -97,37 +97,41 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 		case ids := <- r_m.full_buff_chan:
 			sheep_id := ids[0]
 			log_id := ids[1]
-			for {
-				stream, err := c.SyncLogBuffers(ctx)
-				if err != nil {
-					fmt.Printf("\033[31;1m****** ERROR: %v could not initialize log sync stream %v:\n****** %v\n\033[0m", r_m.id, log_id, err)
-					time.Sleep(time.Second/10)
-					continue
-				}
-				if debug { fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep_id, log_id) }
-				for _, log_entry := range *(r_m.pasture[sheep_id].logs[log_id].mem_buff) {
-					for {
-						err := stream.Send(&pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogEntry: &pb.LogEntry{Vals: log_entry}})
-						if err != nil { 
-							fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log entry %v:\n******%v\n\033[0m", r_m.id, log_id, log_entry, err)
-							time.Sleep(time.Second/20)
-							continue
+			go func() {
+				sheep_id := sheep_id
+				log_id := log_id
+				for {
+					stream, err := c.SyncLogBuffers(ctx)
+					if err != nil {
+						fmt.Printf("\033[31;1m****** ERROR: %v could not initialize log sync stream %v:\n****** %v\n\033[0m", r_m.id, log_id, err)
+						time.Sleep(time.Second/10)
+						continue
+					}
+					if debug { fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep_id, log_id) }
+					for _, log_entry := range *(r_m.pasture[sheep_id].logs[log_id].mem_buff) {
+						for {
+							err := stream.Send(&pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogEntry: &pb.LogEntry{Vals: log_entry}})
+							if err != nil { 
+								fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log entry %v:\n******%v\n\033[0m", r_m.id, log_id, log_entry, err)
+								time.Sleep(time.Second/20)
+								continue
+							}
+							break
 						}
+					}
+					r, err := stream.CloseAndRecv()
+					if err != nil {
+						fmt.Printf("\033[31;1m****** ERROR: %v problem receiving log sync reply %v:\n****** %v\n\033[0m", r_m.id, log_id, err)
+						time.Sleep(time.Second/10)
+						continue
+					}
+					if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log_id, r.GetSyncComplete()) }
+					if r.GetSyncComplete() {
+						r_m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true
 						break
 					}
 				}
-				r, err := stream.CloseAndRecv()
-				if err != nil {
-					fmt.Printf("\033[31;1m****** ERROR: %v problem receiving log sync reply %v:\n****** %v\n\033[0m", r_m.id, log_id, err)
-					time.Sleep(time.Second/10)
-					continue
-				}
-				if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log_id, r.GetSyncComplete()) }
-				if r.GetSyncComplete() {
-					r_m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true
-					break
-				}
-			}
+			}()
 		}
 	}
 }
