@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"golang.org/x/exp/maps"
 	"slices"
+	"time"
 
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 )
@@ -105,6 +106,7 @@ func (s *shepherd) listen_heartbeats() {
 			}
 			counter ++
 		}
+		time.Sleep(time.Second)
 	}
 }
 
