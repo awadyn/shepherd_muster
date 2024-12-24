@@ -12,6 +12,7 @@ import (
 /**************************************/
 
 var joules_idx int
+var timestamp_idx int 
 
 type bayopt_muster struct {
 	local_muster
@@ -24,8 +25,6 @@ type bayopt_shepherd struct {
 	bayopt_musters map[string]*bayopt_muster 
 	ixgbe_metrics []string
 	buff_max_size uint64
-	joules_reward float32
-	reward_lock_chan chan bool
 }
 
 
@@ -43,9 +42,7 @@ func (bayopt_s *bayopt_shepherd) init() {
 	bayopt_s.buff_max_size = 1
 	bayopt_s.bayopt_musters = make(map[string]*bayopt_muster)
 	joules_idx = slices.Index(bayopt_s.ixgbe_metrics, "joules")
-	bayopt_s.joules_reward = 0
-	bayopt_s.reward_lock_chan = make(chan bool, 1)
-	bayopt_s.reward_lock_chan <- true
+	timestamp_idx = slices.Index(bayopt_s.ixgbe_metrics, "timestamp")
 
 	for _, l_m := range(bayopt_s.local_musters) {
 		bayopt_m := bayopt_muster{local_muster: *l_m}
@@ -63,6 +60,7 @@ func (bayopt_s *bayopt_shepherd) init_local() {
 		for _, sheep := range(bayopt_m.pasture) {
 			sheep.perf_data["joules_measure"] = make([]float32, 1)
 			sheep.perf_data["joules_diff"] = make([]float32, 0)
+			sheep.perf_data["timestamp_measure"] = make([]float32, 0)
 			for _, log := range(sheep.logs) {
 				log.ready_process_chan <- true
 				log.ready_request_chan <- true
@@ -116,8 +114,13 @@ func (bayopt_s bayopt_shepherd) process_logs(m_id string) {
 				sheep.perf_data["joules_measure"] = append(sheep.perf_data["joules_measure"], joules_val)
 				joules_old := sheep.perf_data["joules_measure"][len(sheep.perf_data["joules_measure"]) - 2]
 				sheep.perf_data["joules_diff"] = append(sheep.perf_data["joules_diff"], joules_val - joules_old)
-//				fmt.Printf("\033[33m---------- JOULES MEAS: %v\n\033[0m", bayopt_s.joules_measure[l_m.id][sheep.id])
-//				fmt.Printf("\033[33m---------- JOULES DIFF: %v\n\033[0m", bayopt_s.joules_diff[l_m.id][sheep.id])
+
+				timestamp_val := float32(mem_buff[0][timestamp_idx]) * 1./(2899999*1000)
+				sheep.perf_data["timestamp_measure"] = append(sheep.perf_data["timestamp_measure"], timestamp_val)
+
+				fmt.Printf("\033[35m---------- TIMESTAMP MEAS: %v\n\033[0m", sheep.perf_data["timestamp_measure"])
+				fmt.Printf("\033[33m---------- JOULES MEAS: %v\n\033[0m", sheep.perf_data["joules_measure"])
+				fmt.Printf("\033[33m---------- JOULES DIFF: %v\n\033[0m", sheep.perf_data["joules_diff"])
 
 				// muster can now overwrite mem_buff for this log
 				select {
