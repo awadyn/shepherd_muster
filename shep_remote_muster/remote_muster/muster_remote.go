@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"time"
+//	"time"
 	"io"
 	"strconv"
 	"encoding/csv"
@@ -221,12 +221,14 @@ func (r_m *remote_muster) log_manage(sheep_id string, logs_dir string, native_lo
 						default:
 							err := r_m.sync_with_logger(sheep_id, log_id, reader, do_log, -1)
 							if err == io.EOF {
-								time.Sleep(time.Second * 2)
+//								time.Sleep(time.Second / 5)
 							} else { 
 								if err != nil { panic(err) } 
 							}
-							if first_iter { r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true }
-
+							if first_iter { 
+								r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true 
+								first_iter = false
+							}
 						}
 						if kill_log { 
 							r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true

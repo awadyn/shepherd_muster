@@ -29,14 +29,13 @@ func intlog_main(n node) {
 	intlog_m.show()
 
 	go intlog_m.start_pulser()
-	//go intlog_m.start_controller()
-	//go intlog_m.sync_new_ctrl()
+	go intlog_m.start_controller()
 	go intlog_m.start_coordinator()
 	intlog_m.start_logger()
 
 	for sheep_id, _ := range(intlog_m.pasture) {
 		go intlog_m.log_manage(sheep_id, intlog_m.logs_dir, ixgbe_native_log) 
-//		go intlog_m.ctrl_manage(sheep_id) 
+		go intlog_m.ctrl_manage(sheep_id) 
 	}
 
 	// cleanup
