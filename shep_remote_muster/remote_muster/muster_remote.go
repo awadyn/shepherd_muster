@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-//	"time"
+	"time"
 	"io"
 	"strconv"
 	"encoding/csv"
@@ -210,9 +210,8 @@ func (r_m *remote_muster) log_manage(sheep_id string, logs_dir string, native_lo
 					f := r_m.pasture[sheep_id].log_f_map[log_id]
 					reader := r_m.pasture[sheep_id].log_reader_map[log_id]
 					f.Seek(0, io.SeekStart)
-					//r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
-					var first_iter bool = true
 					var kill_log bool = false
+					r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true 
 					for {
 						select {
 						case <- r_m.pasture[sheep_id].logs[log_id].kill_log_chan:
@@ -221,17 +220,12 @@ func (r_m *remote_muster) log_manage(sheep_id string, logs_dir string, native_lo
 						default:
 							err := r_m.sync_with_logger(sheep_id, log_id, reader, do_log, -1)
 							if err == io.EOF {
-//								time.Sleep(time.Second / 5)
+								time.Sleep(time.Second / 5)
 							} else { 
 								if err != nil { panic(err) } 
 							}
-							if first_iter { 
-								r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true 
-								first_iter = false
-							}
 						}
 						if kill_log { 
-							r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 							return 
 						}
 					}
