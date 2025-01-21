@@ -31,6 +31,9 @@ type node struct {
 type control struct {
 	ready_request_chan chan bool	//syncs access to ctrl object 
 
+	// TODO fix; temp
+	ready_ctrl_chan chan bool
+
 	value uint64
 	dirty bool
 	knob string
