@@ -253,8 +253,12 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 				req := req
 				sheep_id := req[0]
 				ctrl_id := req[1]
+				fmt.Println("here3")
+				fmt.Println(req, sheep_id, ctrl_id)
+				fmt.Println(l_m.pasture[sheep_id].controls[ctrl_id])
 				<- l_m.pasture[sheep_id].controls[ctrl_id].ready_request_chan
-				//fmt.Printf("\033[34m<--- COORD REQ -- %v -- %v\n\033[0m", sheep_id, ctrl_id)
+				fmt.Println("here4")
+				fmt.Printf("\033[34m<--- COORD REQ -- %v -- %v\n\033[0m", sheep_id, ctrl_id)
 				for {
 					r, err := c.CoordinateCtrl(ctx, &pb.CoordinateCtrlRequest{SheepId: sheep_id, CtrlId: ctrl_id})  
 					if err != nil { time.Sleep(time.Second/2); continue } 
@@ -264,6 +268,10 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 					l_m.pasture[sheep_id].controls[ctrl_id].value = ctrl_val
 					fmt.Printf("\033[34m---> COORD CTRL REP -- %v\n\033[0m", r)
 					l_m.pasture[sheep_id].controls[ctrl_id].ready_request_chan <- true
+
+					// TODO fix; this is temp.
+					l_m.pasture[sheep_id].controls[ctrl_id].ready_ctrl_chan <- true
+					
 					return
 				}
 

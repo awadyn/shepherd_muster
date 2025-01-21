@@ -18,6 +18,10 @@ func (c *control) init(knob string, getter func(uint8, ...string)uint64, setter 
 	c.knob = knob
 	c.dirty = false
 	c.ready_request_chan = make(chan bool, 1)
+
+	// TODO fix; temp
+	c.ready_ctrl_chan = make(chan bool, 1)
+	
 	c.getter = getter
 	c.setter = setter
 }
