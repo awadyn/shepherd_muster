@@ -83,8 +83,13 @@ func (s *shepherd) deploy_musters() {
 		l_m.start_coordinator()		// per-muster coordinate client
 		l_m.start_logger()		// per-muster log server
 		go s.log(l_m.id)
+
+		go s.process_logs(l_m.id)
+//		go s.compute_control(l_m.id)
+
 		if optimize_on { l_m.start_optimizer() }
 	}
+	go s.listen_heartbeats()
 }
 
 /********** PULSING **********/
@@ -124,7 +129,6 @@ func (s *shepherd) log(m_id string) {
 		case ids := <- m.full_buff_chan:
 			sheep_id := ids[0]
 			log_id := ids[1]
-//			s.process_buff_chan <- []string{m.id, sheep_id, log_id}
 			m.process_buff_chan <- []string{sheep_id, log_id}
 			go func() {
 				m := m
@@ -140,11 +144,47 @@ func (s *shepherd) log(m_id string) {
 	}
 }
 
+func (s shepherd) process_logs(m_id string) {
+	l_m := s.local_musters[m_id]
+	for {
+		select {
+		case ids := <- l_m.process_buff_chan:
+			sheep_id := ids[0]
+			log_id := ids[1]
+			sheep := l_m.pasture[sheep_id]
+			log := *(sheep.logs[log_id])
+			go func() {
+				l_m := l_m
+				sheep := sheep
+				log := log
+				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
+				<- log.ready_file_chan
+				sheep.update_log_file(log.id)
+				select {
+				case log.ready_file_chan <- true:
+				default:
+				}
+
+				// muster can now overwrite mem_buff for this log
+				select {
+				case sheep.logs[log.id].ready_process_chan <- true:
+				default:
+				}
+
+				fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v - %v\n\033[0m", l_m.id, sheep.id, log.id)	
+			} ()
+		}
+	}
+}
+
+// set controls remotely, when done, set locally
 func (s *shepherd) control(m_id string, sheep_id string, ctrls map[string]uint64) {
 	l_m := s.local_musters[m_id]
 	sheep := l_m.pasture[sheep_id]
+	
 	l_m.new_ctrl_chan <- control_request{sheep_id: sheep_id, ctrls: ctrls}
 	ctrl_reply := <- sheep.done_ctrl_chan
+
 	new_ctrls := ctrl_reply.ctrls
 	done_ctrl := ctrl_reply.done
 	if done_ctrl {
@@ -153,6 +193,21 @@ func (s *shepherd) control(m_id string, sheep_id string, ctrls map[string]uint64
 		}
 	}
 }
+
+/*
+func (s shepherd) compute_control(m_id string, ctrl_parser func([]optimize_setting)map[string]uint64) {
+	l_m := s.local_musters[m_id]
+	for {
+		select {
+		case opt_req := <- l_m.request_optimize_chan:
+			fmt.Printf("\033[31m-------- REQUEST OPTIMIZE SIGNAL :  %v - %v\n\033[0m", m_id, opt_req)
+			opt_settings := opt_req.settings
+			ctrls := ctrl_parser(opt_settings)
+			l_m.ready_optimize_chan <- ctrls
+		}
+	}		
+}
+*/
 
 //func (s *shepherd) CompleteRun(ctx context.Context, in *pb.CompleteRunRequest) (*pb.CompleteRunReply, error) {
 //	sheep_id := in.GetSheepId()
@@ -176,6 +231,28 @@ func (s *shepherd) control(m_id string, sheep_id string, ctrls map[string]uint64
 //	}
 //}
 
+
+
+func (s *shepherd) start_optimizer() {
+	for _, l_m := range(s.local_musters) {
+		l_m.start_optimize_chan <- start_optimize_request{ntrials: 1}
+		done := <- l_m.ready_optimize_chan
+		if done == false {
+			fmt.Printf("\033[31;1m****** ERROR: %v failed to start optimizer\n\033[0m", l_m.id)
+		}
+	}
+}
+
+func (s *shepherd) stop_optimizer() {
+}
+
+func (s *shepherd) cleanup() {
+	for _, l_m := range(s.local_musters) {
+		for _, sheep := range(l_m.pasture) {
+			for _, f := range(sheep.log_f_map) { f.Close() }
+		}
+	}
+}
 
 
 

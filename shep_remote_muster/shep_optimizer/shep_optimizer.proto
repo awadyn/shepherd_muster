@@ -6,6 +6,7 @@ package shepherd;
 
 service SetupOptimize {
 	rpc StartOptimizer (StartOptimizerRequest) returns (StartOptimizerReply);
+	rpc StopOptimizer (StopOptimizerRequest) returns (StopOptimizerReply);
 }
 
 service Optimize {
@@ -27,6 +28,13 @@ message StartOptimizerRequest {
 }
 
 message StartOptimizerReply {
+	bool done = 1;
+}
+
+message StopOptimizerRequest {
+}
+
+message StopOptimizerReply {
 	bool done = 1;
 }
 
