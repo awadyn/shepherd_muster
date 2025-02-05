@@ -11,53 +11,32 @@ import (
 
 type intlog_muster struct {
 	local_muster
-	ixgbe_metrics []string
-	buff_max_size uint64
 }
 
 type intlog_shepherd struct {
 	shepherd
 	intlog_musters map[string]*intlog_muster 
-	ixgbe_metrics []string
-	buff_max_size uint64
 }
 
 func (intlog_s *intlog_shepherd) init() {
-	intlog_s.ixgbe_metrics = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
-	                                "instructions", "cycles", "ref_cycles", "llc_miss",
-	                                "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
-	intlog_s.buff_max_size = 4096
+	home_dir, err := os.Getwd()
+	if err != nil { panic(err) }
+	logs_dir := home_dir + "/" + "intlog-logs-"
+
 	intlog_s.intlog_musters = make(map[string]*intlog_muster)
 
 	for _, l_m := range(intlog_s.local_musters) {
 		intlog_m := intlog_muster{local_muster: *l_m}
 		intlog_m.init()
 		intlog_s.intlog_musters[intlog_m.id] = &intlog_m
+		intlog_m.show()
+
+		intlog_m.logs_dir = logs_dir + intlog_m.id + "/"
+		err := os.Mkdir(intlog_m.logs_dir, 0750)
+		if err != nil && !os.IsExist(err) { panic(err) }
 	}
 }
 
-func (intlog_s *intlog_shepherd) init_local() {
-	home_dir, err := os.Getwd()
-	if err != nil { panic(err) }
-	for _, intlog_m := range(intlog_s.intlog_musters) {
-		logs_dir := home_dir + "/" + intlog_m.id + "-intlog-logs/"
-		intlog_m.init_local(logs_dir)
-		for _, sheep := range(intlog_m.pasture) {
-			for _, log := range(sheep.logs) {
-				log.ready_process_chan <- true
-				log.ready_request_chan <- true
-				log.ready_buff_chan <- true
-				log.ready_file_chan <- true
-			}
-			for _, ctrl := range(sheep.controls) {
-				fmt.Println("init control: ", ctrl.id)
-				ctrl.ready_request_chan <- true
-				ctrl.init(ctrl.knob, ctrl_get_remote, ctrl_set_remote)
-			}
-		}
-		intlog_m.show()
-	}
-}
 
 
 /**************************/

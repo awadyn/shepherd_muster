@@ -69,7 +69,7 @@ func intlog_main(nodes []node) {
 	// initialize specialized energy-performance shepherd
 	intlog_s := intlog_shepherd{shepherd:s}
 	intlog_s.init()
-	intlog_s.init_local()
+//	intlog_s.init_local()
 	
 	// start all management and coordination threads
 	intlog_s.deploy_musters()

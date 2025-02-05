@@ -26,7 +26,6 @@ func (m *muster) init_local(logs_dir string) {
 */
 func (s *shepherd) init(nodes []node) {
 	s.hb_chan = make(chan *pb.HeartbeatReply)
-//	s.process_buff_chan = make(chan []string)
 
 	/* init 1 muster for each node and 1 sheep for each core */
 	s.musters = make(map[string]*muster)
@@ -46,9 +45,6 @@ func (s *shepherd) init(nodes []node) {
    control settings.
 */
 func (s *shepherd) init_log_files(logs_dir string) {
-	err := os.Mkdir(logs_dir, 0750)
-	if err != nil && !os.IsExist(err) { panic(err) }
-
 	for _, l_m := range(s.local_musters) {
 		for _, sheep := range(l_m.pasture) {
 			sheep.log_f_map = make(map[string]*os.File)
