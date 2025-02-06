@@ -15,6 +15,11 @@ import (
 
 var exp_timeout time.Duration = time.Second * 1260
 
+type resource struct {
+	label string
+	index uint8
+}
+
 type node struct {
 	ncores uint8
 	pulse_port int
@@ -25,6 +30,7 @@ type node struct {
 	optimizer_server_port int
 	ip_idx int			//differentiates musters on the same node
 	ip string
+	resources []resource
 }
 
 
@@ -97,7 +103,7 @@ type log struct {
 
 
 type sheep struct {
-	//finish_run_chan chan bool
+	resource
 
 	new_ctrl_chan chan map[string]uint64	//signals set new ctrls 
 	done_ctrl_chan chan control_reply	//syncs application of ctrl change
@@ -142,6 +148,7 @@ type local_muster struct {
 	request_optimize_chan chan optimize_request
 	ready_reward_chan chan reward_reply
 	ready_optimize_chan chan bool
+	//ready_optimize_chan chan map[string]uint64
 
 	log_server_port *int
 	ctrl_server_addr *string

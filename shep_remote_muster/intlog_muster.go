@@ -19,17 +19,6 @@ func (intlog_m *intlog_muster) init() {
 		log_c := log{id: log_id}
 		log_c.init(buff_max_size, ixgbe_metrics, log_wait_factor)
 		intlog_m.pasture[sheep_id].logs[log_id] = &log_c	
-		switch {
-		case label == "core":
-			ctrl_dvfs := control{id: "dvfs-ctrl-" + label + "-" + index + "-" + intlog_m.ip, n_ip: intlog_m.ip}
-			ctrl_dvfs.init("dvfs", read_dvfs, write_dvfs)
-			intlog_m.pasture[sheep_id].controls[ctrl_dvfs.id] = &ctrl_dvfs
-		case label == "node":
-			ctrl_itr := control{id: "itr-ctrl-" + label + "-" + index + "-" + intlog_m.ip, n_ip: intlog_m.ip}
-			ctrl_itr.init("itr-delay", read_rx_usecs, write_rx_usecs)
-			intlog_m.pasture[sheep_id].controls[ctrl_itr.id] = &ctrl_itr
-		default:
-		}
 	}
 }
 

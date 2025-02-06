@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+//import "fmt"
+
 /*********************************************/
 func ctrl_get_remote(core uint8, extra_args ...string) uint64 {
 	return 0
@@ -17,13 +19,13 @@ func ctrl_set_remote(core uint8, val uint64, extra_args ...string) error {
 func (c *control) init(knob string, getter func(uint8, ...string)uint64, setter func(uint8, uint64, ...string)error) {
 	c.knob = knob
 	c.dirty = false
-	c.ready_request_chan = make(chan bool, 1)
-
-	// TODO fix; temp
-	c.ready_ctrl_chan = make(chan bool, 1)
-	
 	c.getter = getter
 	c.setter = setter
+
+	c.ready_request_chan = make(chan bool, 1)
+	c.ready_ctrl_chan = make(chan bool, 1) // TODO fix; temp
+
+	c.ready_request_chan <- true
 }
 
 func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.Duration) {
@@ -32,11 +34,25 @@ func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.
 	l.max_size = buff_max_size
 	l.mem_buff = &mem_buff
 	l.log_wait_factor = log_wait_factor
+
+	l.kill_log_chan = make(chan bool, 1)
 	l.ready_process_chan = make(chan bool, 1)
 	l.ready_request_chan = make(chan bool, 1)
 	l.ready_buff_chan = make(chan bool, 1)
 	l.ready_file_chan = make(chan bool, 1)
-	l.kill_log_chan = make(chan bool, 1)
+
+	l.ready_process_chan <- true
+	l.ready_request_chan <- true
+	l.ready_buff_chan <- true
+	l.ready_file_chan <- true
+}
+
+func (sh *sheep) init() {
+	sh.logs = make(map[string]*log)
+	sh.controls = make(map[string]*control)
+	sh.done_ctrl_chan = make(chan control_reply, 1)
+	sh.ready_ctrl_chan = make(chan bool, 1)
+	sh.perf_data = make(map[string][]float32)
 }
 
 func (sheep_c *sheep) update_log_file(log_id string) {
@@ -73,15 +89,11 @@ func (m *muster) init() {
 	m.request_log_chan = make(chan []string)
 	m.request_ctrl_chan = make(chan []string)
 
-	var c uint8
-	for c = 0; c < m.ncores; c++ {
-		sheep_id := "sheep-" + strconv.Itoa(int(c)) + "-" + m.ip
-		sheep_c := sheep{id: sheep_id, core: c,
-				 logs: make(map[string]*log), 
-				 controls: make(map[string]*control),
-				 done_ctrl_chan: make(chan control_reply, 1),
-			 	 ready_ctrl_chan: make(chan bool, 1),
-			 	 perf_data: make(map[string][]float32)}
+	for _, resrc := range(m.resources) {
+		sheep_id := "sheep-" + resrc.label + "-" + strconv.Itoa(int(resrc.index)) + "-" + m.ip
+		sheep_c := sheep{resource: resrc,
+				 id: sheep_id}
+		sheep_c.init()
 		m.pasture[sheep_id] = &sheep_c
 	}
 }
