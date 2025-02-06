@@ -1,1 +1,1 @@
-../remote_muster/dvfs_control.go
+../dvfs_control.go

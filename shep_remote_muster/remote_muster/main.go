@@ -33,9 +33,17 @@ func main() {
 		if err != nil {fmt.Printf("** ** ** ERROR: bad ip_idx argument: %v\n", err)}
 	}
 
+	target_resources := make([]resource, 0)
+	var i uint8
+	for i = 0; i < 16; i++ {
+		target_resources = append(target_resources, resource{label: "core", index: i})
+	}
+	target_resources = append(target_resources, resource{label: "node", index: 0})
+
 	remote_node := node{ip: n_ip, ip_idx: ip_idx, ncores: ncores, 
 			    pulse_port: pulse_port, log_port: log_port, 
-			    ctrl_port: ctrl_port, coordinate_port: coordinate_port}
+			    ctrl_port: ctrl_port, coordinate_port: coordinate_port,
+		    	    resources: target_resources}
 
 	intlog_main(remote_node)
 	//bayopt_main(remote_node)
