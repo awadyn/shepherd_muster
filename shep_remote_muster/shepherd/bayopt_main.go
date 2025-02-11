@@ -122,6 +122,26 @@ func (bayopt_s *bayopt_shepherd) run_workload(m_id string) {
 	}
 }
 
+//func (bayopt_s *bayopt_shepherd) start_optimization(opt_map map[string]string, extra_args ...map[string][]string) {
+//	for _, l_m := range(bayopt_s.local_musters) {
+//		rc := l_m.start_optimization(opt_map[l_m.id], extra_args[l_m.id])
+//		if rc {
+//			//running workload with optimization ready..
+//			go bayopt_s.run_target(l_m.id)
+//		}
+//	}
+//}
+//
+//func (l_m *local_muster) start_optimization(opt_type string, extra_args ...[]string) bool {
+//	go l_m.process_logs()
+//	go l_m.compute_control()
+//	l_m.start_optimize_chan <- start_optimize_request{ntrials: 40}
+//	done := <- l_m.ready_optimize_chan
+//	return done
+//}
+
+
+//func bayopt_main(nodes []node, bayopt_args map[string]map[string]string) {
 func bayopt_main(nodes []node) {
 	// initialize generic shepherd
 	s := shepherd{id: "sheperd-bayopt"}
@@ -132,9 +152,21 @@ func bayopt_main(nodes []node) {
 	bayopt_s.init()
 	bayopt_s.init_local()
 	
-	// start all management and coordination threads
 	bayopt_s.deploy_musters()
-	go bayopt_s.listen_heartbeats()
+
+//	opt_map := make(map[string]string)
+//	opt_args := make(map[string][]string)
+//	for m_id, _ := range(bayopt_s.musters) {
+//		opt_map[m_id] = "bayopt"
+//		opt_args[m_id] := make([]string, 0)
+//		opt_args[m_id] = append[opt_args[m_id], strconv.Itoa(30)]
+//	}
+
+//	bayopt_s.start_optimization(opt_map, opt_args)
+
+	// start all management and coordination threads
+//	bayopt_s.deploy_musters()
+//	go bayopt_s.listen_heartbeats()
 
 	for _, l_m := range(bayopt_s.local_musters) {
 		go bayopt_s.process_logs(l_m.id)

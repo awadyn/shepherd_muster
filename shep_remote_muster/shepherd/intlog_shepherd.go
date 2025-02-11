@@ -29,7 +29,6 @@ func (intlog_s *intlog_shepherd) init() {
 		intlog_m := intlog_muster{local_muster: *l_m}
 		intlog_m.init()
 		intlog_s.intlog_musters[intlog_m.id] = &intlog_m
-		intlog_m.show()
 
 		intlog_m.logs_dir = logs_dir + intlog_m.id + "/"
 		err := os.Mkdir(intlog_m.logs_dir, 0750)
@@ -63,7 +62,7 @@ func (intlog_s intlog_shepherd) process_logs(m_id string) {
 				log := log
 				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
 				<- log.ready_file_chan
-				sheep.update_log_file(log.id)
+				sheep.write_log_file(log.id)
 				select {
 				case log.ready_file_chan <- true:
 				default:

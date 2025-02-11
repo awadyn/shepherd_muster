@@ -5,6 +5,7 @@ package main
 /**************************************/
 
 var optimize_on bool = true
+var debug bool = true
 
 func main() {
 	// assume a list of resources per-node is known apriori
@@ -28,8 +29,8 @@ func main() {
 //	args[nodes[0].ip]["num_trials"] = "30"
 
 
-	latency_predictor_main(nodes)
-//	intlog_main(nodes)
+//	latency_predictor_main(nodes)
+	intlog_main(nodes)
 //	nop_main(nodes)
 //	bayopt_main(nodes)
 //	flink_main(nodes)

@@ -1,11 +1,16 @@
 from __future__ import print_function
 import asyncio
 import time
+import random
 from concurrent import futures
 
 import grpc
 import shep_optimizer.shep_optimizer_pb2 as opt_pb
 import shep_optimizer.shep_optimizer_pb2_grpc as opt_pb_grpc
+
+itr_vals = [10, 50, 100, 200, 400]
+dvfs_vals = [0xc00, 0xe00, 0x1100, 0x1300, 0x1500, 0x1700, 0x1900, 0x1a00]
+
 
 #def test():
 
@@ -18,8 +23,8 @@ async def training_func(n_trials):
     for i in range(n_trials):
         print("Training iteration #", i)
         print("Choosing random controls..")
-        itr = 100
-        dvfs = 0x1500
+        itr = random.choice(itr_vals)
+        dvfs = random.choice(dvfs_vals)
         with grpc.insecure_channel("localhost:50091") as channel:
             stub = opt_pb_grpc.OptimizeStub(channel)
             new_ctrls = [opt_pb.ControlEntry(knob="dvfs", val=dvfs), opt_pb.ControlEntry(knob="itr-delay", val=itr)]

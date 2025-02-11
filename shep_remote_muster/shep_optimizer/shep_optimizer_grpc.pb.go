@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	SetupOptimize_StartOptimizer_FullMethodName = "/shepherd.SetupOptimize/StartOptimizer"
+	SetupOptimize_StopOptimizer_FullMethodName  = "/shepherd.SetupOptimize/StopOptimizer"
 )
 
 // SetupOptimizeClient is the client API for SetupOptimize service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SetupOptimizeClient interface {
 	StartOptimizer(ctx context.Context, in *StartOptimizerRequest, opts ...grpc.CallOption) (*StartOptimizerReply, error)
+	StopOptimizer(ctx context.Context, in *StopOptimizerRequest, opts ...grpc.CallOption) (*StopOptimizerReply, error)
 }
 
 type setupOptimizeClient struct {
@@ -47,11 +49,22 @@ func (c *setupOptimizeClient) StartOptimizer(ctx context.Context, in *StartOptim
 	return out, nil
 }
 
+func (c *setupOptimizeClient) StopOptimizer(ctx context.Context, in *StopOptimizerRequest, opts ...grpc.CallOption) (*StopOptimizerReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StopOptimizerReply)
+	err := c.cc.Invoke(ctx, SetupOptimize_StopOptimizer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SetupOptimizeServer is the server API for SetupOptimize service.
 // All implementations must embed UnimplementedSetupOptimizeServer
 // for forward compatibility.
 type SetupOptimizeServer interface {
 	StartOptimizer(context.Context, *StartOptimizerRequest) (*StartOptimizerReply, error)
+	StopOptimizer(context.Context, *StopOptimizerRequest) (*StopOptimizerReply, error)
 	mustEmbedUnimplementedSetupOptimizeServer()
 }
 
@@ -64,6 +77,9 @@ type UnimplementedSetupOptimizeServer struct{}
 
 func (UnimplementedSetupOptimizeServer) StartOptimizer(context.Context, *StartOptimizerRequest) (*StartOptimizerReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartOptimizer not implemented")
+}
+func (UnimplementedSetupOptimizeServer) StopOptimizer(context.Context, *StopOptimizerRequest) (*StopOptimizerReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopOptimizer not implemented")
 }
 func (UnimplementedSetupOptimizeServer) mustEmbedUnimplementedSetupOptimizeServer() {}
 func (UnimplementedSetupOptimizeServer) testEmbeddedByValue()                       {}
@@ -104,6 +120,24 @@ func _SetupOptimize_StartOptimizer_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SetupOptimize_StopOptimizer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopOptimizerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SetupOptimizeServer).StopOptimizer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SetupOptimize_StopOptimizer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SetupOptimizeServer).StopOptimizer(ctx, req.(*StopOptimizerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SetupOptimize_ServiceDesc is the grpc.ServiceDesc for SetupOptimize service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -114,6 +148,10 @@ var SetupOptimize_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartOptimizer",
 			Handler:    _SetupOptimize_StartOptimizer_Handler,
+		},
+		{
+			MethodName: "StopOptimizer",
+			Handler:    _SetupOptimize_StopOptimizer_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

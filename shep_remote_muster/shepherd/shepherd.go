@@ -70,6 +70,25 @@ func (s *shepherd) init_log_files(logs_dir string) {
 	}
 }
 
+func (sh *sheep) update_log_file(logs_dir string, log_id string) {
+	out_fname := logs_dir + log_id
+	ctrl_ids := maps.Keys(sh.controls)
+	slices.Sort(ctrl_ids)
+	for i := 0; i < len(ctrl_ids); i ++ {
+		id := ctrl_ids[i]
+		ctrl := sh.controls[id]
+		ctrl_val := strconv.Itoa(int(ctrl.value))
+		out_fname += "_" + ctrl_val
+	}
+	f, err := os.Create(out_fname)
+	if err != nil { panic(err) }
+	writer := csv.NewWriter(f)
+	writer.Comma = ' '
+	sh.log_f_map[log_id] = f
+	sh.log_writer_map[log_id] = writer
+}
+
+
 /* This function starts all muster threads required by a shepherd. */
 func (s *shepherd) deploy_musters() {
 	for _, l_m := range(s.local_musters) {
@@ -155,7 +174,7 @@ func (s shepherd) process_logs(m_id string) {
 				log := log
 				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
 				<- log.ready_file_chan
-				sheep.update_log_file(log.id)
+				sheep.write_log_file(log.id)
 				select {
 				case log.ready_file_chan <- true:
 				default:
@@ -187,6 +206,9 @@ func (s *shepherd) control(m_id string, sheep_id string, ctrls map[string]uint64
 		for ctrl_id, ctrl_val := range(new_ctrls) {
 		        sheep.controls[ctrl_id].value = ctrl_val
 		}
+//		for log_id, _ := range(sheep.logs) {
+//			sheep.update_log_file(l_m.logs_dir, log_id)
+//		}
 	}
 }
 
@@ -231,7 +253,7 @@ func (s shepherd) compute_control(m_id string, ctrl_parser func([]optimize_setti
 
 func (s *shepherd) start_optimizer() {
 	for _, l_m := range(s.local_musters) {
-		l_m.start_optimize_chan <- start_optimize_request{ntrials: 1}
+		l_m.start_optimize_chan <- start_optimize_request{ntrials: 15}
 		done := <- l_m.ready_optimize_chan
 		if done == false {
 			fmt.Printf("\033[31;1m****** ERROR: %v failed to start optimizer\n\033[0m", l_m.id)

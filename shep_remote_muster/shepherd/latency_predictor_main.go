@@ -1,59 +1,68 @@
 package main
 
 import (
-	"fmt"
+//	"fmt"
 	"time"
-	"strconv"
+//	"strconv"
+	"os"
+	"os/exec"
 )
 
 /**************************************/
-func (intlog_s *intlog_shepherd) run_target(m_id string) {
-	l_m := intlog_s.local_musters[m_id]
+
+func (lat_pred_s *latency_predictor_shepherd) run_target(m_id string) {
+	lat_pred_m := lat_pred_s.lat_pred_musters[m_id]
 	for {
 		select {
-		case opt_req := <- l_m.request_optimize_chan:
-			// parse optimize settings to target controls 
-			// as-per specialization: this shepherd expects 1 dvfs setting for all cores 
-			//			  and 1 itr-delay setting for the full node
+		case opt_req := <- lat_pred_m.request_optimize_chan:
+			target_ctrls := lat_pred_m.parse_optimization(opt_req)
 
-			// init map of sheep --> ctrl --> ctrl-val
-			target_ctrls := make(map[string]map[string]uint64)
-			for sheep_id, _ := range(l_m.pasture) {
-				target_ctrls[sheep_id] = make(map[string]uint64)
+			// set controls remotely and locally
+			for _, sheep := range(lat_pred_m.pasture) {
+				lat_pred_s.control(m_id, sheep.id, target_ctrls[sheep.id])
 			}
 
-			for _, opt_setting := range(opt_req.settings) {
-				for _, sheep := range(l_m.pasture) {
-					index := strconv.Itoa(int(sheep.index))
-					label := sheep.label
-					switch {
-					case opt_setting.knob == "itr-delay":
-						if label == "node" {
-							target_ctrls[sheep.id]["itr-ctrl-" + label + "-" + index + "-" + l_m.ip] = opt_setting.val
-						}
-					case opt_setting.knob == "dvfs":
-						if label == "core" {
-							target_ctrls[sheep.id]["dvfs-ctrl-" + label + "-" + index + "-" + l_m.ip] = opt_setting.val
-						}
-					default:
-						fmt.Println("****** Unimplemented optimization control setting: ", opt_setting)
-					}
+
+			// update local log fs
+			lat_pred_m.init_log_files(opt_req)
+//			lat_pred_s.init_log_files(lat_pred_s.lat_pred_musters[m_id].logs_dir)
+
+
+			l_m := lat_pred_m
+			for _, sheep := range(l_m.pasture) {
+				for _, log := range(sheep.logs) {
+					l_m.request_log_chan <- []string{sheep.id, log.id, "start"}
+				}
+			}
+			for _, sheep := range(l_m.pasture) {
+				for _, log := range(sheep.logs) {
+					l_m.request_log_chan <- []string{sheep.id, log.id, "all"}
 				}
 			}
 
-			// set controls remotely and locally
-			for _, sheep := range(l_m.pasture) {
-				intlog_s.control(l_m.id, sheep.id, target_ctrls[sheep.id])
-			}
-
-			// update local log fs
-			intlog_s.init_log_files(intlog_s.intlog_musters[m_id].logs_dir)
 
 			// run wkld, get feedback..
+//			time.Sleep(time.Second * 10)
+			cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
+			if err := cmd.Run(); err != nil { panic(err) }
+			cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=16 --measure_qps=2000 --qps=200000 --time=10")
+			cmd.Stdout = os.Stdout
+			if err := cmd.Run(); err != nil { panic(err) }
+
+
+			for _, sheep := range(l_m.pasture) {
+				for _, log := range(sheep.logs) {
+					l_m.request_log_chan <- []string{sheep.id, log.id, "stop"}
+				}
+			}
+			for _, sheep := range(l_m.pasture) {
+				for _, log := range(sheep.logs) {
+					l_m.request_log_chan <- []string{sheep.id, log.id, "close"}
+				}
+			}
 
 			latency_measure := reward{id:"latency", val: 456}
 			l_m.ready_reward_chan <- reward_reply{rewards: []reward{latency_measure}}
-
 		}
 	}
 }
@@ -70,13 +79,13 @@ func latency_predictor_main(nodes []node) {
 	lat_pred_s.init()
 
 	// start all management and coordination threads
-	intlog_s.deploy_musters()
+	lat_pred_s.deploy_musters()
 
 
-	intlog_s.start_optimizer()
+	lat_pred_s.start_optimizer()
 
-	for _, l_m := range(intlog_s.local_musters) {
-		intlog_s.run_target(l_m.id)
+	for _, l_m := range(lat_pred_s.local_musters) {
+		lat_pred_s.run_target(l_m.id)
 	}
 
 

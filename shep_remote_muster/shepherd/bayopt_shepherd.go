@@ -104,7 +104,7 @@ func (bayopt_s bayopt_shepherd) process_logs(m_id string) {
 
 				// persist log in local log file
 				<- log.ready_file_chan
-				sheep.update_log_file(log.id)
+				sheep.write_log_file(log.id)
 				select { 
 				case log.ready_file_chan <- true:
 				default:

@@ -5,7 +5,7 @@ import warnings
 
 from shep_optimizer import shep_optimizer_pb2 as shep__optimizer_dot_shep__optimizer__pb2
 
-GRPC_GENERATED_VERSION = '1.67.1'
+GRPC_GENERATED_VERSION = '1.70.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -39,12 +39,23 @@ class SetupOptimizeStub(object):
                 request_serializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerRequest.SerializeToString,
                 response_deserializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerReply.FromString,
                 _registered_method=True)
+        self.StopOptimizer = channel.unary_unary(
+                '/shepherd.SetupOptimize/StopOptimizer',
+                request_serializer=shep__optimizer_dot_shep__optimizer__pb2.StopOptimizerRequest.SerializeToString,
+                response_deserializer=shep__optimizer_dot_shep__optimizer__pb2.StopOptimizerReply.FromString,
+                _registered_method=True)
 
 
 class SetupOptimizeServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def StartOptimizer(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StopOptimizer(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -57,6 +68,11 @@ def add_SetupOptimizeServicer_to_server(servicer, server):
                     servicer.StartOptimizer,
                     request_deserializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerRequest.FromString,
                     response_serializer=shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerReply.SerializeToString,
+            ),
+            'StopOptimizer': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopOptimizer,
+                    request_deserializer=shep__optimizer_dot_shep__optimizer__pb2.StopOptimizerRequest.FromString,
+                    response_serializer=shep__optimizer_dot_shep__optimizer__pb2.StopOptimizerReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -86,6 +102,33 @@ class SetupOptimize(object):
             '/shepherd.SetupOptimize/StartOptimizer',
             shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerRequest.SerializeToString,
             shep__optimizer_dot_shep__optimizer__pb2.StartOptimizerReply.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StopOptimizer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/shepherd.SetupOptimize/StopOptimizer',
+            shep__optimizer_dot_shep__optimizer__pb2.StopOptimizerRequest.SerializeToString,
+            shep__optimizer_dot_shep__optimizer__pb2.StopOptimizerReply.FromString,
             options,
             channel_credentials,
             insecure,
