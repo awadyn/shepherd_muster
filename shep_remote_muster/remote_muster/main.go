@@ -45,6 +45,8 @@ func main() {
 			    ctrl_port: ctrl_port, coordinate_port: coordinate_port,
 		    	    resources: target_resources}
 
+
+	//latency_predictor_main(remote_node)
 	intlog_main(remote_node)
 	//bayopt_main(remote_node)
 	//nop_main(remote_node)

@@ -50,9 +50,14 @@ func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.
 func (sh *sheep) init() {
 	sh.logs = make(map[string]*log)
 	sh.controls = make(map[string]*control)
+	sh.perf_data = make(map[string][]float32)
+
 	sh.done_ctrl_chan = make(chan control_reply, 1)
 	sh.ready_ctrl_chan = make(chan bool, 1)
-	sh.perf_data = make(map[string][]float32)
+	sh.new_ctrl_chan = make(chan map[string]uint64)
+	sh.request_log_chan = make(chan []string)
+	sh.request_ctrl_chan = make(chan string)
+	sh.detach_native_logger = make(chan bool, 1)
 }
 
 func (sheep_c *sheep) write_log_file(log_id string) {
@@ -80,6 +85,7 @@ func (m *muster) init() {
 	}
 
 	m.pasture = make(map[string]*sheep)
+	m.native_loggers = make(map[string]func(*sheep, *log, string))
 
 	/* log and control synchronization channels */
 	m.full_buff_chan = make(chan []string)

@@ -13,7 +13,6 @@ func nop_main(n node) {
 
 	m := muster{node: n}
 	m.init()
-	m.init_remote()
 	r_m := remote_muster{muster: m}
 	r_m.init()
 
@@ -25,7 +24,6 @@ func nop_main(n node) {
 		if err != nil { panic(err) }
 	}
 	nop_m.init()
-	nop_m.init_remote()
 	nop_m.show()
 
 	go nop_m.start_pulser()
@@ -34,7 +32,6 @@ func nop_main(n node) {
 	nop_m.start_logger()
 
 	for sheep_id, _ := range(nop_m.pasture) {
-		go nop_m.log_manage(sheep_id, nop_m.logs_dir, nop_native_log) 
 		go nop_m.ctrl_manage(sheep_id) 
 	}
 

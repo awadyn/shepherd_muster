@@ -11,9 +11,10 @@ import (
    per-interrupt log data in /proc/ixgbe_stats/core/sheep.core
 */
 func ixgbe_native_log(sheep *sheep, log *log, logs_dir string) {
-	c_str := strconv.Itoa(int(sheep.core))
+	if sheep.label != "core" { return }
+	c_str := strconv.Itoa(int(sheep.index))
 	src_fname := "/proc/ixgbe_stats/core/" + c_str
-	log_fname := logs_dir + c_str
+	log_fname := logs_dir + sheep.label + "-" + strconv.Itoa(int(sheep.index))
 
 	cmd_flush := exec.Command("bash", "-c", "cat " + src_fname)
 	if err := cmd_flush.Run(); err != nil { 

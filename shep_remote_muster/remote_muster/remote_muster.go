@@ -36,6 +36,15 @@ func (r_m *remote_muster) init() {
 						"remote muster coordinate server port")
 }
 
+
+func (r_m *remote_muster) deploy() {
+	go r_m.start_pulser()
+	go r_m.start_controller()
+	go r_m.start_coordinator()
+	r_m.start_logger()
+}
+
+
 /*****************/
 /* REMOTE PULSER */
 /*****************/
@@ -153,8 +162,6 @@ func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) err
 
 			sheep.new_ctrl_chan <- new_ctrls
 			<- sheep.done_ctrl_chan
-			//r_m.new_ctrl_chan <- control_request{sheep_id: sheep_id, ctrls: new_ctrls}
-			//<- r_m.pasture[sheep_id].done_ctrl_chan
 
 			r_m.flush_log_files(sheep_id)
 			if debug { fmt.Printf("\033[35m<----- CTRL REP -- %v - %v\n\033[0m", sheep_id, new_ctrls) }
@@ -207,11 +214,16 @@ func (r_m *remote_muster) CoordinateLog(ctx context.Context, in *pb.CoordinateLo
 	sheep_id := in.GetSheepId()
 	log_id := in.GetLogId()
 	coordinate_cmd := in.GetCoordinateCmd()
-	if debug { fmt.Printf("\033[34m---> COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd) }
-	r_m.pasture[sheep_id].request_log_chan <- []string{log_id, coordinate_cmd}
-	cmd_status := <- r_m.pasture[sheep_id].logs[log_id].ready_request_chan
-	//fmt.Printf("\033[34m----DONE COORD REQ %v -- %v -- %v -- %v\n\033[0m", r_m.id, sheep_id, log_id, coordinate_cmd)
-	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id, Status: cmd_status, CoordinateCmd: coordinate_cmd}, nil
+	logger_id := in.GetLoggerId()
+
+	<- r_m.pasture[sheep_id].logs[log_id].ready_request_chan
+	if debug { fmt.Printf("\033[34m---> COORD REQ -- %v -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd, logger_id) }
+
+	cmd_status := r_m.log_manage(sheep_id, log_id, coordinate_cmd, logger_id)
+	if !cmd_status { fmt.Printf("\033[31;1m****** ERROR: %v failed to send log coordinate request %v for %v\n\033[0m", r_m.id, coordinate_cmd, sheep_id, logger_id) }
+
+	if debug { fmt.Printf("\033[34m----DONE COORD REQ %v -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd, logger_id) }
+	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id, Status: cmd_status, CoordinateCmd: coordinate_cmd, LoggerId: logger_id}, nil
 }
 
 func (r_m *remote_muster) CoordinateCtrl(ctx context.Context, in *pb.CoordinateCtrlRequest) (*pb.CoordinateCtrlReply, error) {
@@ -226,6 +238,7 @@ func (r_m *remote_muster) CoordinateCtrl(ctx context.Context, in *pb.CoordinateC
 }
 
 func (r_m *remote_muster) start_coordinator() {
+	<- r_m.hb_chan
 	fmt.Printf("\033[35;1m-- STARTING COORDINATOR :  %v\n\033[0m", r_m.id)
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.coordinate_server_port))
