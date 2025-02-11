@@ -55,7 +55,7 @@ func (sh *sheep) init() {
 	sh.perf_data = make(map[string][]float32)
 }
 
-func (sheep_c *sheep) update_log_file(log_id string) {
+func (sheep_c *sheep) write_log_file(log_id string) {
 	str_mem_buff := make([][]string,0)
 	log := sheep_c.logs[log_id]
 	mem_buff := *(log.mem_buff)
