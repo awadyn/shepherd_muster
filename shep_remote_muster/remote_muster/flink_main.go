@@ -13,13 +13,11 @@ func flink_main(n node) {
 
 	m0 := muster{node: n}
 	m0.init()
-	m0.init_remote()
 	r_m_0 := remote_muster{muster: m0}
 	r_m_0.init()
  
 	m1 := muster{node: n}
 	m1.init()
-	m1.init_remote()
 	r_m_1 := remote_muster{muster: m1}
 	r_m_1.init()
 
@@ -53,11 +51,7 @@ func flink_main(n node) {
 	source_m.start_logger()
 
 	for sheep_id, _ := range(worker_m.pasture) {
-		go worker_m.log_manage(sheep_id, logs_dir, ixgbe_native_log) 
 		go worker_m.ctrl_manage(sheep_id) 
-	}
-	for sheep_id, _ := range(source_m.pasture) {
-		go source_m.log_manage(sheep_id, logs_dir, ixgbe_native_log) 
 	}
 
 	// cleanup

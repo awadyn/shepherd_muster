@@ -113,6 +113,7 @@ type sheep struct {
 	request_ctrl_chan chan string		//signals get current ctrls
 	detach_native_logger chan bool		//signals stop logging
 
+	// TODO remove core
 	core uint8
 	logs map[string]*log
 	controls map[string]*control
@@ -138,6 +139,7 @@ type muster struct {
 	pasture map[string]*sheep
 	id string
 
+	native_loggers map[string]func(*sheep, *log, string)
 	logs_dir string
 }
 

@@ -67,6 +67,7 @@ message CoordinateLogRequest {
         string sheep_id = 1;
         string log_id = 2;
 	string coordinate_cmd = 3;
+	string logger_id = 4;
 }
 
 message CoordinateLogReply {
@@ -74,6 +75,7 @@ message CoordinateLogReply {
         string log_id = 2;
 	bool status = 3;
 	string coordinate_cmd = 4;
+	string logger_id = 5;
 }
 
 message CoordinateCtrlRequest {

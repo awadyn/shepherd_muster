@@ -5,6 +5,10 @@ import (
 )
 
 /**************************************/
+type latency_predictor_muster struct {
+	intlog_muster
+}
+
 func (lat_pred_m *latency_predictor_muster) init() {
 	for sheep_id, sheep := range(lat_pred_m.pasture) {
 		index := strconv.Itoa(int(sheep.index))
