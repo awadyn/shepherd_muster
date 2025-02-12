@@ -91,7 +91,6 @@ func (flink_s *flink_shepherd) deploy_musters() {
 		if l_m.role == "worker" { l_m.start_controller() }	// per-muster ctrl client
 		l_m.start_coordinator()					// per-muster coordinate client
 		l_m.start_logger()					// per-muster log server
-		go flink_s.log(l_m.id)
 	}
 }
 

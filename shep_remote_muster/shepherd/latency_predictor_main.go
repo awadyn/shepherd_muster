@@ -82,9 +82,8 @@ func latency_predictor_main(nodes []node) {
 	lat_pred_s.deploy_musters()
 
 
-	lat_pred_s.start_optimizer()
-
 	for _, l_m := range(lat_pred_s.local_musters) {
+		lat_pred_s.start_optimizer(l_m.id)
 		lat_pred_s.run_target(l_m.id)
 	}
 
@@ -92,11 +91,12 @@ func latency_predictor_main(nodes []node) {
 	time.Sleep(exp_timeout)
 
 	
-	intlog_s.stop_optimizer()
+	for _, l_m := range(lat_pred_s.local_musters) {
+		lat_pred_s.stop_optimizer(l_m.id)
+	}
 
 
-	intlog_s.cleanup()
-
+	lat_pred_s.cleanup()
 }
 
 

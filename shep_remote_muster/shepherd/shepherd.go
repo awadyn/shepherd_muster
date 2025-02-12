@@ -97,12 +97,12 @@ func (s *shepherd) deploy_musters() {
 		l_m.start_controller()		// per-muster ctrl client
 		l_m.start_coordinator()		// per-muster coordinate client
 		l_m.start_logger()		// per-muster log server
-		go s.log(l_m.id)
 
 		go s.process_logs(l_m.id)
 //		go s.compute_control(l_m.id)
 
 		if optimize_on { l_m.start_optimizer() }
+		l_m.show()
 	}
 	go s.listen_heartbeats()
 }
@@ -135,58 +135,32 @@ func (s *shepherd) listen_heartbeats() {
 
 /* shepherd logging: handles log management signals received 
    on a muster's full_buff channel. This channel is unbuffered.
-   It receives a message each time a sheep requires log management.
+   It receives a message each time a sheep requires log syncing.
 */
-func (s *shepherd) log(m_id string) {
-	m := s.musters[m_id]
-	for {
-		select {
-		case ids := <- m.full_buff_chan:
-			sheep_id := ids[0]
-			log_id := ids[1]
-			m.process_buff_chan <- []string{sheep_id, log_id}
-			go func() {
-				m := m
-				sheep_id := sheep_id
-				log_id := log_id
-				<- m.pasture[sheep_id].logs[log_id].ready_process_chan
-				select {
-				case m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true:
-				default:
-				}
-			} ()
-		}
-	}
-}
-
 func (s shepherd) process_logs(m_id string) {
 	l_m := s.local_musters[m_id]
 	for {
 		select {
-		case ids := <- l_m.process_buff_chan:
+		case ids := <- l_m.full_buff_chan:
 			sheep_id := ids[0]
 			log_id := ids[1]
 			sheep := l_m.pasture[sheep_id]
 			log := *(sheep.logs[log_id])
 			go func() {
-				l_m := l_m
 				sheep := sheep
 				log := log
-				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
-				<- log.ready_file_chan
+
+				if debug { fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep_id, log_id) }
 				sheep.write_log_file(log.id)
+				// TODO maybe signal process_buff_chan for specialized log buff processing
+				// example: compute correlation matrix or percentile vector before clearing memory buffer
+				// why: faster than reading out buffer size data from file then computing matrix or vector
+				if debug { fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id) }
+
 				select {
-				case log.ready_file_chan <- true:
+				case log.ready_buff_chan <- true: // muster can now overwrite log mem_buff
 				default:
 				}
-
-				// muster can now overwrite mem_buff for this log
-				select {
-				case sheep.logs[log.id].ready_process_chan <- true:
-				default:
-				}
-
-				fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v - %v\n\033[0m", l_m.id, sheep.id, log.id)	
 			} ()
 		}
 	}
@@ -251,17 +225,14 @@ func (s shepherd) compute_control(m_id string, ctrl_parser func([]optimize_setti
 
 
 
-func (s *shepherd) start_optimizer() {
-	for _, l_m := range(s.local_musters) {
-		l_m.start_optimize_chan <- start_optimize_request{ntrials: 15}
-		done := <- l_m.ready_optimize_chan
-		if done == false {
-			fmt.Printf("\033[31;1m****** ERROR: %v failed to start optimizer\n\033[0m", l_m.id)
-		}
-	}
+func (s *shepherd) start_optimizer(m_id string) {
+	l_m := s.local_musters[m_id]
+	l_m.start_optimize_chan <- start_optimize_request{ntrials: 15}
+	done := <- l_m.ready_optimize_chan
+	if !done { fmt.Printf("\033[31;1m****** ERROR: %v failed to start optimizer\n\033[0m", l_m.id) }
 }
 
-func (s *shepherd) stop_optimizer() {
+func (s *shepherd) stop_optimizer(m_id string) {
 }
 
 func (s *shepherd) cleanup() {

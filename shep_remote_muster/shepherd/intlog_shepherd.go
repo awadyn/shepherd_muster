@@ -57,24 +57,15 @@ func (intlog_s intlog_shepherd) process_logs(m_id string) {
 			sheep := l_m.pasture[sheep_id]
 			log := *(sheep.logs[log_id])
 			go func() {
-				l_m := l_m
 				sheep := sheep
 				log := log
-				fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v - %v\n\033[0m", m_id, sheep_id, log_id)
-				<- log.ready_file_chan
-				sheep.write_log_file(log.id)
-				select {
-				case log.ready_file_chan <- true:
-				default:
-				}
-
-				// muster can now overwrite mem_buff for this log
+				fmt.Printf("\033[32m-------- SPECIALIZED PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep_id, log_id)
 				select {
 				case sheep.logs[log.id].ready_process_chan <- true:
 				default:
 				}
 
-				fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v - %v\n\033[0m", l_m.id, sheep.id, log.id)	
+				fmt.Printf("\033[32m-------- COMPLETED SPECIALIZED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id)	
 			} ()
 		}
 	}

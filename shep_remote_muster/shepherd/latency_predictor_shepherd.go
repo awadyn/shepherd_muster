@@ -2,10 +2,6 @@ package main
 
 /**************************************/
 
-type latency_predictor_muster struct {
-	intlog_muster
-}
-
 type latency_predictor_shepherd struct {
 	intlog_shepherd 
 	lat_pred_musters map[string]*latency_predictor_muster 
