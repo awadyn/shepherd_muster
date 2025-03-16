@@ -4,7 +4,8 @@ package main
 
 /**************************************/
 
-var optimize_on bool = true
+var specialize_on = true
+var optimize_on bool = false
 var debug bool = true
 
 func main() {

@@ -45,8 +45,8 @@ func (intlog_s *intlog_shepherd) run_workload(m_id string) {
 			}
 		}
 
-		cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
-		if err := cmd.Run(); err != nil { panic(err) }
+//		cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
+//		if err := cmd.Run(); err != nil { panic(err) }
 
 //		cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=16 --measure_qps=2000 --qps=200000 --time=20")
 //		cmd.Stdout = os.Stdout
@@ -55,7 +55,7 @@ func (intlog_s *intlog_shepherd) run_workload(m_id string) {
 //		out, err := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent={10.10.1.3, 10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=16 --measure_qps=2000 --qps=200000 --time=30 | grep read | tr -s ' ' | cut -d ' ' -f9").Output()
 //		if err != nil { panic(err) }
 
-		cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent=10.10.1.3 --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=16 --measure_connections=16 --measure_qps=2000 --qps=200000 --time=30")
+		cmd := exec.Command("bash", "-c", "taskset -c 0-15 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --connections=32 --measure_connections=32 --measure_qps=2000 --qps=50000 --time=20")
 		cmd.Stdout = os.Stdout
 		if err := cmd.Run(); err != nil { panic(err) }
 
@@ -92,7 +92,7 @@ func intlog_main(nodes []node) {
 
 	for _, l_m := range(intlog_s.local_musters) {
 		go intlog_s.process_logs(l_m.id)
-		go intlog_s.compute_control(l_m.id)
+		//go intlog_s.compute_control(l_m.id)
 
 		go intlog_s.run_workload(l_m.id)
 	}

@@ -152,6 +152,12 @@ func (s shepherd) process_logs(m_id string) {
 
 				if debug { fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep_id, log_id) }
 				sheep.write_log_file(log.id)
+
+				if specialize_on {
+					l_m.process_buff_chan <- []string{sheep_id, log_id}
+					<- log.ready_process_chan
+				}
+
 				// TODO maybe signal process_buff_chan for specialized log buff processing
 				// example: compute correlation matrix or percentile vector before clearing memory buffer
 				// why: faster than reading out buffer size data from file then computing matrix or vector

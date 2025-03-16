@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"fmt"
+	"slices"
+	"sort"
 )
 
 /**************************************/
@@ -11,6 +13,9 @@ import (
 
 type intlog_muster struct {
 	local_muster
+
+	rx_bytes_all map[string][]uint64
+	processing_lock chan bool
 }
 
 type intlog_shepherd struct {
@@ -48,7 +53,7 @@ func (intlog_s *intlog_shepherd) init() {
      to represent execution for some period of time
 */
 func (intlog_s intlog_shepherd) process_logs(m_id string) {
-	l_m := intlog_s.local_musters[m_id]
+	l_m := intlog_s.intlog_musters[m_id]
 	for {
 		select {
 		case ids := <- l_m.process_buff_chan:
@@ -60,8 +65,48 @@ func (intlog_s intlog_shepherd) process_logs(m_id string) {
 				sheep := sheep
 				log := log
 				fmt.Printf("\033[32m-------- SPECIALIZED PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep_id, log_id)
+
+				mem_buff := *(log.mem_buff)
+				// get per-sheep rx_bytes
+				var rx_bytes_idx int = slices.Index(log.metrics, "rx_bytes")
+				rx_bytes := make([]uint64, buff_max_size)
+				j := 0
+				for _, row := range(mem_buff) {
+					rx_bytes[j] = row[rx_bytes_idx]
+					j ++
+				}
+
+				<- l_m.processing_lock
+				// append per-sheep rx_bytes to muster data 
+				l_m.rx_bytes_all[sheep_id] = rx_bytes
+				fmt.Println(len(l_m.rx_bytes_all))
+				// check if rx_bytes_all complete and compute rx_bytes_total
+				if len(l_m.rx_bytes_all) == len(l_m.pasture) - 1 {
+					fmt.Println("READY TO GUESS QPS")
+					rx_bytes_total := make([]int, 0, log.max_size)
+					i := 0
+					for {
+						var total uint64 = 0
+						for _, bytes := range(l_m.rx_bytes_all) {
+							total += bytes[i]
+						}
+						// here if log entries ended
+						if total == 0 { break }
+						rx_bytes_total = append(rx_bytes_total, int(total))
+						i += 1
+					}
+					sort.Ints(rx_bytes_total)
+					fmt.Println("median: ", rx_bytes_total[len(rx_bytes_total)/2])
+					l_m.rx_bytes_all = make(map[string][]uint64)
+				}
 				select {
-				case sheep.logs[log.id].ready_process_chan <- true:
+				case l_m.processing_lock <- true:
+				default:
+				}
+				// end new func
+
+				select {
+				case log.ready_process_chan <- true:
 				default:
 				}
 

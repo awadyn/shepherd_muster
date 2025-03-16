@@ -110,7 +110,6 @@ func (l_m *local_muster) start_logger() {
 }
 
 func (l_m *local_muster) log() {
-	<- l_m.hb_chan
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *l_m.log_server_port))
 	if err != nil {
@@ -130,24 +129,29 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 	var sheep_id string
 	for {
 		sync_req, err := stream.Recv()
+
+
+		if buff_ctr == 0 {
+			sheep_id = sync_req.GetSheepId()
+			log_id = sync_req.GetLogId()
+			if debug { fmt.Printf("\033[36m-----> SYNC-REQ -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
+			<- l_m.pasture[sheep_id].logs[log_id].ready_buff_chan
+			*(l_m.pasture[sheep_id].logs[log_id].mem_buff)  = make([][]uint64, 0)
+		}
+
 		switch {
 		case err == io.EOF:
 			/* i.e. all log entries have been copied to mem_buff*/
 			l_m.full_buff_chan <- []string{sheep_id, log_id}
-//			if debug { fmt.Printf("\033[36m<----- SYNC-REP -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
+			if debug { fmt.Printf("\033[36m<----- SYNC-REP -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
 			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:true})
+
 		case err != nil:
 			fmt.Printf("\033[31;1m****** ERROR: could not receive sync log request from stream\n\033[0m")
 			return err
+
 		default:
-			sheep_id = sync_req.GetSheepId()
-			log_id = sync_req.GetLogId()
 			mem_buff := l_m.pasture[sheep_id].logs[log_id].mem_buff
-			if buff_ctr == 0 { 
-				<- l_m.pasture[sheep_id].logs[log_id].ready_buff_chan
-//				if debug { fmt.Printf("\033[36m-----> SYNC-REQ -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
-				*(l_m.pasture[sheep_id].logs[log_id].mem_buff)  = make([][]uint64, 0)
-			}	
 			*mem_buff = append(*mem_buff, sync_req.GetLogEntry().GetVals())
 			buff_ctr++
 		}
