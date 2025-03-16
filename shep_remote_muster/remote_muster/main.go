@@ -35,7 +35,7 @@ func main() {
 
 	target_resources := make([]resource, 0)
 	var i uint8
-	for i = 0; i < 16; i++ {
+	for i = 0; i < ncores; i++ {
 		target_resources = append(target_resources, resource{label: "core", index: i})
 	}
 	target_resources = append(target_resources, resource{label: "node", index: 0})

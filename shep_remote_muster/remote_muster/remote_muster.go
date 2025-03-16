@@ -80,6 +80,7 @@ func (r_m *remote_muster) start_pulser() {
 /*****************/
 
 func (r_m *remote_muster) start_logger() {
+	<- r_m.hb_chan
 	fmt.Printf("\033[35;1m-- STARTING LOGGER :  %v\n\033[0m", r_m.id)
 	conn, err := grpc.Dial(*r_m.log_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -98,7 +99,6 @@ func (r_m *remote_muster) start_logger() {
    is in charge of. 
 */
 func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context.Context, cancel context.CancelFunc) {
-	<- r_m.hb_chan
 	defer conn.Close()
 	defer cancel()
 	for {
@@ -112,7 +112,7 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 				for {
 					stream, err := c.SyncLogBuffers(ctx)
 					if err != nil {
-						fmt.Printf("\033[31;1m****** ERROR: %v could not initialize log sync stream %v:\n****** %v\n\033[0m", r_m.id, log_id, err)
+						fmt.Printf("\033[31;1m****** ERROR: %v could not initialize log sync stream %v:\n       %v\n\033[0m", r_m.id, log_id, err)
 						time.Sleep(time.Second/10)
 						continue
 					}
@@ -121,7 +121,7 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 						for {
 							err := stream.Send(&pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogEntry: &pb.LogEntry{Vals: log_entry}})
 							if err != nil { 
-								fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log entry %v:\n******%v\n\033[0m", r_m.id, log_id, log_entry, err)
+								fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log entry %v:\n      %v\n\033[0m", r_m.id, log_id, log_entry, err)
 								time.Sleep(time.Second/20)
 								continue
 							}
@@ -130,7 +130,7 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 					}
 					r, err := stream.CloseAndRecv()
 					if err != nil {
-						fmt.Printf("\033[31;1m****** ERROR: %v problem receiving log sync reply %v:\n****** %v\n\033[0m", r_m.id, log_id, err)
+						fmt.Printf("\033[31;1m****** ERROR: %v problem receiving log sync reply %v:\n       %v\n\033[0m", r_m.id, log_id, err)
 						time.Sleep(time.Second/10)
 						continue
 					}
@@ -238,7 +238,7 @@ func (r_m *remote_muster) CoordinateCtrl(ctx context.Context, in *pb.CoordinateC
 }
 
 func (r_m *remote_muster) start_coordinator() {
-	<- r_m.hb_chan
+//	<- r_m.hb_chan
 	fmt.Printf("\033[35;1m-- STARTING COORDINATOR :  %v\n\033[0m", r_m.id)
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.coordinate_server_port))
