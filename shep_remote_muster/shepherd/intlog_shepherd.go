@@ -3,8 +3,6 @@ package main
 import (
 	"os"
 	"fmt"
-	"slices"
-	"sort"
 )
 
 /**************************************/
@@ -13,9 +11,6 @@ import (
 
 type intlog_muster struct {
 	local_muster
-
-	rx_bytes_all map[string][]uint64
-	processing_lock chan bool
 }
 
 type intlog_shepherd struct {
@@ -31,11 +26,16 @@ func (intlog_s *intlog_shepherd) init() {
 	intlog_s.intlog_musters = make(map[string]*intlog_muster)
 
 	for _, l_m := range(intlog_s.local_musters) {
-		intlog_m := intlog_muster{local_muster: *l_m}
+		intlog_m := &intlog_muster{local_muster: *l_m}
 		intlog_m.init()
-		intlog_s.intlog_musters[intlog_m.id] = &intlog_m
+		intlog_s.intlog_musters[intlog_m.id] = intlog_m
 
 		intlog_m.logs_dir = logs_dir + intlog_m.id + "/"
+
+		fmt.Println("local:", l_m.logs_dir)
+		fmt.Println("intlog:", intlog_m.logs_dir)
+
+//		intlog_m.logs_dir = logs_dir + intlog_m.id + "/"
 		err := os.Mkdir(intlog_m.logs_dir, 0750)
 		if err != nil && !os.IsExist(err) { panic(err) }
 	}
@@ -48,9 +48,8 @@ func (intlog_s *intlog_shepherd) init() {
 /**************************/
 
 /* 
-   This function implements the log processing loop of a Baysian optimization shepherd.
-   - bayopt_shepherd expects logs to consist of 99th tail latency + total joules consumed 
-     to represent execution for some period of time
+   This function implements the log processing loop of an intlogger shepherd.
+   By definition, this shepherd does no log processing further than core log processing.
 */
 func (intlog_s intlog_shepherd) process_logs(m_id string) {
 	l_m := intlog_s.intlog_musters[m_id]
@@ -64,110 +63,15 @@ func (intlog_s intlog_shepherd) process_logs(m_id string) {
 			go func() {
 				sheep := sheep
 				log := log
-				fmt.Printf("\033[32m-------- SPECIALIZED PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep_id, log_id)
-
-				mem_buff := *(log.mem_buff)
-				// get per-sheep rx_bytes
-				var rx_bytes_idx int = slices.Index(log.metrics, "rx_bytes")
-				rx_bytes := make([]uint64, buff_max_size)
-				j := 0
-				for _, row := range(mem_buff) {
-					rx_bytes[j] = row[rx_bytes_idx]
-					j ++
-				}
-
-				<- l_m.processing_lock
-				// append per-sheep rx_bytes to muster data 
-				l_m.rx_bytes_all[sheep_id] = rx_bytes
-				fmt.Println(len(l_m.rx_bytes_all))
-				// check if rx_bytes_all complete and compute rx_bytes_total
-				if len(l_m.rx_bytes_all) == len(l_m.pasture) - 1 {
-					fmt.Println("READY TO GUESS QPS")
-					rx_bytes_total := make([]int, 0, log.max_size)
-					i := 0
-					for {
-						var total uint64 = 0
-						for _, bytes := range(l_m.rx_bytes_all) {
-							total += bytes[i]
-						}
-						// here if log entries ended
-						if total == 0 { break }
-						rx_bytes_total = append(rx_bytes_total, int(total))
-						i += 1
-					}
-					sort.Ints(rx_bytes_total)
-					fmt.Println("median: ", rx_bytes_total[len(rx_bytes_total)/2])
-					l_m.rx_bytes_all = make(map[string][]uint64)
-				}
-				select {
-				case l_m.processing_lock <- true:
-				default:
-				}
-				// end new func
-
+				fmt.Printf("\033[32m-------- SPECIALIZED PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep.id, log.id)
+				fmt.Printf("\033[32m-------- COMPLETED SPECIALIZED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id)	
 				select {
 				case log.ready_process_chan <- true:
 				default:
 				}
-
-				fmt.Printf("\033[32m-------- COMPLETED SPECIALIZED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id)	
 			} ()
 		}
 	}
-}
-
-/***************************/
-/********* CONTROL *********/
-/***************************/
-
-//func (bayopt_s *bayopt_shepherd) bayopt_ctrl(m_id string, sheep_id string) map[string]uint64 {
-//	new_ctrls := make(map[string]uint64)
-//	m := bayopt_s.musters[m_id]
-//	sheep := m.pasture[sheep_id]
-//	c_str := strconv.Itoa(int(sheep.core))
-//	ctrl_dvfs_id := "ctrl-dvfs-" + c_str + "-" + m.ip
-////	ctrl_itr_id := "ctrl-itr-" + c_str + "-" + m.ip
-//
-//	dvfs_list := []uint64{0xc00, 0xe00, 0x1100, 0x1300, 0x1500, 0x1700, 0x1900, 0x1a00}
-////	itr_list := []uint64{2, 100, 400}
-//	dvfs_idx := rand.Intn(len(dvfs_list))
-//	new_dvfs := dvfs_list[dvfs_idx]
-////	itr_idx := rand.Intn(len(itr_list))
-////	new_itr := itr_list[itr_idx]
-//
-//	new_ctrls[ctrl_dvfs_id] = new_dvfs
-////	new_ctrls[ctrl_itr_id] = new_itr
-//	return new_ctrls
-//}
-//
-///* 
-//  This function implements the control computation loop of a Bayesian optimization shepherd.
-//*/
-func (intlog_s intlog_shepherd) compute_control(m_id string) {
-//	for {
-//		select {
-//		case ids := <- bayopt_s.compute_ctrl_chan:
-//			m_id := ids[0]
-//			sheep_id := ids[1]
-//			l_m := bayopt_s.local_musters[m_id]
-//			sheep := l_m.pasture[sheep_id]
-//			go func() {
-//				l_m := l_m
-//				sheep := sheep
-//				new_ctrls := bayopt_s.bayopt_ctrl(l_m.id, sheep.id)
-//				fmt.Printf("\033[35m<------- CTRL REQ --  %v - %v - %v\n\033[0m", l_m.id, sheep.id, new_ctrls)
-//				l_m.new_ctrl_chan <- control_request{sheep_id: sheep.id, ctrls: new_ctrls}
-//				ctrl_reply := <- sheep.ready_ctrl_chan
-//				ctrls := ctrl_reply.ctrls
-//				done_ctrl := ctrl_reply.done
-//				if done_ctrl { 
-//					for ctrl_id, ctrl_val := range(ctrls) {
-//						sheep.controls[ctrl_id].value = ctrl_val
-//					}
-//				}
-//			} ()
-//		}
-//	}
 }
 
 

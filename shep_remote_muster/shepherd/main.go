@@ -32,6 +32,7 @@ func main() {
 
 //	latency_predictor_main(nodes)
 	intlog_main(nodes)
+//	stats_main(nodes)
 //	nop_main(nodes)
 //	bayopt_main(nodes)
 //	flink_main(nodes)

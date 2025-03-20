@@ -12,10 +12,6 @@ var buff_max_size uint64 = 2048
 var log_wait_factor time.Duration = 2
 
 func (intlog_m *intlog_muster) init() {
-	intlog_m.rx_bytes_all = make(map[string][]uint64)
-	intlog_m.processing_lock = make(chan bool, 1)
-	intlog_m.processing_lock <- true
-
 	intlog_m.native_loggers["intlogger"] = ixgbe_native_log
 	for sheep_id, sheep := range(intlog_m.pasture) {
 		index := strconv.Itoa(int(sheep.index))
