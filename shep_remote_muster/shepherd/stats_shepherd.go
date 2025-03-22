@@ -17,12 +17,14 @@ type stats_muster struct {
 	intlog_muster
 
 	rx_bytes_all map[string][]uint64
+	rx_bytes_median int
 	processing_lock chan bool
 }
 
 type stats_shepherd struct {
 	shepherd
-	stats_musters map[string]*stats_muster 
+	stats_musters map[string]*stats_muster
+	rx_bytes_medians []int
 }
 
 
@@ -32,17 +34,22 @@ func (stats_s *stats_shepherd) init() {
 	logs_dir := home_dir + "/" + "stats-logs-"
 
 	stats_s.stats_musters = make(map[string]*stats_muster)
+	stats_s.rx_bytes_medians = make([]int, 0)
 
 	for _, l_m := range(stats_s.local_musters) {
+		l_m.logs_dir = logs_dir + l_m.id + "/"
+		err := os.Mkdir(l_m.logs_dir, 0750)
+		if err != nil && !os.IsExist(err) { panic(err) }
+
 		intlog_m := intlog_muster{local_muster: *l_m}
 		intlog_m.init()
 
 		stats_m := stats_muster{intlog_muster: intlog_m}
 		stats_m.init()
 
-		stats_m.logs_dir = logs_dir + stats_m.id + "/"
-		err := os.Mkdir(stats_m.logs_dir, 0750)
-		if err != nil && !os.IsExist(err) { panic(err) }
+//		stats_m.logs_dir = logs_dir + stats_m.id + "/"
+//		err := os.Mkdir(stats_m.logs_dir, 0750)
+//		if err != nil && !os.IsExist(err) { panic(err) }
 
 		stats_s.stats_musters[stats_m.id] = &stats_m
 	}
@@ -74,7 +81,7 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 			go func() {
 				sheep := sheep
 				log := log
-				fmt.Printf("\033[32m-------- SPECIALIZED PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep_id, log_id)
+				if debug { fmt.Printf("\033[32m-------- SPECIALIZED PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep_id, log_id) }
 
 				mem_buff := *(log.mem_buff)
 				// get per-sheep rx_bytes
@@ -89,10 +96,10 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 				<- l_m.processing_lock
 				// append per-sheep rx_bytes to muster data 
 				l_m.rx_bytes_all[sheep_id] = rx_bytes
-				fmt.Println(len(l_m.rx_bytes_all))
+//				fmt.Println(len(l_m.rx_bytes_all))
 				// check if rx_bytes_all complete and compute rx_bytes_total
 				if len(l_m.rx_bytes_all) == len(l_m.pasture) - 1 {
-					fmt.Println("READY TO GUESS QPS")
+//					fmt.Println("READY TO GUESS QPS")
 					rx_bytes_total := make([]int, 0, log.max_size)
 					i := 0
 					for {
@@ -106,7 +113,8 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 						i += 1
 					}
 					sort.Ints(rx_bytes_total)
-					fmt.Println("median: ", rx_bytes_total[len(rx_bytes_total)/2])
+					l_m.rx_bytes_median = rx_bytes_total[len(rx_bytes_total)/2]
+					fmt.Println("median: ", l_m.rx_bytes_median)
 					l_m.rx_bytes_all = make(map[string][]uint64)
 				}
 				select {
@@ -115,7 +123,7 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 				}
 				// end new func
 
-				fmt.Printf("\033[32m-------- COMPLETED SPECIALIZED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id)	
+				if debug { fmt.Printf("\033[32m-------- COMPLETED SPECIALIZED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id) }
 
 				select {
 				case log.ready_process_chan <- true:

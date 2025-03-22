@@ -51,14 +51,14 @@ func (s *shepherd) init_log_files(logs_dir string) {
 			sheep.log_writer_map = make(map[string]*csv.Writer)
 			for log_id, _ := range(sheep.logs) {
 				out_fname := logs_dir + log_id
-				ctrl_ids := maps.Keys(sheep.controls)
-				slices.Sort(ctrl_ids)
-				for i := 0; i < len(ctrl_ids); i ++ {
-					id := ctrl_ids[i]
-					ctrl := sheep.controls[id]
-					ctrl_val := strconv.Itoa(int(ctrl.value))
-					out_fname += "_" + ctrl_val
-				}
+//				ctrl_ids := maps.Keys(sheep.controls)
+//				slices.Sort(ctrl_ids)
+//				for i := 0; i < len(ctrl_ids); i ++ {
+//					id := ctrl_ids[i]
+//					ctrl := sheep.controls[id]
+//					ctrl_val := strconv.Itoa(int(ctrl.value))
+//					out_fname += "_" + ctrl_val
+//				}
 				f, err := os.Create(out_fname)
 				if err != nil { panic(err) }
 				writer := csv.NewWriter(f)
