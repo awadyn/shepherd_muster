@@ -244,10 +244,10 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 				logger_id := req[3]
 
 				<- l_m.pasture[sheep_id].logs[log_id].ready_request_chan
-				if coordinate_cmd == "close" {
-					l_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
-					return
-				}
+//				if coordinate_cmd == "close" {
+//					l_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+//					return
+//				}
 				if debug { fmt.Printf("\033[34m<--- COORD REQ -- %v -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd, logger_id) }
 				for {
 					r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd, LoggerId: logger_id})  
