@@ -131,6 +131,21 @@ func (r_m *remote_muster) log_manage(sheep_id string, log_id string, cmd string,
 		r_m.pasture[sheep_id].detach_native_logger <- true
 		r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 		return true
+	case cmd == "close":
+		label := sheep.label
+		index := strconv.Itoa(int(sheep.index))
+		log_fname := logs_dir + label + "-" + index
+		f, err := os.Create(log_fname)
+		if err != nil { panic(err) }
+		reader := csv.NewReader(f)
+		reader.Comma = ' '
+		for _, log := range(sheep.logs) {
+			sheep.log_f_map[log.id] = f
+			sheep.log_reader_map[log.id] = reader
+		}
+
+		r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+		return true
 //	case cmd == "first":
 //		// get first instance from native logger
 //		go func() {
