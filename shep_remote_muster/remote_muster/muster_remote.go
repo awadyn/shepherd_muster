@@ -27,8 +27,11 @@ func (m *muster) flush_log_files(sheep_id string) {
 }
 
 func (m *muster) init_log_files(logs_dir string) {
-	err := os.Mkdir(logs_dir, 0750)
-	if err != nil && !os.IsExist(err) { panic(err) }
+	_, err := os.Stat(logs_dir)
+	if os.IsNotExist(err) {
+		err = os.Mkdir(logs_dir, 0777)
+		if err != nil { panic(err) }
+	}
 	for _, sheep := range(m.pasture) {
 		sheep.log_f_map = make(map[string]*os.File)
 		sheep.log_reader_map = make(map[string]*csv.Reader)
@@ -247,13 +250,12 @@ func (r_m *remote_muster) ctrl_manage(sheep_id string) {
 		select {
 		case new_ctrls := <- sheep.new_ctrl_chan:
 			for ctrl_id, ctrl_val := range(new_ctrls) {
-				switch {
-				case sheep.controls[ctrl_id].knob == "dvfs":
-					err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val)
-				case sheep.controls[ctrl_id].knob == "itr-delay":
-					err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val)
-				default:
-				}
+				fmt.Println(sheep)
+				fmt.Println(sheep.controls)
+				fmt.Println(ctrl_id)
+				fmt.Println(sheep.controls[ctrl_id])
+				fmt.Println(sheep.controls[ctrl_id].setter)
+				err = sheep.controls[ctrl_id].setter(sheep.core, ctrl_val)
 				if err != nil { panic(err) }
 				sheep.controls[ctrl_id].value = ctrl_val
 			}

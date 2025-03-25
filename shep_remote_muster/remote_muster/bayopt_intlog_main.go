@@ -7,24 +7,19 @@ import (
 
 /*********************************************/
 
-func bayopt_main(n node) {
-//	home_dir, err := os.Getwd()
-//	if err != nil { panic(err) }
-
+func bayopt_intlog_main(n node) {
 	m := muster{node: n}
 	m.init()
 	r_m := remote_muster{muster: m}
 	r_m.init()
 
-	bayopt_m := bayopt_muster{remote_muster: r_m}
-//	bayopt_m.logs_dir = home_dir + "/" + r_m.id + ".bayopt_logs/" 
-//	_, err = os.Stat(bayopt_m.logs_dir)
-//	if os.IsNotExist(err) {
-//		err = os.Mkdir(bayopt_m.logs_dir, 0777)
-//		if err != nil { panic(err) }
-//	}
+	intlog_m := intlog_muster{remote_muster: r_m}
+	intlog_m.init()
+
+	bayopt_m := bayopt_intlog_muster{intlog_muster: intlog_m}
 	bayopt_m.init()
 	bayopt_m.init_remote()
+	bayopt_m.init_log_files(bayopt_m.logs_dir)
 	bayopt_m.show()
 
 	go bayopt_m.start_pulser()

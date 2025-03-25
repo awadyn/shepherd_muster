@@ -46,10 +46,7 @@ func main() {
 		    	    resources: target_resources}
 
 
-	//latency_predictor_main(remote_node)
-	intlog_main(remote_node)
-	//bayopt_main(remote_node)
-	//nop_main(remote_node)
+	bayopt_intlog_main(remote_node)
 }
 
 

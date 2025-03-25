@@ -1,29 +1,29 @@
 package main
 
 import (
-	"os"
+//	"os"
 	"time"
 )
 
 /*********************************************/
 
 func latency_predictor_main(n node) {
-	home_dir, err := os.Getwd()
-	if err != nil { panic(err) }
+//	home_dir, err := os.Getwd()
+//	if err != nil { panic(err) }
 
 	m := muster{node: n}
 	m.init()
 
-	m.logs_dir = home_dir + "/" + m.id + ".intlog_logs/"
-	err = os.Mkdir(m.logs_dir, 0750)
-	if err != nil && !os.IsExist(err) { panic(err) }
+//	m.logs_dir = home_dir + "/" + m.id + ".intlog_logs/"
+//	err = os.Mkdir(m.logs_dir, 0750)
+//	if err != nil && !os.IsExist(err) { panic(err) }
 
 	r_m := remote_muster{muster: m}
 	r_m.init()
 
 	intlog_m := intlog_muster{remote_muster: r_m}
 	intlog_m.init()
-	intlog_m.init_remote()
+//	intlog_m.init_remote()
 
 	latency_predictor_m := latency_predictor_muster{intlog_muster: intlog_m}
 	latency_predictor_m.init()

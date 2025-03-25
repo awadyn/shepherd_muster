@@ -5,10 +5,15 @@ import (
 	"time"
 )
 /*********************************************/
+
+type intlog_muster struct {
+	remote_muster
+}
+
 var ixgbe_metrics []string = []string{"i", "rx_desc", "rx_bytes", "tx_desc", "tx_bytes",
 			    "instructions", "cycles", "ref_cycles", "llc_miss", 
 			    "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
-var buff_max_size uint64 = 2048
+var buff_max_size uint64 = 8192
 var log_wait_factor time.Duration = 2
 
 func (intlog_m *intlog_muster) init() {

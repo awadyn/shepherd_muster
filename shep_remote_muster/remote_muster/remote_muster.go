@@ -80,7 +80,7 @@ func (r_m *remote_muster) start_pulser() {
 /*****************/
 
 func (r_m *remote_muster) start_logger() {
-	<- r_m.hb_chan
+//	<- r_m.hb_chan
 	fmt.Printf("\033[35;1m-- STARTING LOGGER :  %v\n\033[0m", r_m.id)
 	conn, err := grpc.Dial(*r_m.log_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
