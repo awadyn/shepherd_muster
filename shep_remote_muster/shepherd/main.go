@@ -30,7 +30,7 @@ func main() {
 //	args[nodes[0].ip]["num_trials"] = "30"
 
 
-	ctrl_main(nodes)
+	bayopt_intlog_main(nodes)
 }
 
 

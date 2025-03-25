@@ -9,15 +9,34 @@ import ( "time"
 
 /**************************************/
 
-func (ctrl_s *ctrl_shepherd) run_workload(m_id string) {
-	c_m := ctrl_s.ctrl_musters[m_id]
-	l_m := c_m.local_muster
+func (bayopt_s *bayopt_intlog_shepherd) run_workload(m_id string) {
+	b_m := bayopt_s.bayopt_intlog_musters[m_id]
+	l_m := b_m.local_muster
 
 	qps_list := []int{50000, 100000, 200000, 400000, 600000}
 
+	<- l_m.hb_chan
+
+	var dvfs_val uint64 = 0x1900
+	var itrd_val uint64 = 400
+	// set ctrls
+	for _, sheep := range(l_m.pasture) {
+		start_ctrls := make(map[string]uint64)
+		index := strconv.Itoa(int(sheep.index))
+		if sheep.label == "core" {
+			ctrl_dvfs_id := "dvfs-ctrl-" + sheep.label + "-" + index  + "-" + l_m.ip
+			start_ctrls[ctrl_dvfs_id] = dvfs_val
+		}
+		if sheep.label == "node" {
+			ctrl_itr_id := "itr-ctrl-" + sheep.label + "-" + index + "-" + l_m.ip
+			start_ctrls[ctrl_itr_id] = itrd_val
+		}
+		bayopt_s.control(l_m.id, sheep.id, start_ctrls)
+	}
+
+
 	cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
 	if err := cmd.Run(); err != nil { panic(err) }
-
 
 	for _, qps := range(qps_list) {
 		qps_str := strconv.Itoa(qps)
@@ -28,11 +47,9 @@ func (ctrl_s *ctrl_shepherd) run_workload(m_id string) {
 		err = os.Mkdir(l_m.logs_dir, 0750)
 		if err != nil && !os.IsExist(err) { panic(err) }
 
-		ctrl_s.init_log_files(l_m.logs_dir)
+		bayopt_s.init_log_files(l_m.logs_dir)
 	
-		<- l_m.hb_chan
-
-		time.Sleep(time.Second)
+//		<- l_m.hb_chan
 
 		for _, sheep := range(l_m.pasture) {
 			if sheep.label == "core" {
@@ -72,27 +89,24 @@ func (ctrl_s *ctrl_shepherd) run_workload(m_id string) {
 }
 
 
-func ctrl_main(nodes []node) {
+func bayopt_intlog_main(nodes []node) {
 	// initialize generic shepherd
-	s := shepherd{id: "sheperd-ctrl"}
+	s := shepherd{id: "sheperd-bayopt-intlog"}
 	s.init(nodes)
 
-	intlog_s := intlog_shepherd{shepherd:s}
-	intlog_s.init()
-
-	ctrl_s := ctrl_shepherd{intlog_shepherd:intlog_s}
-	ctrl_s.init()
+	bayopt_s := bayopt_intlog_shepherd{shepherd:s}
+	bayopt_s.init()
 	
 	// start all management and coordination threads
-	ctrl_s.deploy_musters()
+	bayopt_s.deploy_musters()
 
-	for _, l_m := range(ctrl_s.local_musters) {
-		go ctrl_s.process_logs(l_m.id)
-		go ctrl_s.run_workload(l_m.id)
+	for _, l_m := range(bayopt_s.local_musters) {
+		go bayopt_s.process_logs(l_m.id)
+		go bayopt_s.run_workload(l_m.id)
 	}
 
 	time.Sleep(exp_timeout)
-	for _, l_m := range(ctrl_s.local_musters) {
+	for _, l_m := range(bayopt_s.local_musters) {
 		for _, sheep := range(l_m.pasture) {
 			for _, f := range(sheep.log_f_map) { f.Close() }
 		}
