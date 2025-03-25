@@ -3,6 +3,7 @@ package main
 import (
 	"strconv"
 	"time"
+	"os"
 )
 
 //import "fmt"
@@ -102,6 +103,10 @@ func (m *muster) init() {
 		sheep_c.init()
 		m.pasture[sheep_id] = &sheep_c
 	}
+
+	home_dir, err := os.Getwd()
+	if err != nil { panic(err) }
+	m.logs_dir = home_dir + "/" + m.id + ".logs/" 
 }
 
 
