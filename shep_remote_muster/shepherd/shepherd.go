@@ -99,7 +99,7 @@ func (s *shepherd) deploy_musters() {
 		l_m.start_logger()		// per-muster log server
 
 		go s.process_logs(l_m.id)
-//		go s.compute_control(l_m.id)
+		go s.process_control(l_m.id)
 
 		if optimize_on { l_m.start_optimizer() }
 		l_m.show()
@@ -171,6 +171,39 @@ func (s shepherd) process_logs(m_id string) {
 		}
 	}
 }
+
+
+func (s shepherd) process_control(m_id string) {
+	l_m := s.local_musters[m_id]
+	for {
+		select {
+		case target_ctrls := <- l_m.request_ctrl_chan:
+			for sheep_id, ctrls := range(target_ctrls) {
+				sheep := l_m.pasture[sheep_id]
+				l_m.new_ctrl_chan <- control_request{sheep_id: sheep_id, ctrls: ctrls}
+				ctrl_reply := <- sheep.done_ctrl_chan
+
+				new_ctrls := ctrl_reply.ctrls
+				done_ctrl := ctrl_reply.done
+				if done_ctrl {
+					for ctrl_id, ctrl_val := range(new_ctrls) {
+					        sheep.controls[ctrl_id].value = ctrl_val
+					}
+	//				for log_id, _ := range(sheep.logs) {
+	//					sheep.update_log_file(l_m.logs_dir, log_id)
+	//				}
+				}
+			}
+			
+			select {
+			case l_m.done_request_chan <- true:
+			default:
+			}
+		}
+	}		
+}
+
+
 
 // set controls remotely, when done, set locally
 func (s *shepherd) control(m_id string, sheep_id string, ctrls map[string]uint64) {

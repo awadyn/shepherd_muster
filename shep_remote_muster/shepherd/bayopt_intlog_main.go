@@ -13,26 +13,27 @@ func (bayopt_s *bayopt_intlog_shepherd) run_workload(m_id string) {
 	b_m := bayopt_s.bayopt_intlog_musters[m_id]
 	l_m := b_m.local_muster
 
-	qps_list := []int{50000, 100000, 200000, 400000, 600000}
+//	qps_list := []int{50000, 100000, 200000, 400000, 600000}
+	qps_list := []int{50000, 200000, 400000}
 
 	<- l_m.hb_chan
 
-	var dvfs_val uint64 = 0x1900
-	var itrd_val uint64 = 400
-	// set ctrls
-	for _, sheep := range(l_m.pasture) {
-		start_ctrls := make(map[string]uint64)
-		index := strconv.Itoa(int(sheep.index))
-		if sheep.label == "core" {
-			ctrl_dvfs_id := "dvfs-ctrl-" + sheep.label + "-" + index  + "-" + l_m.ip
-			start_ctrls[ctrl_dvfs_id] = dvfs_val
-		}
-		if sheep.label == "node" {
-			ctrl_itr_id := "itr-ctrl-" + sheep.label + "-" + index + "-" + l_m.ip
-			start_ctrls[ctrl_itr_id] = itrd_val
-		}
-		bayopt_s.control(l_m.id, sheep.id, start_ctrls)
-	}
+//	var dvfs_val uint64 = 0x1900
+//	var itrd_val uint64 = 400
+//	// set ctrls
+//	for _, sheep := range(l_m.pasture) {
+//		start_ctrls := make(map[string]uint64)
+//		index := strconv.Itoa(int(sheep.index))
+//		if sheep.label == "core" {
+//			ctrl_dvfs_id := "dvfs-ctrl-" + sheep.label + "-" + index  + "-" + l_m.ip
+//			start_ctrls[ctrl_dvfs_id] = dvfs_val
+//		}
+//		if sheep.label == "node" {
+//			ctrl_itr_id := "itr-ctrl-" + sheep.label + "-" + index + "-" + l_m.ip
+//			start_ctrls[ctrl_itr_id] = itrd_val
+//		}
+//		bayopt_s.control(l_m.id, sheep.id, start_ctrls)
+//	}
 
 
 	cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
