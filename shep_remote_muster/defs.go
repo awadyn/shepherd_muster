@@ -108,9 +108,12 @@ type sheep struct {
 	new_ctrl_chan chan map[string]uint64	//signals set new ctrls 
 	done_ctrl_chan chan control_reply	//syncs application of ctrl change
 	ready_ctrl_chan chan bool
+
 	ready_metadata_chan chan bool		//syncs access to metadata of a specialized sheep
+
 	request_log_chan chan []string		//signals get current logs
 	request_ctrl_chan chan string		//signals get current ctrls
+
 	detach_native_logger chan bool		//signals stop logging
 
 	// TODO remove core
@@ -129,9 +132,13 @@ type sheep struct {
 type muster struct {
 	full_buff_chan chan []string
 	process_buff_chan chan []string
+
+	request_ctrl_chan chan map[string]map[string]uint64
+	done_request_chan chan bool
+
 	new_ctrl_chan chan control_request
 	request_log_chan chan []string
-	request_ctrl_chan chan []string
+//	request_ctrl_chan chan []string
 
 	node
 	pulsing bool
@@ -146,11 +153,11 @@ type muster struct {
 type local_muster struct {
 	muster
 	hb_chan chan *pb.HeartbeatReply
+
 	start_optimize_chan chan start_optimize_request
 	request_optimize_chan chan optimize_request
-	ready_reward_chan chan reward_reply
 	ready_optimize_chan chan bool
-	//ready_optimize_chan chan map[string]uint64
+	ready_reward_chan chan reward_reply
 
 	log_server_port *int
 	ctrl_server_addr *string

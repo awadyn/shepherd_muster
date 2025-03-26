@@ -12,11 +12,10 @@ import ( "time"
 func (bayopt_s *bayopt_intlog_shepherd) run_workload(m_id string) {
 	b_m := bayopt_s.bayopt_intlog_musters[m_id]
 	l_m := b_m.local_muster
-
-//	qps_list := []int{50000, 100000, 200000, 400000, 600000}
-	qps_list := []int{50000, 200000, 400000}
-
 	<- l_m.hb_chan
+
+	qps_list := []int{50000, 100000, 200000, 400000, 600000}
+
 
 //	var dvfs_val uint64 = 0x1900
 //	var itrd_val uint64 = 400
@@ -39,11 +38,12 @@ func (bayopt_s *bayopt_intlog_shepherd) run_workload(m_id string) {
 	cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
 	if err := cmd.Run(); err != nil { panic(err) }
 
+	home_dir, err := os.Getwd()
+	if err != nil { panic(err) }
+
 	for _, qps := range(qps_list) {
 		qps_str := strconv.Itoa(qps)
 
-		home_dir, err := os.Getwd()
-		if err != nil { panic(err) }
 		l_m.logs_dir = home_dir + "/" + "intlog-logs-" + l_m.id + "-" + qps_str + "/"
 		err = os.Mkdir(l_m.logs_dir, 0750)
 		if err != nil && !os.IsExist(err) { panic(err) }
@@ -86,6 +86,8 @@ func (bayopt_s *bayopt_intlog_shepherd) run_workload(m_id string) {
 				}
 			}
 		}
+
+		time.Sleep(time.Second)
 	}
 }
 

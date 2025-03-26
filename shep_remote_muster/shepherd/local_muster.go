@@ -127,6 +127,7 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 	buff_ctr := 0
 	var log_id string
 	var sheep_id string
+	var mem_buff *[][]uint64
 	for {
 		sync_req, err := stream.Recv()
 
@@ -134,6 +135,7 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 		if buff_ctr == 0 {
 			sheep_id = sync_req.GetSheepId()
 			log_id = sync_req.GetLogId()
+			mem_buff = l_m.pasture[sheep_id].logs[log_id].mem_buff
 			if debug { fmt.Printf("\033[36m-----> SYNC-REQ -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
 			<- l_m.pasture[sheep_id].logs[log_id].ready_buff_chan
 			*(l_m.pasture[sheep_id].logs[log_id].mem_buff)  = make([][]uint64, 0)
@@ -148,10 +150,11 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 
 		case err != nil:
 			fmt.Printf("\033[31;1m****** ERROR: could not receive sync log request from stream\n\033[0m")
-			return err
+			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:false})
+//			return err
 
 		default:
-			mem_buff := l_m.pasture[sheep_id].logs[log_id].mem_buff
+//			mem_buff := l_m.pasture[sheep_id].logs[log_id].mem_buff
 			*mem_buff = append(*mem_buff, sync_req.GetLogEntry().GetVals())
 			buff_ctr++
 		}

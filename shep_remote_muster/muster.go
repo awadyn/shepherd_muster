@@ -94,7 +94,7 @@ func (m *muster) init() {
 	m.new_ctrl_chan = make(chan control_request)
 	/* coordination channels */
 	m.request_log_chan = make(chan []string)
-	m.request_ctrl_chan = make(chan []string)
+	m.request_ctrl_chan = make(chan map[string]map[string]uint64)
 
 	for _, resrc := range(m.resources) {
 		sheep_id := "sheep-" + resrc.label + "-" + strconv.Itoa(int(resrc.index)) + "-" + m.ip
