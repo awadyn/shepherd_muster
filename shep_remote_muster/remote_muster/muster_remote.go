@@ -73,7 +73,10 @@ func do_log(shared_log *log, reader *csv.Reader) error {
 			if err == io.EOF { 
 				return err
 			}
-			if err != nil { panic(err) }
+			if err != nil { 
+				//panic(err) 
+				fmt.Println("!!!ERROR!!!", err)
+			}
 			*shared_log.mem_buff = append(*shared_log.mem_buff, []uint64{})
 			for i := range(len(shared_log.metrics)) {
 				val, _ := strconv.Atoi(row[i])
