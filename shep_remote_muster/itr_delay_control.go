@@ -12,7 +12,9 @@ import (
 func get_internal_iface() string {
 	var out strings.Builder
 	var stderr strings.Builder
-	cmd:= exec.Command("bash", "-c", "ls /sys/class/net | grep enp | grep f0")
+	// TODO need to unify this across different interface naming conventions
+//	cmd:= exec.Command("bash", "-c", "ls /sys/class/net | grep enp | grep f0")
+	cmd:= exec.Command("bash", "-c", "ip addr | grep 'state UP' | cut -d ':' -f2 | cut -d ' ' -f2")
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 	err := cmd.Run()
