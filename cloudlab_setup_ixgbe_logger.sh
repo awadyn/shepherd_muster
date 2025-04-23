@@ -20,7 +20,7 @@ sleep 2
 echo "Loading ixgbe interrupt logger.."
 sudo rmmod ixgbe
 sudo insmod ~/linux-5.15.89/drivers/net/ethernet/intel/ixgbe/ixgbe.ko
-ieth=$(sudo dmesg | grep "ixgbe" | grep "renamed from eth0" | tail -n 2 | head -n 1 | grep -oP "enp\ds\df\d")
+ieth=$(sudo dmesg | grep "ixgbe" | grep "renamed from eth0" | tail -n 2 | head -n 1 | grep -oP enp[0-9]*s[0-9]*f[0-9]*)
 num=$(uname -a | grep -oP "node\d" | grep -oP "\d")
 node=$(($num + 1))
 ip="10.10.1.$node"
