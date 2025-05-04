@@ -6,13 +6,13 @@ package main
 
 var specialize_on = true
 var optimize_on bool = false
-var debug bool = true
+var debug bool = false
 
 func main() {
 	// assume a list of resources per-node is known apriori
 	target_resources := make([]resource, 0)
 	var i uint8
-	for i = 0; i < 16; i++ {
+	for i = 0; i < 20; i++ {
 		target_resources = append(target_resources, resource{label: "core", index: i})
 	}
 	target_resources = append(target_resources, resource{label: "node", index: 0})
@@ -30,7 +30,8 @@ func main() {
 //	args[nodes[0].ip]["num_trials"] = "30"
 
 
-	bayopt_intlog_main(nodes)
+	intlog_main(nodes)
+//	bayopt_intlog_main(nodes)
 }
 
 
