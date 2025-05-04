@@ -40,8 +40,8 @@ func (intlog_s *intlog_shepherd) run_workload(m_id string) {
 	}
 	time.Sleep(time.Second)
 
-	//qps_list := []int{600000, 750000, 900000}
-	qps_list := []int{400000, 1100000, 750000, 900000, 900000, 1100000, 400000, 750000, 600000, 1100000, 1100000, 600000, 900000}
+	qps_list := []int{600000, 750000, 900000}
+	//qps_list := []int{400000, 1100000, 750000, 900000, 900000, 1100000, 400000, 750000, 600000, 1100000, 1100000, 600000, 900000}
 	for iter := 0; iter < 2; iter ++ {
 		for _, qps := range(qps_list) {
 			qps_str := strconv.Itoa(qps)

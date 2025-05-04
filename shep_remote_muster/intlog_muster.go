@@ -14,13 +14,19 @@ var log_wait_factor time.Duration = 2
 
 func (intlog_m *intlog_muster) init() {
 	intlog_m.native_loggers["intlogger"] = ixgbe_native_log
-	for sheep_id, sheep := range(intlog_m.pasture) {
+	for _, sheep := range(intlog_m.pasture) {
+		// specialize default log id then init log specifics
 		index := strconv.Itoa(int(sheep.index))
 		label := sheep.label
-		log_id := "ixgbe-log-" + label + "-" + index + "-" + intlog_m.ip
-		log_c := log{id: log_id}
-		log_c.init(buff_max_size, ixgbe_metrics, log_wait_factor)
-		intlog_m.pasture[sheep_id].logs[log_id] = &log_c	
+
+		log_id := "log-" + label + "-" + index
+		log_c := sheep.logs[log_id]
+		new_log_id := "ixgbe-log-" + label + "-" + index + "-" + intlog_m.ip
+		log_c.id = new_log_id
+		log_c.init_specs(buff_max_size, ixgbe_metrics, log_wait_factor)
+
+		sheep.logs[new_log_id] = log_c
+		delete(sheep.logs, log_id)
 	}
 }
 

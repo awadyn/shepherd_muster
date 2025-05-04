@@ -29,13 +29,15 @@ func (c *control) init(knob string, getter func(uint8, ...string)uint64, setter 
 	c.ready_request_chan <- true
 }
 
-func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.Duration) {
+func (l *log) init_specs(buff_max_size uint64, metrics []string, log_wait_factor time.Duration) {
 	mem_buff := make([][]uint64, 0)
 	l.metrics = metrics
 	l.max_size = buff_max_size
 	l.mem_buff = &mem_buff
 	l.log_wait_factor = log_wait_factor
+}
 
+func (l *log) init() {
 	l.kill_log_chan = make(chan bool, 1)
 	l.ready_process_chan = make(chan bool, 1)
 	l.ready_request_chan = make(chan bool, 1)
@@ -44,8 +46,6 @@ func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.
 
 	l.ready_process_chan <- true
 	l.ready_request_chan <- true
-	// note this change will break things on local side; need to refactor
-	//l.ready_buff_chan <- true
 	l.ready_file_chan <- true
 }
 
@@ -60,6 +60,11 @@ func (sh *sheep) init() {
 	sh.request_log_chan = make(chan []string)
 	sh.request_ctrl_chan = make(chan string)
 	sh.detach_native_logger = make(chan bool, 1)
+
+	// default: minimum of 1 log per-sheep
+	log_id := "log-" + sh.label + "-" + strconv.Itoa(int(sh.index)) 
+	sh.logs[log_id] = &log{id: log_id}
+	sh.logs[log_id].init()
 }
 
 func (sheep_c *sheep) write_log_file(log_id string) {

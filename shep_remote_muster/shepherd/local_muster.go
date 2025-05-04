@@ -23,12 +23,19 @@ func (l_m *local_muster) init() {
 	l_m.start_optimize_chan = make(chan start_optimize_request, 1)
 	l_m.request_optimize_chan = make(chan optimize_request, 1)
 	l_m.ready_reward_chan = make(chan reward_reply, 1)
-
 	l_m.ready_optimize_chan = make(chan bool, 1)
-	//l_m.ready_optimize_chan = make(chan map[string]uint64)
-	
+
+	for _, sheep := range(l_m.pasture) {
+		for _, log := range(sheep.logs) {
+			log.ready_buff_chan <- true
+		}
+	}
+
+	// muster id indexting: only happens in development and testing: 
+	// when multiple local musters exist for the same ip addr
 	var idx string = ""
-	if l_m.ip_idx != -1 { idx = strconv.Itoa(int(l_m.ip_idx)) }
+	if l_m.ip_idx != -1 { idx = strconv.Itoa(int(l_m.ip_idx)) }	
+
 	// muster servers
 	l_m.pulse_server_addr = flag.String("pulse_server_addr_" + l_m.id + idx, l_m.ip + ":" + strconv.Itoa(l_m.pulse_port),
 						"address of one remote muster pulse server")
@@ -79,15 +86,15 @@ func (l_m *local_muster) pulse(conn *grpc.ClientConn, c pb.PulseClient, ctx cont
 		r, err := c.HeartBeat(ctx, &pb.HeartbeatRequest{ShepRequest: counter})  
 		if err != nil {
 			err_count ++
-			if err_count == 30 {
-				fmt.Printf("\033[31;1m***** LOST PULSE:  %v\n\033[0m", l_m.id)
+			if err_count == 10 {
+				fmt.Printf("\033[31;1m***** LOST PULSE FROM  %v\n\033[0m", l_m.id)
 				return
 			}
 		} else { 
 			err_count = 0 
 			l_m.hb_chan <- r
 		}
-		time.Sleep(time.Second/5)
+		time.Sleep(time.Second/2)	// wait before trying again
 	}
 }
 
@@ -131,12 +138,11 @@ func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) erro
 	for {
 		sync_req, err := stream.Recv()
 
-
 		if buff_ctr == 0 {
 			sheep_id = sync_req.GetSheepId()
 			log_id = sync_req.GetLogId()
-			mem_buff = l_m.pasture[sheep_id].logs[log_id].mem_buff
 			if debug { fmt.Printf("\033[36m-----> SYNC-REQ -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
+			mem_buff = l_m.pasture[sheep_id].logs[log_id].mem_buff
 			<- l_m.pasture[sheep_id].logs[log_id].ready_buff_chan
 			*(l_m.pasture[sheep_id].logs[log_id].mem_buff)  = make([][]uint64, 0)
 		}
@@ -245,22 +251,24 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 				log_id := req[1]
 				coordinate_cmd := req[2]
 				logger_id := req[3]
+				sheep := l_m.pasture[sheep_id]
+				log := sheep.logs[log_id]
 
-				<- l_m.pasture[sheep_id].logs[log_id].ready_request_chan
+				<- log.ready_request_chan
 //				if coordinate_cmd == "close" {
 //					l_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 //					return
 //				}
-				if debug { fmt.Printf("\033[34m<--- COORD REQ -- %v -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd, logger_id) }
+				if debug { fmt.Printf("\033[34m<--- COORD REQ -- %v -- %v -- %v -- %v\n\033[0m", sheep.id, log.id, coordinate_cmd, logger_id) }
 				for {
-					r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep_id, LogId: log_id, CoordinateCmd: coordinate_cmd, LoggerId: logger_id})  
+					r, err := c.CoordinateLog(ctx, &pb.CoordinateLogRequest{SheepId: sheep.id, LogId: log.id, CoordinateCmd: coordinate_cmd, LoggerId: logger_id})  
 					if err != nil { time.Sleep(time.Second/2); continue } 
 					if debug { fmt.Printf("\033[34m---> COORD LOG REP -- %v\n\033[0m", r) }
 					if !r.GetStatus() {
-						fmt.Printf("\033[31;1m****** ERROR: coordinate log request failed -- %v -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd, logger_id)
-						l_m.pasture[sheep_id].logs[log_id].ready_request_chan <- false
+						fmt.Printf("\033[31;1m****** ERROR: coordinate log request failed -- %v -- %v -- %v -- %v\n\033[0m", sheep.id, log.id, coordinate_cmd, logger_id)
+						log.ready_request_chan <- false
 					}
-					l_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+					log.ready_request_chan <- true
 					return
 				}
 			} ()
