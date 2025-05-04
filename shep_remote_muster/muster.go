@@ -30,7 +30,7 @@ func (c *control) init(knob string, getter func(uint8, ...string)uint64, setter 
 }
 
 func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.Duration) {
-	mem_buff := make([][]uint64, buff_max_size)
+	mem_buff := make([][]uint64, 0)
 	l.metrics = metrics
 	l.max_size = buff_max_size
 	l.mem_buff = &mem_buff
@@ -44,7 +44,8 @@ func (l *log) init(buff_max_size uint64, metrics []string, log_wait_factor time.
 
 	l.ready_process_chan <- true
 	l.ready_request_chan <- true
-	l.ready_buff_chan <- true
+	// note this change will break things on local side; need to refactor
+	//l.ready_buff_chan <- true
 	l.ready_file_chan <- true
 }
 

@@ -26,6 +26,13 @@ func ixgbe_native_log(sheep *sheep, log *log, logs_dir string) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{ Pdeathsig: syscall.SIGTERM }
 
 	go func() {
+		cmd := cmd
+		if err := cmd.Run(); err != nil { 
+			return
+		}
+	} ()
+
+	go func() {
 		sheep := sheep
 		cmd := cmd
 		for {
@@ -37,10 +44,6 @@ func ixgbe_native_log(sheep *sheep, log *log, logs_dir string) {
 			}
 		}
 	} ()
-
-	if err := cmd.Run(); err != nil { 
-		return
-	}
 }
 
 

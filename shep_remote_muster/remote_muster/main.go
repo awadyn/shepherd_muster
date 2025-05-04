@@ -8,7 +8,7 @@ import (
 
 /*********************************************/
 
-var debug bool = true
+var debug bool = false
 
 var mirror_ip string;
 
@@ -46,7 +46,8 @@ func main() {
 		    	    resources: target_resources}
 
 
-	bayopt_intlog_main(remote_node)
+//	bayopt_intlog_main(remote_node)
+	intlog_main(remote_node)
 }
 
 

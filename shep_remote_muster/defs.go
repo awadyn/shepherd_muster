@@ -13,7 +13,7 @@ import (
 )
 /************************************/
 
-var exp_timeout time.Duration = time.Second * 1260
+var exp_timeout time.Duration = time.Second * 1200
 
 type resource struct {
 	label string
@@ -172,7 +172,7 @@ type local_muster struct {
 
 type remote_muster struct {	// i.e. 1st level specialization of a muster
 	muster
-	hb_chan chan bool
+//	hb_chan chan bool
 
 	log_server_addr *string
 	ctrl_server_port *int

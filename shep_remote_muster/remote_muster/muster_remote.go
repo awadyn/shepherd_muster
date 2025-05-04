@@ -62,57 +62,60 @@ func (m *muster) cleanup() {
    populates one full memory buffer of log entries
 */
 func do_log(shared_log *log, reader *csv.Reader) error {
-	*shared_log.mem_buff = make([][]uint64, 0)
-	var counter uint64 = 0
-	for {
-		switch {
-		case counter < shared_log.max_size:
-			var row []string
-			var err error
-			row, err = reader.Read()
-			if err == io.EOF { 
+	var counter uint64
+	for counter=0; counter < shared_log.max_size; counter++ {
+		var row []string
+		var err error
+		row, err = reader.Read()
+		// here if finished reading file into partial or empty mem_buff
+		if err == io.EOF { 
+			// return with partially filled mem_buff
+			if counter > 0 {
+				return nil
+			} else {
+				return io.EOF
+			}
+		} else {
+			// here if problem reading from log file
+			if err != nil { 
+				fmt.Println("!!!ERROR!!!", shared_log.id, err)
 				return err
 			}
-			if err != nil { 
-				//panic(err) 
-				fmt.Println("!!!ERROR!!!", err)
-			}
-			*shared_log.mem_buff = append(*shared_log.mem_buff, []uint64{})
-			for i := range(len(shared_log.metrics)) {
-				val, _ := strconv.Atoi(row[i])
-				(*shared_log.mem_buff)[counter] = append((*shared_log.mem_buff)[counter], uint64(val))
-			}
-			counter ++
-		case counter == shared_log.max_size:
-			return nil
 		}
+		// here if still reading; append log entry read from file
+		log_entry := make([]uint64, len(shared_log.metrics))
+		for i := range(len(shared_log.metrics)) {
+			val, _ := strconv.Atoi(row[i])
+			log_entry[i] = uint64(val)
+		}
+		*shared_log.mem_buff = append(*shared_log.mem_buff, log_entry)
 	}
+	// here if finished reading one full mem_buff
+	return nil
 }
 
-func (m *muster) sync_with_logger(sheep_id string, log_id string, reader *csv.Reader, logger_func func(*log, *csv.Reader)error, n_iter int) error {
-	shared_log := m.pasture[sheep_id].logs[log_id] 
+func (r_m *remote_muster) sync_with_logger(sheep_id string, log_id string, reader *csv.Reader, logger_func func(*log, *csv.Reader)error, n_iter int) error {
+	sheep := r_m.pasture[sheep_id]
+	shared_log := sheep.logs[log_id]
 	var err error = nil
-	iter := 0
 	for {
-		switch {
-		case n_iter > 0:
-			if iter == n_iter { return err }
-			iter ++
-		default:
-		}
-		err = logger_func(shared_log, reader)
-		switch {
-		case err == nil:	// => logged one buff
-			m.full_buff_chan <- []string{sheep_id, log_id}
-			<- shared_log.ready_buff_chan
-			*shared_log.mem_buff = make([][]uint64, shared_log.max_size)
-		case err == io.EOF:	// => log reader at EOF
-			// do nothing if nothing has been logged yet
-			if len(*(shared_log.mem_buff)) == 0 { return io.EOF }
-			// otherwise sync whatever has been logged with mirror
-			m.full_buff_chan <- []string{sheep_id, log_id}
-			<- shared_log.ready_buff_chan
-			return io.EOF
+		select {
+		case <- shared_log.kill_log_chan:
+			return nil
+		default:		
+			err = logger_func(shared_log, reader)
+			if err == io.EOF {
+				// do nothing if nothing has been logged yet
+				time.Sleep(time.Second)
+			} else {
+				if err != nil {
+					fmt.Println("HERE UNKNOWN SYNC ERROR", shared_log.id)
+					return err
+				}
+				r_m.full_buff_chan <- []string{sheep.id, shared_log.id}
+				<- shared_log.ready_buff_chan
+				*(shared_log.mem_buff) = make([][]uint64, 0)
+			}
 		}
 	}
 }
@@ -122,21 +125,21 @@ func (r_m *remote_muster) log_manage(sheep_id string, log_id string, cmd string,
 	log := sheep.logs[log_id]
 	logger_func := r_m.native_loggers[logger_id]
 	logs_dir := r_m.logs_dir
+
 	switch {
 	case cmd == "start":
 		// start communication with native logger
 		go logger_func(sheep, log, logs_dir)
-		r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+		log.ready_request_chan <- true
 		return true
+
 	case cmd == "stop":
-		select {
-		case r_m.pasture[sheep_id].logs[log_id].kill_log_chan <- true:
-		default:
-		}
 		// stop communication with native logger
-		r_m.pasture[sheep_id].detach_native_logger <- true
-		r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+		log.kill_log_chan <- true
+		sheep.detach_native_logger <- true
+		log.ready_request_chan <- true
 		return true
+
 	case cmd == "close":
 		label := sheep.label
 		index := strconv.Itoa(int(sheep.index))
@@ -150,8 +153,32 @@ func (r_m *remote_muster) log_manage(sheep_id string, log_id string, cmd string,
 			sheep.log_reader_map[log.id] = reader
 		}
 
-		r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
+		log.ready_request_chan <- true
 		return true
+
+	case cmd == "all":
+		f := sheep.log_f_map[log_id]
+		reader := sheep.log_reader_map[log_id]
+		f.Seek(0, io.SeekStart)
+
+		// at runtime, there are as many of this thread as there are sheep x num_logs_per_sheep
+		go func() {
+			sheep := sheep
+			log := log
+			reader := reader
+			err := r_m.sync_with_logger(sheep.id, log.id, reader, do_log, -1)
+			if err != nil { 
+				panic(err) 
+			} else { 
+				// assume log was killed 
+				fmt.Println("LOG WAS KILLED: ", sheep.id, log.id)
+				return
+			}
+		} ()
+
+		log.ready_request_chan <- true 
+		return true
+
 //	case cmd == "first":
 //		// get first instance from native logger
 //		go func() {
@@ -208,34 +235,7 @@ func (r_m *remote_muster) log_manage(sheep_id string, log_id string, cmd string,
 //			if err != nil { panic(err) }
 //			r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true
 //		} ()
-	case cmd == "all":
-		go func() {
-			sheep_id := sheep_id
-			log_id := log_id
-			f := r_m.pasture[sheep_id].log_f_map[log_id]
-			reader := r_m.pasture[sheep_id].log_reader_map[log_id]
-			f.Seek(0, io.SeekStart)
-			var kill_log bool = false
-			r_m.pasture[sheep_id].logs[log_id].ready_request_chan <- true 
-			for {
-				select {
-				case <- r_m.pasture[sheep_id].logs[log_id].kill_log_chan:
-					kill_log = true
-					continue
-				default:
-					err := r_m.sync_with_logger(sheep_id, log_id, reader, do_log, -1)
-					if err == io.EOF {
-						time.Sleep(time.Second / 5)
-					} else { 
-						if err != nil { panic(err) } 
-					}
-				}
-				if kill_log { 
-					return 
-				}
-			}
-		} ()
-		return true
+
 	default:
 		fmt.Println("************ UNKNOWN LOG COMMAND: ", cmd)
 		return false

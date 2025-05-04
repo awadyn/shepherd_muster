@@ -24,7 +24,6 @@ import (
   each sheep (i.e. core) can be controlled by a list of controls
 */
 func (r_m *remote_muster) init() { 
-	r_m.hb_chan = make(chan bool)
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
 					  mirror_ip + ":" + strconv.Itoa(r_m.log_port), 
 					  "address of mirror local_muster log sync server")
@@ -36,7 +35,13 @@ func (r_m *remote_muster) init() {
 						"remote muster coordinate server port")
 }
 
-
+/*
+	Each remote muster coordinates per-sheep log and control 
+	synchronization with its mirror local muster using the 
+	following core goroutines:
+	- pulser responds to local muster heartbeat checks
+	- logger 
+*/
 func (r_m *remote_muster) deploy() {
 	go r_m.start_pulser()
 	go r_m.start_controller()
@@ -52,10 +57,6 @@ var hb_counter int = 0
 
 func (r_m *remote_muster) HeartBeat(ctx context.Context, in *pb.HeartbeatRequest) (*pb.HeartbeatReply, error) {
 	if debug { if hb_counter % 3 == 0 { fmt.Printf("-- HB REQ %v\n", in.GetShepRequest()) } }
-	select {
-	case r_m.hb_chan <- true:
-	default:
-	}
 	hb_counter ++
 	return &pb.HeartbeatReply{MusterReply: r_m.id, ShepRequest: in.GetShepRequest()}, nil
 }
@@ -80,7 +81,6 @@ func (r_m *remote_muster) start_pulser() {
 /*****************/
 
 func (r_m *remote_muster) start_logger() {
-//	<- r_m.hb_chan
 	fmt.Printf("\033[35;1m-- STARTING LOGGER :  %v\n\033[0m", r_m.id)
 	conn, err := grpc.Dial(*r_m.log_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -92,11 +92,9 @@ func (r_m *remote_muster) start_logger() {
 	go r_m.log(conn, c, ctx, cancel)
 }
 
-/* This function represents a single remote_muster logger thread
-   which is a client of the shepherd server, which in turn performs
-   all log processing and control computation relevant to this 
-   remote_muster as well as all other remote_musters the shepherd
-   is in charge of. 
+/* This function represents a single remote goroutine
+   which is the client of a local server goroutine on 
+   the shepherd node. 
 */
 func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context.Context, cancel context.CancelFunc) {
 	defer conn.Close()
@@ -106,39 +104,48 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 		case ids := <- r_m.full_buff_chan:
 			sheep_id := ids[0]
 			log_id := ids[1]
+			sheep := r_m.pasture[sheep_id]
+			log := sheep.logs[log_id]
+			if debug { fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep.id, log.id) }
+
 			go func() {
-				sheep_id := sheep_id
-				log_id := log_id
-				for {
+				sheep := sheep
+				log := log
+				for {	// try until stream is initialized with local muster log sync server
 					stream, err := c.SyncLogBuffers(ctx)
 					if err != nil {
-						fmt.Printf("\033[31;1m****** ERROR: %v could not initialize log sync stream %v:\n       %v\n\033[0m", r_m.id, log_id, err)
-						time.Sleep(time.Second/10)
-						continue
+						fmt.Printf("\033[31;1m****** ERROR: %v could not initialize log sync stream %v:\n       %v\n\033[0m", r_m.id, log.id, err)
+						time.Sleep(time.Second/5)
+						continue	// try again
 					}
-					if debug { fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep_id, log_id) }
-					for _, log_entry := range *(r_m.pasture[sheep_id].logs[log_id].mem_buff) {
-						for {
-							err := stream.Send(&pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogEntry: &pb.LogEntry{Vals: log_entry}})
+					for _, log_entry := range *(log.mem_buff) {
+						for {	// try until log entry is sent to log sync server
+							err := stream.Send(&pb.SyncLogRequest{SheepId: sheep.id, LogId:log.id, LogEntry: &pb.LogEntry{Vals: log_entry}})
 							if err != nil { 
-								fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log entry %v:\n      %v\n\033[0m", r_m.id, log_id, log_entry, err)
-								time.Sleep(time.Second/20)
-								continue
+								fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log entry %v:\n      %v\n\033[0m", r_m.id, log.id, log_entry, err)
+								time.Sleep(time.Second/5)
+								continue	// try again
 							}
 							break
 						}
 					}
-					r, err := stream.CloseAndRecv()
-					if err != nil {
-						fmt.Printf("\033[31;1m****** ERROR: %v problem receiving log sync reply %v:\n       %v\n\033[0m", r_m.id, log_id, err)
-						time.Sleep(time.Second/10)
-						continue
-					}
-					if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log_id, r.GetSyncComplete()) }
-					if r.GetSyncComplete() {
-						r_m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true
+					for {	// try until stream with log sync server is closed
+						r, err := stream.CloseAndRecv()
+						if err != nil {
+							fmt.Printf("\033[31;1m****** ERROR: %v problem receiving log sync reply %v:\n       %v\n\033[0m", r_m.id, log.id, err)
+							time.Sleep(time.Second/5)
+							continue	// try again
+						}
+						if r.GetSyncComplete() {
+							if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log.id, r.GetSyncComplete()) }
+							log.ready_buff_chan <- true
+						} else {
+							fmt.Printf("\033[31;1m****** ERROR: %v problem with local log sync of %v - reply:\n       %v\n\033[0m", r_m.id, log.id, r)
+							// if here, log mem buff is no longer available for use
+						}
 						break
 					}
+					break	// done when all above RPCs complete successfully 
 				}
 			}()
 		}
@@ -216,14 +223,17 @@ func (r_m *remote_muster) CoordinateLog(ctx context.Context, in *pb.CoordinateLo
 	coordinate_cmd := in.GetCoordinateCmd()
 	logger_id := in.GetLoggerId()
 
-	<- r_m.pasture[sheep_id].logs[log_id].ready_request_chan
+	sheep := r_m.pasture[sheep_id]
+	log := sheep.logs[log_id]
+
+	<- log.ready_request_chan
 	if debug { fmt.Printf("\033[34m---> COORD REQ -- %v -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd, logger_id) }
 
-	cmd_status := r_m.log_manage(sheep_id, log_id, coordinate_cmd, logger_id)
-	if !cmd_status { fmt.Printf("\033[31;1m****** ERROR: %v failed to send log coordinate request %v for %v\n\033[0m", r_m.id, coordinate_cmd, sheep_id, logger_id) }
+	cmd_status := r_m.log_manage(sheep.id, log.id, coordinate_cmd, logger_id)
+	if !cmd_status { fmt.Printf("\033[31;1m****** ERROR: %v failed to send log coordinate request %v for %v\n\033[0m", r_m.id, coordinate_cmd, log.id, logger_id) }
 
 	if debug { fmt.Printf("\033[34m----DONE COORD REQ %v -- %v -- %v -- %v\n\033[0m", sheep_id, log_id, coordinate_cmd, logger_id) }
-	return &pb.CoordinateLogReply{SheepId: sheep_id, LogId: log_id, Status: cmd_status, CoordinateCmd: coordinate_cmd, LoggerId: logger_id}, nil
+	return &pb.CoordinateLogReply{SheepId: sheep.id, LogId: log.id, Status: cmd_status, CoordinateCmd: coordinate_cmd, LoggerId: logger_id}, nil
 }
 
 func (r_m *remote_muster) CoordinateCtrl(ctx context.Context, in *pb.CoordinateCtrlRequest) (*pb.CoordinateCtrlReply, error) {
@@ -238,7 +248,6 @@ func (r_m *remote_muster) CoordinateCtrl(ctx context.Context, in *pb.CoordinateC
 }
 
 func (r_m *remote_muster) start_coordinator() {
-//	<- r_m.hb_chan
 	fmt.Printf("\033[35;1m-- STARTING COORDINATOR :  %v\n\033[0m", r_m.id)
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *r_m.coordinate_server_port))
