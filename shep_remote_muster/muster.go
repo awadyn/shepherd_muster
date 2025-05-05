@@ -44,7 +44,6 @@ func (l *log) init() {
 	l.ready_buff_chan = make(chan bool, 1)
 	l.ready_file_chan = make(chan bool, 1)
 
-	l.ready_process_chan <- true
 	l.ready_request_chan <- true
 	l.ready_file_chan <- true
 }
