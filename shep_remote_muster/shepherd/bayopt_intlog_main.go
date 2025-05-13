@@ -2,9 +2,9 @@ package main
 
 import ( "time"
 	 "os"
-	 "os/exec" 
-	 "strconv"
-//	 "fmt"
+//	 "os/exec" 
+//	 "strconv"
+	 "fmt"
 )
 
 /**************************************/
@@ -14,7 +14,8 @@ func (bayopt_s *bayopt_intlog_shepherd) run_workload(m_id string) {
 	l_m := b_m.local_muster
 	<- l_m.hb_chan
 
-	qps_list := []int{50000, 100000, 200000, 400000, 600000}
+	qps_list := []int{200000, 400000, 600000}
+//	qps_list := []int{50000, 100000, 200000, 400000, 600000, 200000, 500000, 750000, 900000, 600000, 300000}
 
 
 //	var dvfs_val uint64 = 0x1900
@@ -35,59 +36,98 @@ func (bayopt_s *bayopt_intlog_shepherd) run_workload(m_id string) {
 //	}
 
 
-	cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
-	if err := cmd.Run(); err != nil { panic(err) }
+//	cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
+//	if err := cmd.Run(); err != nil { panic(err) }
+//
+//	time.Sleep(time.Second)
 
 	home_dir, err := os.Getwd()
 	if err != nil { panic(err) }
 
+	l_m.logs_dir = home_dir + "/" + "mustherd-logs-" + l_m.id + "/"
+	err = os.Mkdir(l_m.logs_dir, 0750)
+	if err != nil && !os.IsExist(err) { panic(err) }
+	bayopt_s.init_log_files(l_m.logs_dir)
+  	time.Sleep(time.Second)
+
+	for _, sheep := range(l_m.pasture) {
+		if sheep.label == "core" {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "start", "intlogger"}
+			}
+		}
+	}
+	time.Sleep(time.Second*2)
+
+	for _, sheep := range(l_m.pasture) {
+		if sheep.label == "core" {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "all", "intlogger"}
+			}
+		}
+	}
+	time.Sleep(time.Second*2)
+
 	for _, qps := range(qps_list) {
-		qps_str := strconv.Itoa(qps)
+//		qps_str := strconv.Itoa(qps)
+		fmt.Println(qps)
 
-		l_m.logs_dir = home_dir + "/" + "intlog-logs-" + l_m.id + "-" + qps_str + "/"
-		err = os.Mkdir(l_m.logs_dir, 0750)
-		if err != nil && !os.IsExist(err) { panic(err) }
+//		l_m.logs_dir = home_dir + "/" + "mustherd-logs-" + l_m.id + "-" + qps_str + "/"
+//		err = os.Mkdir(l_m.logs_dir, 0750)
+//		if err != nil && !os.IsExist(err) { panic(err) }
+//		bayopt_s.init_log_files(l_m.logs_dir)
+//
+//		for _, sheep := range(l_m.pasture) {
+//			if sheep.label == "core" {
+//				for _, log := range(sheep.logs) {
+//					l_m.request_log_chan <- []string{sheep.id, log.id, "start", "intlogger"}
+//				}
+//			}
+//		}
+//		for _, sheep := range(l_m.pasture) {
+//			if sheep.label == "core" {
+//				for _, log := range(sheep.logs) {
+//					l_m.request_log_chan <- []string{sheep.id, log.id, "all", "intlogger"}
+//				}
+//			}
+//		}
 
-		bayopt_s.init_log_files(l_m.logs_dir)
-	
-//		<- l_m.hb_chan
+//		cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --measure_connections=256 --measure_qps=2000 --qps=" + qps_str + " --time=20")
+//		cmd.Stdout = os.Stdout
+//		if err := cmd.Run(); err != nil { panic(err) }
+		time.Sleep(time.Second * 5)
 
-		for _, sheep := range(l_m.pasture) {
-			if sheep.label == "core" {
-				for _, log := range(sheep.logs) {
-					l_m.request_log_chan <- []string{sheep.id, log.id, "start", "intlogger"}
-				}
+//		for _, sheep := range(l_m.pasture) {
+//			if sheep.label == "core" {
+//				for _, log := range(sheep.logs) {
+//					l_m.request_log_chan <- []string{sheep.id, log.id, "stop", "intlogger"}
+//				}
+//			}
+//		}
+//		for _, sheep := range(l_m.pasture) {
+//			if sheep.label == "core" {
+//				for _, log := range(sheep.logs) {
+//					l_m.request_log_chan <- []string{sheep.id, log.id, "close", "intlogger"}
+//				}
+//			}
+//		}
+	}
+
+	for _, sheep := range(l_m.pasture) {
+		if sheep.label == "core" {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "stop", "intlogger"}
 			}
 		}
-		for _, sheep := range(l_m.pasture) {
-			if sheep.label == "core" {
-				for _, log := range(sheep.logs) {
-					l_m.request_log_chan <- []string{sheep.id, log.id, "all", "intlogger"}
-				}
+	}
+	time.Sleep(time.Second*2)
+
+	for _, sheep := range(l_m.pasture) {
+		if sheep.label == "core" {
+			for _, log := range(sheep.logs) {
+				l_m.request_log_chan <- []string{sheep.id, log.id, "close", "intlogger"}
 			}
 		}
-
-		cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent=10.10.1.1 --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --measure_connections=256 --measure_qps=2000 --qps=" + qps_str + " --time=20")
-		cmd.Stdout = os.Stdout
-		if err := cmd.Run(); err != nil { panic(err) }
-
-		for _, sheep := range(l_m.pasture) {
-			if sheep.label == "core" {
-				for _, log := range(sheep.logs) {
-					l_m.request_log_chan <- []string{sheep.id, log.id, "stop", "intlogger"}
-				}
-			}
-		}
-
-		for _, sheep := range(l_m.pasture) {
-			if sheep.label == "core" {
-				for _, log := range(sheep.logs) {
-					l_m.request_log_chan <- []string{sheep.id, log.id, "close", "intlogger"}
-				}
-			}
-		}
-
-		time.Sleep(time.Second)
 	}
 }
 

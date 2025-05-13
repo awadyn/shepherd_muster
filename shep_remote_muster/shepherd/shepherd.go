@@ -158,9 +158,6 @@ func (s shepherd) process_logs(m_id string) {
 					<- log.ready_process_chan
 				}
 
-				// TODO maybe signal process_buff_chan for specialized log buff processing
-				// example: compute correlation matrix or percentile vector before clearing memory buffer
-				// why: faster than reading out buffer size data from file then computing matrix or vector
 				if debug { fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id) }
 
 				select {

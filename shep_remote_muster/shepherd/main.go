@@ -29,7 +29,7 @@ func main() {
 //	args[nodes[0].ip]["opt_type"] = "bayopt"
 //	args[nodes[0].ip]["num_trials"] = "30"
 
-
+//	stats_main(nodes)
 	intlog_main(nodes)
 //	bayopt_intlog_main(nodes)
 }

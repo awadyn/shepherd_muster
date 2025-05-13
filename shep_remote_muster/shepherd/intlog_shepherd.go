@@ -31,11 +31,6 @@ func (intlog_s *intlog_shepherd) init() {
 		intlog_s.intlog_musters[intlog_m.id] = intlog_m
 
 		intlog_m.logs_dir = logs_dir + intlog_m.id + "/"
-
-		fmt.Println("local:", l_m.logs_dir)
-		fmt.Println("intlog:", intlog_m.logs_dir)
-
-//		intlog_m.logs_dir = logs_dir + intlog_m.id + "/"
 		err := os.Mkdir(intlog_m.logs_dir, 0750)
 		if err != nil && !os.IsExist(err) { panic(err) }
 	}
