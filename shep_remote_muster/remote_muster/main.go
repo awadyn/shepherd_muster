@@ -9,8 +9,7 @@ import (
 /*********************************************/
 
 var debug bool = false
-
-var mirror_ip string;
+var mirror_ip string
 
 func main() {
 	n_ip := os.Args[1]

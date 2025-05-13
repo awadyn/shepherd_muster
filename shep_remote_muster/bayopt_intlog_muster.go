@@ -8,6 +8,10 @@ import (
 )
 
 /**************************************/
+type bayopt_intlog_muster struct {
+       intlog_muster
+}
+
 func (bayopt_m *bayopt_intlog_muster) init() {
 	for sheep_id, sheep := range(bayopt_m.pasture) {
 		index := strconv.Itoa(int(sheep.index))

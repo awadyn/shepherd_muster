@@ -63,9 +63,9 @@ func (m *muster) cleanup() {
 */
 func do_log(shared_log *log, reader *csv.Reader) error {
 	var counter uint64
+	var row []string
+	var err error
 	for counter=0; counter < shared_log.max_size; counter++ {
-		var row []string
-		var err error
 		row, err = reader.Read()
 		// here if finished reading file into partial or empty mem_buff
 		if err == io.EOF { 
@@ -78,7 +78,15 @@ func do_log(shared_log *log, reader *csv.Reader) error {
 		} else {
 			// here if problem reading from log file
 			if err != nil { 
-				fmt.Println("!!!ERROR!!!", shared_log.id, err)
+				// TODO handle this:
+				// if here, then reading from the log file here and writing to it by read_ixgbe_stats.sh
+				// might be happening concurrently resulting in reading an incomplete log entry
+				// this error can be ignored: r := csv.NewReader(file); r.FieldsPerRecord = -1
+				// in theory, we should be able to ignore a few such log entries and read onwards
+				// this error appears infrequently, but not rarely
+				// do not ignore
+				fmt.Println("!!!ERROR!!!", shared_log.id, err, row)
+				continue	// ignore this incomplete row and continue filling mem_buff
 				return err
 			}
 		}
@@ -109,7 +117,7 @@ func (r_m *remote_muster) sync_with_logger(sheep_id string, log_id string, reade
 				time.Sleep(time.Second)
 			} else {
 				if err != nil {
-					fmt.Println("HERE UNKNOWN SYNC ERROR", shared_log.id)
+					fmt.Println("HERE UNKNOWN SYNC ERROR", shared_log.id, shared_log.mem_buff)
 					return err
 				}
 				r_m.full_buff_chan <- []string{sheep.id, shared_log.id}

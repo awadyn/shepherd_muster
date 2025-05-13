@@ -27,9 +27,9 @@ func bayopt_intlog_main(n node) {
 	go bayopt_m.start_coordinator()
 	bayopt_m.start_logger()
 
-	for sheep_id, _ := range(bayopt_m.pasture) {
-		go bayopt_m.ctrl_manage(sheep_id) 
-	}
+//	for sheep_id, _ := range(bayopt_m.pasture) {
+//		go bayopt_m.ctrl_manage(sheep_id) 
+//	}
 
 	// cleanup
 	time.Sleep(exp_timeout)
