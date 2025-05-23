@@ -35,9 +35,10 @@ func main() {
 	target_resources := make([]resource, 0)
 	var i uint8
 	for i = 0; i < ncores; i++ {
-		target_resources = append(target_resources, resource{label: "core", index: i})
+		if i < 9 { target_resources = append(target_resources, resource{label: "core", index: i+1}) }
+		if i >= 9 { target_resources = append(target_resources, resource{label: "core", index: i+2}) }
 	}
-	target_resources = append(target_resources, resource{label: "node", index: 0})
+//	target_resources = append(target_resources, resource{label: "node", index: 0})
 
 	remote_node := node{ip: n_ip, ip_idx: ip_idx, ncores: ncores, 
 			    pulse_port: pulse_port, log_port: log_port, 

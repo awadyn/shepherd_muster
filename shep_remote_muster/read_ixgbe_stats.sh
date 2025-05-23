@@ -7,5 +7,5 @@ cat $src > /dev/null
 while true
 do 
 	cat $src >> $dest
-	sleep 2
+	sleep 1
 done
