@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"os/exec"
 )
 
 /**************************************/
 /****** SHEPHERD SPECIALIZATION  ******/
 /**************************************/
-
-var medians []int = []int{11035, 19450, 37076, 74224, 112588}
-var qpses []int = []int{50000, 100000, 200000, 400000, 600000}
 
 // a stats_muster is an intlog_muster with additional data structures
 // to store useful log statistics
@@ -20,6 +18,9 @@ type stats_muster struct {
 	intlog_muster
 
 	rx_bytes_all map[string][]uint64
+	timestamps_all map[string][]uint64
+	rx_bytes_concat []int
+	rx_bytes_medians []int
 	rx_bytes_median int
 	processing_lock chan bool
 }
@@ -27,13 +28,13 @@ type stats_muster struct {
 type stats_shepherd struct {
 	intlog_shepherd
 	stats_musters map[string]*stats_muster
-	rx_bytes_medians []int
+	rx_bytes_medians map[int][]int
 }
 
 
 func (stats_s *stats_shepherd) init() {
 	stats_s.stats_musters = make(map[string]*stats_muster)
-	stats_s.rx_bytes_medians = make([]int, 0)
+	stats_s.rx_bytes_medians = make(map[int][]int)
 
 	for _, intlog_m := range(stats_s.intlog_musters) {
 		stats_m := stats_muster{intlog_muster: *intlog_m}
@@ -58,6 +59,8 @@ func (stats_s *stats_shepherd) init() {
 */
 func (stats_s stats_shepherd) process_logs(m_id string) {
 	l_m := stats_s.stats_musters[m_id]
+	ctrl_break := 1
+	cur_qps_guess := -1
 	for {
 		select {
 		case ids := <- l_m.process_buff_chan:
@@ -73,51 +76,101 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 				mem_buff := log.mem_buff
 				// get per-sheep rx_bytes
 				var rx_bytes_idx int = slices.Index(log.metrics, "rx_bytes")
+				var timestamp_idx int = slices.Index(log.metrics, "timestamp")
+				timestamps := make([]uint64, len(*mem_buff))
 				rx_bytes := make([]uint64, len(*mem_buff))
 				for j := 0; j < len(*mem_buff); j ++ {
 					rx_bytes[j] = (*mem_buff)[j][rx_bytes_idx]
+					timestamps[j] = (*mem_buff)[j][timestamp_idx]
 				}
 
 				<- l_m.processing_lock
 				// append per-sheep rx_bytes to muster data 
-				l_m.rx_bytes_all[sheep_id] = rx_bytes
+				l_m.timestamps_all[sheep_id] = append(l_m.timestamps_all[sheep_id], timestamps...)
+				l_m.rx_bytes_all[sheep_id] = append(l_m.rx_bytes_all[sheep_id], rx_bytes...)
 
 
-				// check if rx_bytes_all complete and compute rx_bytes_total
-				if len(l_m.rx_bytes_all) == len(l_m.pasture) - 1 {
-//					fmt.Println("COMPUTING TOTAL RX_BYTES SIGNAL..")
-					rx_bytes_total := make([]int, 0)
-					i := 0
-					var total int
-					var done_processing int
-					for {
-						total = 0
-						done_processing = 0
-						for _, sheep_rx_bytes := range(l_m.rx_bytes_all) {
-							// check if sheep_rx_bytes has been fully read; if so, skip
-							if i >= len(sheep_rx_bytes) { 
-								done_processing ++
-								continue 
-							}
-							total += int(sheep_rx_bytes[i])
-						}
-						if done_processing == len(l_m.pasture) - 1 { break }
-						rx_bytes_total = append(rx_bytes_total, total)
-						i ++
+				// check if rx_bytes_all complete and concat
+				ready := true
+				if len(l_m.rx_bytes_all) == len(l_m.pasture) {
+					for sheep_id, _ := range(l_m.pasture) {
+						if len(l_m.rx_bytes_all[sheep_id]) < 1024 { ready = false }
 					}
-					sort.Ints(rx_bytes_total)
-					l_m.rx_bytes_median = rx_bytes_total[len(rx_bytes_total)/2]
-
-					var qps_guess int
-					for j := 0; j < len(medians) ; j ++ {
-						if l_m.rx_bytes_median >= medians[j] - 3000 {
-							if l_m.rx_bytes_median <= medians[j] + 3000 {
-								qps_guess = qpses[j]
+					if ready {
+						// concat
+						iterators := make(map[string]int)
+						for sheep_id, _ := range(l_m.pasture) { 
+							iterators[sheep_id] = 0 
+						}
+	
+						// choose longest sheep log as reference log
+						max_size := 0
+						min_size := 5000
+						ref_sheep := ""
+						for sheep_id, _ := range(l_m.pasture) {
+							if len(l_m.rx_bytes_all[sheep_id]) > max_size { 
+								max_size = len(l_m.rx_bytes_all[sheep_id]) 
+								ref_sheep = sheep_id
+							}
+							if len(l_m.rx_bytes_all[sheep_id]) < min_size { 
+								min_size = len(l_m.rx_bytes_all[sheep_id])
 							}
 						}
-					}
+	
+						l_m.rx_bytes_concat = make([]int, len(l_m.rx_bytes_all[ref_sheep]))
+						//concat_itr := len(l_m.rx_bytes_concat)
+						for j := 0; j < max_size; j ++ {
+							//l_m.rx_bytes_concat = append(l_m.rx_bytes_concat, 0)
+							for sheep_id, _ := range(l_m.pasture) {
+								j_itr := iterators[sheep_id]
+								i_timestamps := l_m.timestamps_all[sheep_id]
+								if j_itr == len(i_timestamps) { continue }
+								if i_timestamps[j_itr] <= l_m.timestamps_all[ref_sheep][j] {
+									//l_m.rx_bytes_concat[concat_itr] += int(l_m.rx_bytes_all[sheep_id][j_itr])
+									l_m.rx_bytes_concat[j] += int(l_m.rx_bytes_all[sheep_id][j_itr])
+									iterators[sheep_id] += 1
+								}
+							}
+							//concat_itr += 1
+						}
 
-					fmt.Println("median: ", l_m.rx_bytes_median, "qps guess:", qps_guess)
+						sort.Ints(l_m.rx_bytes_concat)
+						l_m.rx_bytes_median = l_m.rx_bytes_concat[max_size/2]
+						l_m.rx_bytes_medians = append(l_m.rx_bytes_medians, l_m.rx_bytes_median)
+
+						/* testing with manually collected medians */
+						var guess int
+						for q := 0; q < len(qpses); q ++ {
+							if l_m.rx_bytes_median <= (medians[q] + medians[q]/4) { 
+								guess = q
+								break 
+							}
+						}
+						fmt.Println("************ QPS GUESS -- ", qpses[guess])
+						if cur_qps_guess == qpses[guess] { 
+							ctrl_break = 1 
+						} else {
+							if ctrl_break == 0 {
+								fmt.Println("************ APPLYING CTRLS **********************", opt_dvfs[guess], opt_itrd[guess])
+								dvfs_cmd := "sudo wrmsr -a 0x199 " + opt_dvfs[guess]
+								itrd_cmd := "sudo ethtool -C enp130s0f0 rx-usecs " + opt_itrd[guess]
+								ctrl_cmd := dvfs_cmd + "; " + itrd_cmd	
+								cmd := exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.33 '" + ctrl_cmd + "'")
+								if err := cmd.Run(); err != nil { panic(err) }
+								cur_qps_guess = qpses[guess]
+							}
+							ctrl_break = (ctrl_break + 1) % 3
+						}
+
+						fmt.Println("ref_sheep: ", ref_sheep, len(l_m.rx_bytes_concat),  "max size:", max_size, "min size:", min_size, "rx_bytes_median: ", l_m.rx_bytes_median)
+						l_m.timestamps_all = make(map[string][]uint64)
+						l_m.rx_bytes_all = make(map[string][]uint64)
+						for sheep_id, _ := range(l_m.pasture) {
+							l_m.timestamps_all[sheep_id] = make([]uint64, 0)
+							l_m.rx_bytes_all[sheep_id] = make([]uint64, 0)
+						}
+						l_m.rx_bytes_concat = make([]int, 0)
+					}
 				}
 				select {
 				case l_m.processing_lock <- true:

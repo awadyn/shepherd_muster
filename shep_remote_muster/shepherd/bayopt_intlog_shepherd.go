@@ -12,9 +12,9 @@ import (
 /****** SHEPHERD SPECIALIZATION  ******/
 /**************************************/
 
-type bayopt_intlog_muster struct {
-	intlog_muster
-}
+//type bayopt_intlog_muster struct {
+//	intlog_muster
+//}
 
 type bayopt_intlog_shepherd struct {
 	shepherd

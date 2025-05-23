@@ -4,7 +4,7 @@ import ( "time"
 	 "os"
 	 "os/exec" 
 	 "strconv"
-//	 "fmt"
+	 "fmt"
 )
 
 /**************************************/
@@ -20,7 +20,7 @@ func (intlog_s *intlog_shepherd) run_workload(m_id string) {
 	if err != nil && !os.IsExist(err) { panic(err) }
 	intlog_s.init_log_files(l_m.logs_dir)
   	
-	cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --loadonly -K fb_key -V fb_value")
+	cmd := exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --loadonly -K fb_key -V fb_value")
 	if err := cmd.Run(); err != nil { panic(err) }
 	time.Sleep(time.Second)
 
@@ -40,23 +40,27 @@ func (intlog_s *intlog_shepherd) run_workload(m_id string) {
 	}
 	time.Sleep(time.Second)
 
-	cmd = exec.Command("bash", "-c", "ssh -f awadyn@10.10.1.2 './read_rapl.sh'; echo starting..;")
-	if err := cmd.Run(); err != nil { panic(err) }
-
 	qps_list := []int{100000, 200000, 400000, 600000, 900000}
-	//qps_list := []int{600000, 750000, 900000}
-	//qps_list := []int{400000, 1100000, 750000, 900000, 900000, 1100000, 400000, 750000, 600000, 1100000, 1100000, 600000, 900000}
-	for iter := 0; iter < 1; iter ++ {
-		for _, qps := range(qps_list) {
-			qps_str := strconv.Itoa(qps)
-			// TODO run workload
-			cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s " + l_m.ip + " --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --measure_connections=512 --measure_qps=2000 --qps=" + qps_str + " --time=60 > " + l_m.logs_dir + qps_str + "_mutilate_output.txt")
-			cmd.Stdout = os.Stdout
-			if err := cmd.Run(); err != nil { panic(err) }
-		}
-		time.Sleep(time.Second)
+	for _, qps := range(qps_list) {
+		qps_str := strconv.Itoa(qps)
+		fmt.Println("-------- QPS ", qps_str)
+
+		cmd = exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.33 './read_rapl_rx_tx_start.sh'")
+		if err := cmd.Run(); err != nil { panic(err) }
+
+		// TODO run workload
+		cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --measure_connections=512 --measure_qps=2000 --qps=" + qps_str + " --time=30 > " + l_m.logs_dir + qps_str + "_mutilate_output.txt")
+		cmd.Stdout = os.Stdout
+		if err := cmd.Run(); err != nil { panic(err) }
+
+		cmd = exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.33 './read_rapl_rx_tx.sh'")
+		if err := cmd.Run(); err != nil { panic(err) }
+		cmd = exec.Command("bash", "-c", "scp -r awadyn@130.127.133.33:~/mcd_runs_stats/ mustherd-logs-muster-130.127.133.33/stats_" + qps_str)
+		if err := cmd.Run(); err != nil { panic(err) }
+		
 	}
 
+	time.Sleep(time.Second)
 	for _, sheep := range(l_m.pasture) {
 		if sheep.label == "core" {
 			for _, log := range(sheep.logs) {
@@ -89,7 +93,6 @@ func intlog_main(nodes []node) {
 
 	for _, l_m := range(intlog_s.local_musters) {
 		go intlog_s.process_logs(l_m.id)
-
 		go intlog_s.run_workload(l_m.id)
 	}
 
