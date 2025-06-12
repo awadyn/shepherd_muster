@@ -73,17 +73,8 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 				log := log
 				if debug { fmt.Printf("\033[32m-------- SPECIALIZED PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep.id, log.id) }
 
-				mem_buff := log.mem_buff
-				// get per-sheep rx_bytes
-				var rx_bytes_idx int = slices.Index(log.metrics, "rx_bytes")
-				var timestamp_idx int = slices.Index(log.metrics, "timestamp")
-				timestamps := make([]uint64, len(*mem_buff))
-				rx_bytes := make([]uint64, len(*mem_buff))
-				for j := 0; j < len(*mem_buff); j ++ {
-					rx_bytes[j] = (*mem_buff)[j][rx_bytes_idx]
-					timestamps[j] = (*mem_buff)[j][timestamp_idx]
-				}
-
+				rx_bytes, timestamps := stats_s.get_rx_signal(log)
+				
 				<- l_m.processing_lock
 				// append per-sheep rx_bytes to muster data 
 				l_m.timestamps_all[sheep_id] = append(l_m.timestamps_all[sheep_id], timestamps...)
@@ -134,35 +125,39 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 							//concat_itr += 1
 						}
 
+						// get median of this frame
 						sort.Ints(l_m.rx_bytes_concat)
 						l_m.rx_bytes_median = l_m.rx_bytes_concat[max_size/2]
+
+						// OFFLINE PHASE: append to medians list to compute mean of medians
 						l_m.rx_bytes_medians = append(l_m.rx_bytes_medians, l_m.rx_bytes_median)
 
-						/* testing with manually collected medians */
-						var guess int
-						for q := 0; q < len(qpses); q ++ {
-							if l_m.rx_bytes_median <= (medians[q] + medians[q]/4) { 
-								guess = q
-								break 
-							}
-						}
-						fmt.Println("************ QPS GUESS -- ", qpses[guess])
-						if cur_qps_guess == qpses[guess] { 
-							ctrl_break = 1 
-						} else {
-							if ctrl_break == 0 {
-								fmt.Println("************ APPLYING CTRLS **********************", opt_dvfs[guess], opt_itrd[guess])
-								dvfs_cmd := "sudo wrmsr -a 0x199 " + opt_dvfs[guess]
-								itrd_cmd := "sudo ethtool -C enp130s0f0 rx-usecs " + opt_itrd[guess]
-								ctrl_cmd := dvfs_cmd + "; " + itrd_cmd	
-								cmd := exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.33 '" + ctrl_cmd + "'")
-								if err := cmd.Run(); err != nil { panic(err) }
-								cur_qps_guess = qpses[guess]
-							}
-							ctrl_break = (ctrl_break + 1) % 3
-						}
+						/* ONLINE PHASE: testing with manually collected medians */
+//						var guess int
+//						for q := 0; q < len(qpses); q ++ {
+//							if l_m.rx_bytes_median <= (medians[q] + medians[q]/4) { 
+//								guess = q
+//								break 
+//							}
+//						}
+//						fmt.Println("************ QPS GUESS -- ", qpses[guess], " -- MEDIAN -- ", l_m.rx_bytes_median)
+//						if cur_qps_guess == qpses[guess] { 
+//							ctrl_break = 1 
+//						} else {
+//							if ctrl_break == 0 {
+//								fmt.Println("************ APPLYING CTRLS **********************", opt_dvfs[guess], opt_itrd[guess])
+//								dvfs_cmd := "sudo wrmsr -a 0x199 " + opt_dvfs[guess]
+//								itrd_cmd := "sudo ethtool -C enp130s0f0 rx-usecs " + opt_itrd[guess]
+//								ctrl_cmd := dvfs_cmd + "; " + itrd_cmd	
+//								cmd := exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.42 '" + ctrl_cmd + "'")
+//								if err := cmd.Run(); err != nil { panic(err) }
+//								cur_qps_guess = qpses[guess]
+//							}
+//							ctrl_break = (ctrl_break + 1) % 3
+//						}
 
-						fmt.Println("ref_sheep: ", ref_sheep, len(l_m.rx_bytes_concat),  "max size:", max_size, "min size:", min_size, "rx_bytes_median: ", l_m.rx_bytes_median)
+
+//						fmt.Println("ref_sheep: ", ref_sheep, len(l_m.rx_bytes_concat),  "max size:", max_size, "min size:", min_size, "rx_bytes_median: ", l_m.rx_bytes_median)
 						l_m.timestamps_all = make(map[string][]uint64)
 						l_m.rx_bytes_all = make(map[string][]uint64)
 						for sheep_id, _ := range(l_m.pasture) {
@@ -187,6 +182,20 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 			} ()
 		}
 	}
+}
+
+func (stats_s stats_shepherd) get_rx_signal(l log) ([]uint64, []uint64) {
+	// get per-sheep rx_bytes
+	mem_buff := l.mem_buff
+	var rx_bytes_idx int = slices.Index(l.metrics, "rx_bytes")
+	var timestamp_idx int = slices.Index(l.metrics, "timestamp")
+	timestamps := make([]uint64, len(*mem_buff))
+	rx_bytes := make([]uint64, len(*mem_buff))
+	for j := 0; j < len(*mem_buff); j ++ {
+		rx_bytes[j] = (*mem_buff)[j][rx_bytes_idx]
+		timestamps[j] = (*mem_buff)[j][timestamp_idx]
+	}
+	return rx_bytes, timestamps
 }
 
 
