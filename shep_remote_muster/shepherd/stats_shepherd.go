@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 	"os/exec"
+	"math"
 )
 
 /**************************************/
@@ -76,10 +77,9 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 				rx_bytes, timestamps := stats_s.get_rx_signal(log)
 				
 				<- l_m.processing_lock
-				// append per-sheep rx_bytes to muster data 
+				// append per-sheep rx_bytes signal to stats_muster data map
 				l_m.timestamps_all[sheep_id] = append(l_m.timestamps_all[sheep_id], timestamps...)
 				l_m.rx_bytes_all[sheep_id] = append(l_m.rx_bytes_all[sheep_id], rx_bytes...)
-
 
 				// check if rx_bytes_all complete and concat
 				ready := true
@@ -109,55 +109,63 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 						}
 	
 						l_m.rx_bytes_concat = make([]int, len(l_m.rx_bytes_all[ref_sheep]))
-						//concat_itr := len(l_m.rx_bytes_concat)
 						for j := 0; j < max_size; j ++ {
-							//l_m.rx_bytes_concat = append(l_m.rx_bytes_concat, 0)
 							for sheep_id, _ := range(l_m.pasture) {
 								j_itr := iterators[sheep_id]
 								i_timestamps := l_m.timestamps_all[sheep_id]
 								if j_itr == len(i_timestamps) { continue }
 								if i_timestamps[j_itr] <= l_m.timestamps_all[ref_sheep][j] {
-									//l_m.rx_bytes_concat[concat_itr] += int(l_m.rx_bytes_all[sheep_id][j_itr])
 									l_m.rx_bytes_concat[j] += int(l_m.rx_bytes_all[sheep_id][j_itr])
 									iterators[sheep_id] += 1
 								}
 							}
-							//concat_itr += 1
 						}
 
-						// get median of this frame
+						// get current median of the concatenated rx-bytes frame
 						sort.Ints(l_m.rx_bytes_concat)
 						l_m.rx_bytes_median = l_m.rx_bytes_concat[max_size/2]
 
-						// OFFLINE PHASE: append to medians list to compute mean of medians
-						l_m.rx_bytes_medians = append(l_m.rx_bytes_medians, l_m.rx_bytes_median)
+						// OFFLINE PHASE: append to medians list of per-frame medians across run
+//						l_m.rx_bytes_medians = append(l_m.rx_bytes_medians, l_m.rx_bytes_median)
 
 						/* ONLINE PHASE: testing with manually collected medians */
-//						var guess int
-//						for q := 0; q < len(qpses); q ++ {
+						var guess int
+						var diffs []float64 = []float64{0, 0, 0, 0, 0}
+						for q := 0; q < len(qpses); q ++ {
+							diffs[q] = math.Abs(float64(l_m.rx_bytes_median - medians[q]))
 //							if l_m.rx_bytes_median <= (medians[q] + medians[q]/4) { 
 //								guess = q
 //								break 
 //							}
-//						}
-//						fmt.Println("************ QPS GUESS -- ", qpses[guess], " -- MEDIAN -- ", l_m.rx_bytes_median)
-//						if cur_qps_guess == qpses[guess] { 
-//							ctrl_break = 1 
-//						} else {
-//							if ctrl_break == 0 {
-//								fmt.Println("************ APPLYING CTRLS **********************", opt_dvfs[guess], opt_itrd[guess])
-//								dvfs_cmd := "sudo wrmsr -a 0x199 " + opt_dvfs[guess]
-//								itrd_cmd := "sudo ethtool -C enp130s0f0 rx-usecs " + opt_itrd[guess]
-//								ctrl_cmd := dvfs_cmd + "; " + itrd_cmd	
-//								cmd := exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.42 '" + ctrl_cmd + "'")
-//								if err := cmd.Run(); err != nil { panic(err) }
-//								cur_qps_guess = qpses[guess]
-//							}
-//							ctrl_break = (ctrl_break + 1) % 3
-//						}
+						}
+						var min_diff float64 = 60000
+						for q := 0; q < len(qpses); q ++ {
+							if diffs[q] < min_diff { 
+								min_diff = diffs[q] 
+								guess = q
+							}
+						}
+
+						fmt.Println("************ QPS GUESS -- ", qpses[guess], " -- MEDIAN -- ", l_m.rx_bytes_median)
+						if cur_qps_guess == qpses[guess] { 
+							ctrl_break = 1 
+						} else {
+							if ctrl_break == 0 {
+								fmt.Println("************ APPLYING CTRLS **********************", opt_dvfs[guess], opt_itrd[guess])
+								dvfs_cmd := "sudo wrmsr -a 0x199 " + opt_dvfs[guess]
+								itrd_cmd := "sudo ethtool -C enp130s0f0 rx-usecs " + opt_itrd[guess]
+								ctrl_cmd := dvfs_cmd + "; " + itrd_cmd	
+								cmd := exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.42 '" + ctrl_cmd + "'")
+								if err := cmd.Run(); err != nil { panic(err) }
+								cur_qps_guess = qpses[guess]
+							}
+							ctrl_break = (ctrl_break + 1) % 3
+						}
 
 
 //						fmt.Println("ref_sheep: ", ref_sheep, len(l_m.rx_bytes_concat),  "max size:", max_size, "min size:", min_size, "rx_bytes_median: ", l_m.rx_bytes_median)
+
+						// reset/cleanup
 						l_m.timestamps_all = make(map[string][]uint64)
 						l_m.rx_bytes_all = make(map[string][]uint64)
 						for sheep_id, _ := range(l_m.pasture) {

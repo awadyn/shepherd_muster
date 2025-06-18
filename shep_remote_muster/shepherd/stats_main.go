@@ -11,13 +11,15 @@ import ( "time"
 /**************************************/
 //var qpses []int = make([]int, 0)
 //var medians []int = make([]int, 0)
-var qpses []int = []int{50000, 100000, 200000, 400000, 600000, 750000, 900000}
+//var qpses []int = []int{50000, 100000, 200000, 400000, 600000, 750000, 900000}
+var qpses []int = []int{100000, 200000, 400000, 600000, 900000}
+var opt_dvfs []string = []string{"0x1a00", "0xc00", "0x1a00", "0x1a00", "0x1100"}
+var opt_itrd []string = []string{"300", "250", "200", "150", "100"}
+
 /* OFFLINE PHASE */
 //var medians map[int]int
 /* ONLINE PHASE */
 var medians []int = []int{17576, 33329, 62459, 86988, 114710}
-var opt_dvfs []string = []string{"0x1a00", "0xc00", "0x1a00", "0x1a00", "0x1100"}
-var opt_itrd []string = []string{"300", "250", "200", "150", "100"}
 
 func (stats_s *stats_shepherd) run_workload(m_id string) {
 	l_m := stats_s.stats_musters[m_id]
@@ -55,7 +57,8 @@ func (stats_s *stats_shepherd) run_workload(m_id string) {
 	qps_list := []int{400000, 900000, 900000, 600000, 200000, 400000, 600000, 100000, 600000, 200000, 100000, 400000, 900000}
 	for _, qps := range(qps_list) {
 		qps_str := strconv.Itoa(qps)
-		stats_s.rx_bytes_medians[qps] = make([]int, 0)
+		// not needed here, needed in offline phase
+//		stats_s.rx_bytes_medians[qps] = make([]int, 0)
 		fmt.Println("--------------------------------------- QPS ", qps_str, " ---------------------------------------------------------")
 
 		// TODO run workload
@@ -66,8 +69,9 @@ func (stats_s *stats_shepherd) run_workload(m_id string) {
 		cmd_measure := "ssh -f " + l_m.ip + " './read_rapl.sh';"
 		cmd = exec.Command("bash", "-c", cmd_measure)
 		if err := cmd.Run(); err != nil { panic(err) }
-		
-		stats_s.rx_bytes_medians[qps] = l_m.rx_bytes_medians
+
+		// not needed here, needed in offline phase
+//		stats_s.rx_bytes_medians[qps] = l_m.rx_bytes_medians
 		l_m.rx_bytes_medians = make([]int, 0)
 	}
 
@@ -86,6 +90,9 @@ func (stats_s *stats_shepherd) run_workload(m_id string) {
 //			cmd.Stdout = os.Stdout
 //			if err := cmd.Run(); err != nil { panic(err) }
 //
+		//	stats_s.rx_bytes_medians[qps] = l_m.rx_bytes_medians
+		//	l_m.rx_bytes_medians = make([]int, 0)
+
 //			len_medians := len(stats_s.rx_bytes_medians[qps])
 //			median := stats_s.rx_bytes_medians[qps][len_medians/2]
 //			medians[itrd] = append(medians[itrd], median)
