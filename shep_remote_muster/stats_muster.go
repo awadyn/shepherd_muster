@@ -21,7 +21,7 @@ func (stats_m *stats_muster) init() {
 			ctrl_itr := control{id: "itr-ctrl-" + label + "-" + index + "-" + stats_m.ip, n_ip: stats_m.ip}
 			ctrl_itr.init("itr-delay", read_rx_usecs, write_rx_usecs)
 			ctrl_dvfs := control{id: "dvfs-ctrl-" + label + "-" + index + "-" + stats_m.ip, n_ip: stats_m.ip}
-			ctrl_dvfs.init("dvfs", read_dvfs, write_dvfs)
+			ctrl_dvfs.init("dvfs", read_dvfs_all, write_dvfs_all)
 			stats_m.pasture[sheep_id].controls[ctrl_itr.id] = &ctrl_itr
 			stats_m.pasture[sheep_id].controls[ctrl_dvfs.id] = &ctrl_dvfs
 		default:

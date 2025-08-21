@@ -45,18 +45,18 @@ func (intlog_s *intlog_shepherd) run_workload(m_id string) {
 		qps_str := strconv.Itoa(qps)
 		fmt.Println("-------- QPS ", qps_str)
 
-		cmd = exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.33 './read_rapl_rx_tx_start.sh'")
-		if err := cmd.Run(); err != nil { panic(err) }
+//		cmd = exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.33 './read_rapl_rx_tx_start.sh'")
+//		if err := cmd.Run(); err != nil { panic(err) }
 
 		// TODO run workload
-		cmd = exec.Command("bash", "-c", "taskset -c 0 ~/mutilate/mutilate --binary -s 10.10.1.2 --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_depth=1 --measure_connections=512 --measure_qps=2000 --qps=" + qps_str + " --time=30 > " + l_m.logs_dir + qps_str + "_mutilate_output.txt")
+		cmd = exec.Command("bash", "-c", "taskset -c 10-19 ~/mutilate/mutilate --binary -s 10.10.1.2 --noload --agent={10.10.1.3,10.10.1.4} --threads=1 --keysize=fb_key --valuesize=fb_value --iadist=fb_ia --update=0.25 --depth=4 --measure_connections=4 --measure_qps=2000 --qps=" + qps_str + " --time=20")
 		cmd.Stdout = os.Stdout
 		if err := cmd.Run(); err != nil { panic(err) }
 
-		cmd = exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.33 './read_rapl_rx_tx.sh'")
-		if err := cmd.Run(); err != nil { panic(err) }
-		cmd = exec.Command("bash", "-c", "scp -r awadyn@130.127.133.33:~/mcd_runs_stats/ mustherd-logs-muster-130.127.133.33/stats_" + qps_str)
-		if err := cmd.Run(); err != nil { panic(err) }
+//		cmd = exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.33 './read_rapl_rx_tx.sh'")
+//		if err := cmd.Run(); err != nil { panic(err) }
+//		cmd = exec.Command("bash", "-c", "scp -r awadyn@130.127.133.33:~/mcd_runs_stats/ mustherd-logs-muster-130.127.133.33/stats_" + qps_str)
+//		if err := cmd.Run(); err != nil { panic(err) }
 		
 	}
 

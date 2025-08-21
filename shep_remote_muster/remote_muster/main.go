@@ -8,7 +8,8 @@ import (
 
 /*********************************************/
 
-var debug bool = false
+var debug bool = true
+//var debug bool = false
 var mirror_ip string
 
 func main() {
@@ -38,7 +39,7 @@ func main() {
 		if i < 9 { target_resources = append(target_resources, resource{label: "core", index: i+1}) }
 		if i >= 9 { target_resources = append(target_resources, resource{label: "core", index: i+2}) }
 	}
-//	target_resources = append(target_resources, resource{label: "node", index: 0})
+	target_resources = append(target_resources, resource{label: "node", index: 0})
 
 	remote_node := node{ip: n_ip, ip_idx: ip_idx, ncores: ncores, 
 			    pulse_port: pulse_port, log_port: log_port, 
@@ -47,7 +48,8 @@ func main() {
 
 
 //	bayopt_intlog_main(remote_node)
-	intlog_main(remote_node)
+//	intlog_main(remote_node)
+	stats_main(remote_node)
 }
 
 

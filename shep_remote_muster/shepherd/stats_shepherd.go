@@ -1,12 +1,11 @@
 package main
 
 import (
-//	"os"
 	"fmt"
 	"slices"
 	"sort"
-	"os/exec"
 	"math"
+	"strconv"
 )
 
 /**************************************/
@@ -75,7 +74,7 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 				if debug { fmt.Printf("\033[32m-------- SPECIALIZED PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep.id, log.id) }
 
 				rx_bytes, timestamps := stats_s.get_rx_signal(log)
-				
+
 				<- l_m.processing_lock
 				// append per-sheep rx_bytes signal to stats_muster data map
 				l_m.timestamps_all[sheep_id] = append(l_m.timestamps_all[sheep_id], timestamps...)
@@ -83,14 +82,16 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 
 				// check if rx_bytes_all complete and concat
 				ready := true
-				if len(l_m.rx_bytes_all) == len(l_m.pasture) {
-					for sheep_id, _ := range(l_m.pasture) {
+				if len(l_m.rx_bytes_all) == len(l_m.pasture) - 1 {
+					for sheep_id, sheep := range(l_m.pasture) {
+						if sheep.label == "node" { continue }
 						if len(l_m.rx_bytes_all[sheep_id]) < 1024 { ready = false }
 					}
 					if ready {
 						// concat
 						iterators := make(map[string]int)
 						for sheep_id, _ := range(l_m.pasture) { 
+							if sheep.label == "node" { continue }
 							iterators[sheep_id] = 0 
 						}
 	
@@ -99,6 +100,7 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 						min_size := 5000
 						ref_sheep := ""
 						for sheep_id, _ := range(l_m.pasture) {
+							if sheep.label == "node" { continue }
 							if len(l_m.rx_bytes_all[sheep_id]) > max_size { 
 								max_size = len(l_m.rx_bytes_all[sheep_id]) 
 								ref_sheep = sheep_id
@@ -111,6 +113,7 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 						l_m.rx_bytes_concat = make([]int, len(l_m.rx_bytes_all[ref_sheep]))
 						for j := 0; j < max_size; j ++ {
 							for sheep_id, _ := range(l_m.pasture) {
+								if sheep.label == "node" { continue }
 								j_itr := iterators[sheep_id]
 								i_timestamps := l_m.timestamps_all[sheep_id]
 								if j_itr == len(i_timestamps) { continue }
@@ -152,25 +155,33 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 						} else {
 							if ctrl_break == 0 {
 								fmt.Println("************ APPLYING CTRLS **********************", opt_dvfs[guess], opt_itrd[guess])
-								dvfs_cmd := "sudo wrmsr -a 0x199 " + opt_dvfs[guess]
-								itrd_cmd := "sudo ethtool -C enp130s0f0 rx-usecs " + opt_itrd[guess]
-								ctrl_cmd := dvfs_cmd + "; " + itrd_cmd	
-								cmd := exec.Command("bash", "-c", "ssh -f awadyn@130.127.133.42 '" + ctrl_cmd + "'")
-								if err := cmd.Run(); err != nil { panic(err) }
+								new_ctrls := make(map[string]uint64)
+								for _, sheep := range(stats_s.musters[m_id].pasture) {
+									if sheep.label == "node" {
+										index := strconv.Itoa(int(sheep.index))
+										label := sheep.label
+										itrd_val, _ := strconv.ParseUint(opt_itrd[guess], 10, 64)
+										dvfs_val, _ := strconv.ParseUint(opt_dvfs[guess], 16, 64)
+										new_ctrls["itr-ctrl-" + label + "-" + index + "-" + l_m.ip] = itrd_val
+										new_ctrls["dvfs-ctrl-" + label + "-" + index + "-" + l_m.ip] = dvfs_val
+										stats_s.control(m_id, sheep.id, new_ctrls)
+										break
+									}
+								}
 								cur_qps_guess = qpses[guess]
 							}
 							ctrl_break = (ctrl_break + 1) % 3
 						}
-
 
 //						fmt.Println("ref_sheep: ", ref_sheep, len(l_m.rx_bytes_concat),  "max size:", max_size, "min size:", min_size, "rx_bytes_median: ", l_m.rx_bytes_median)
 
 						// reset/cleanup
 						l_m.timestamps_all = make(map[string][]uint64)
 						l_m.rx_bytes_all = make(map[string][]uint64)
-						for sheep_id, _ := range(l_m.pasture) {
-							l_m.timestamps_all[sheep_id] = make([]uint64, 0)
-							l_m.rx_bytes_all[sheep_id] = make([]uint64, 0)
+						for _, sheep := range(l_m.pasture) {
+							if sheep.label == "node" { continue }
+							l_m.timestamps_all[sheep.id] = make([]uint64, 0)
+							l_m.rx_bytes_all[sheep.id] = make([]uint64, 0)
 						}
 						l_m.rx_bytes_concat = make([]int, 0)
 					}
@@ -179,7 +190,6 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 				case l_m.processing_lock <- true:
 				default:
 				}
-
 
 				if debug { fmt.Printf("\033[32m-------- COMPLETED SPECIALIZED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id) }
 
