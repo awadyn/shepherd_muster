@@ -19,9 +19,9 @@ import (
 /*********************************************/
 
 /*
-  A remote muster watches over k sheep (i.e. cores) - 
-  each sheep (i.e. core) can produce a list of logs and 
-  each sheep (i.e. core) can be controlled by a list of controls
+  A remote muster manages k sheep (e.g. cores) - 
+  each sheep may produce a set of logs and/or 
+  each sheep may be controlled by a set of controls
 */
 func (r_m *remote_muster) init() { 
 	r_m.log_server_addr = flag.String("log_server_addr_" + r_m.id, 
@@ -36,11 +36,12 @@ func (r_m *remote_muster) init() {
 }
 
 /*
-	Each remote muster coordinates per-sheep log and control 
-	synchronization with its mirror local muster using the 
-	following core goroutines:
-	- pulser responds to local muster heartbeat checks
-	- logger 
+	Each remote muster synchronizes per-sheep log and control 
+	state with its mirror local muster using the following core goroutines:
+	- pulser: responds to local muster heartbeat checks
+	- logger: requests log sync with local muster
+	- controller: responds to local muster control changes
+	- coordinator: manages experiment coordination requests from shepherd
 */
 func (r_m *remote_muster) deploy() {
 	go r_m.start_pulser()
