@@ -11,17 +11,9 @@ var optimize_on bool = false
 //var debug bool = true
 var debug bool = false
 
+
 func main() {
-	// assume a list of resources per-node is known apriori
-	target_resources := make([]resource, 0)
-	var i uint8
-	for i = 1; i < 10; i++ {
-		target_resources = append(target_resources, resource{label: "core", index: i})
-	}
-	for i = 11; i < 20; i++ {
-		target_resources = append(target_resources, resource{label: "core", index: i})
-	}
-	target_resources = append(target_resources, resource{label: "node", index: 0})
+	target_resources := setup_target_resources_c8220(18)
 
 	// assume that a list of nodes is known apriori
 //	nodes := []node{{ip: "10.10.1.2", ip_idx: -1, ncores: 16, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081, optimizer_server_port: 50091, optimizer_client_port: 50101}}
@@ -36,8 +28,6 @@ func main() {
 //	args[nodes[0].ip]["num_trials"] = "30"
 
 	stats_main(nodes)
-//	intlog_main(nodes)
-//	bayopt_intlog_main(nodes)
 }
 
 

@@ -5,6 +5,17 @@ import (
 )
 
 /*********************************************/
+func setup_target_resources_c8220(ncores uint8) []resource {
+	target_resources := make([]resource, 0)
+	var i uint8
+	for i = 0; i < ncores; i++ {
+		if i < 9 { target_resources = append(target_resources, resource{label: "core", index: i}) }
+		if i > 9 { target_resources = append(target_resources, resource{label: "core", index: i}) }
+	}
+	target_resources = append(target_resources, resource{label: "node", index: 0})
+	return target_resources
+}
+
 func (stats_m *stats_muster) init() {
 	stats_m.rx_bytes_all = make(map[string][]uint64)
 	stats_m.timestamps_all = make(map[string][]uint64)

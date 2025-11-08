@@ -36,7 +36,10 @@ func (stats_s *stats_shepherd) run_workload(m_id string) {
 	//cmd_setup_mutilate += "echo > ~/all_mutilate_output.txt;"
 	//cmd_setup_mutilate += "ssh -f " + l_m.ip + " './read_rapl_start.sh';"
 	cmd := exec.Command("bash", "-c", cmd_setup_mutilate)
-	if err := cmd.Run(); err != nil { panic(err) }
+	if err := cmd.Run(); err != nil { 
+		fmt.Printf("\033[31;1m****** ERROR: MUTILATE -- failed to load database: %v\n\033[0m", err)
+		panic(err) 
+	}
 
 	for _, sheep := range(l_m.pasture) {
 		if sheep.label == "core" {

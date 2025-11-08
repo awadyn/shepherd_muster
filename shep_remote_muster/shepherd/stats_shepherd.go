@@ -5,7 +5,7 @@ import (
 	"slices"
 	"sort"
 	"math"
-	"strconv"
+//	"strconv"
 )
 
 /**************************************/
@@ -155,19 +155,19 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 						} else {
 							if ctrl_break == 0 {
 								fmt.Println("************ APPLYING CTRLS **********************", opt_dvfs[guess], opt_itrd[guess])
-								new_ctrls := make(map[string]uint64)
-								for _, sheep := range(stats_s.musters[m_id].pasture) {
-									if sheep.label == "node" {
-										index := strconv.Itoa(int(sheep.index))
-										label := sheep.label
-										itrd_val, _ := strconv.ParseUint(opt_itrd[guess], 10, 64)
-										dvfs_val, _ := strconv.ParseUint(opt_dvfs[guess], 16, 64)
-										new_ctrls["itr-ctrl-" + label + "-" + index + "-" + l_m.ip] = itrd_val
-										new_ctrls["dvfs-ctrl-" + label + "-" + index + "-" + l_m.ip] = dvfs_val
-										stats_s.control(m_id, sheep.id, new_ctrls)
-										break
-									}
-								}
+//								new_ctrls := make(map[string]uint64)
+//								for _, sheep := range(stats_s.musters[m_id].pasture) {
+//									if sheep.label == "node" {
+//										index := strconv.Itoa(int(sheep.index))
+//										label := sheep.label
+//										itrd_val, _ := strconv.ParseUint(opt_itrd[guess], 10, 64)
+//										dvfs_val, _ := strconv.ParseUint(opt_dvfs[guess], 16, 64)
+//										new_ctrls["itr-ctrl-" + label + "-" + index + "-" + l_m.ip] = itrd_val
+//										new_ctrls["dvfs-ctrl-" + label + "-" + index + "-" + l_m.ip] = dvfs_val
+//										stats_s.control(m_id, sheep.id, new_ctrls)
+//										break
+//									}
+//								}
 								cur_qps_guess = qpses[guess]
 							}
 							ctrl_break = (ctrl_break + 1) % 3
