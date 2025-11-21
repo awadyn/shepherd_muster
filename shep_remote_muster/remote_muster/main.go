@@ -32,7 +32,7 @@ func main() {
 		if err != nil {fmt.Printf("** ** ** ERROR: bad ip_idx argument: %v\n", err)}
 	}
 
-	target_resources := setup_target_resources_c8220(ncores)
+	target_resources := setup_target_resources_cX220(ncores)
 	remote_node := node{ip: n_ip, ip_idx: ip_idx, ncores: ncores, 
 			    pulse_port: pulse_port, log_port: log_port, 
 			    ctrl_port: ctrl_port, coordinate_port: coordinate_port,
