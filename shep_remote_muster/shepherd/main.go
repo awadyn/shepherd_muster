@@ -13,7 +13,7 @@ var debug bool = false
 
 
 func main() {
-	target_resources := setup_target_resources_c8220(18)
+	target_resources := setup_target_resources_cX220(16)
 
 	// assume that a list of nodes is known apriori
 //	nodes := []node{{ip: "10.10.1.2", ip_idx: -1, ncores: 16, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081, optimizer_server_port: 50091, optimizer_client_port: 50101}}
