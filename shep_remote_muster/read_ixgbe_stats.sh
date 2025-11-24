@@ -6,6 +6,7 @@ dest=$2
 cat $src > /dev/null
 while true
 do 
-	cat $src >> $dest
+#	cat $src >> $dest
+	cat $src  | cut -d ' ' -f 3,17 >> $dest
 	sleep 1
 done
