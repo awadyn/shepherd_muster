@@ -207,8 +207,6 @@ func (s *shepherd) control(m_id string, sheep_id string, ctrls map[string]uint64
 	l_m := s.local_musters[m_id]
 	sheep := l_m.pasture[sheep_id]
 
-	fmt.Println("CTRL REQ", sheep_id, ctrls)
-
 	l_m.new_ctrl_chan <- control_request{sheep_id: sheep_id, ctrls: ctrls}
 	ctrl_reply := <- sheep.done_ctrl_chan
 

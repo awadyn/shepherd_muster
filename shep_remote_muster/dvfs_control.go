@@ -10,7 +10,8 @@ import (
 func read_dvfs_all(core uint8, extra_args ...string) uint64 {
 	var out strings.Builder
 	var stderr strings.Builder
-	cmd := exec.Command("sudo", "rdmsr", "-p 0", "0x199")
+	cmd_str := "sudo rdmsr -p 0 0x199"
+	cmd := exec.Command("bash", "-c", cmd_str)
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 	err := cmd.Run()

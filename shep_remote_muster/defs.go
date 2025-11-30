@@ -15,6 +15,20 @@ import (
 
 var exp_timeout time.Duration = time.Second * 1200
 
+func setup_target_resources_cX220(ncores uint8) []resource {
+	target_resources := make([]resource, 0)
+	mid := ncores / 2
+	var i uint8
+	for i = 0; i < mid - 1; i++ {
+		target_resources = append(target_resources, resource{label: "core", index: i})
+	}
+	for i = mid; i < ncores - 1; i++ {
+		target_resources = append(target_resources, resource{label: "core", index: i})
+	}
+	target_resources = append(target_resources, resource{label: "node", index: 0})
+	return target_resources
+}
+
 type resource struct {
 	label string
 	index uint8
@@ -215,28 +229,28 @@ type Shepherd interface {
 
 /* SPECIALIZATIONS */
 
-type flink_shepherd struct {
-	shepherd
-	flink_musters map[string]*flink_local_muster
-}
-
-type flink_local_muster struct {
-	base_muster *local_muster
-	logs_dir string
-	flink_metrics []string
-	buff_max_size uint64
-}
-
-type flink_worker_muster struct {
-	bayopt_muster
-}
-
-type flink_source_muster struct {
-	remote_muster
-	logs_dir string
-	flink_metrics []string
-	buff_max_size uint64
-}
+//type flink_shepherd struct {
+//	shepherd
+//	flink_musters map[string]*flink_local_muster
+//}
+//
+//type flink_local_muster struct {
+//	base_muster *local_muster
+//	logs_dir string
+//	flink_metrics []string
+//	buff_max_size uint64
+//}
+//
+//type flink_worker_muster struct {
+//	bayopt_muster
+//}
+//
+//type flink_source_muster struct {
+//	remote_muster
+//	logs_dir string
+//	flink_metrics []string
+//	buff_max_size uint64
+//}
 
 type ep_shepherd struct {
 	shepherd

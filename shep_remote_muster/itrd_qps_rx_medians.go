@@ -3,6 +3,9 @@ package main
 //import "fmt"
 //import "math"
 
+var opt_dvfs map[uint32]string = map[uint32]string{100000: "1a00", 200000: "1a00", 400000: "1a00", 600000: "1a00", 800000: "1a00", 1000000: "1a00", 1200000: "1a00"}
+var opt_itrd map[uint32]string = map[uint32]string{100000: "300", 200000: "200", 400000: "350", 600000: "350", 800000: "300", 1000000: "250", 1200000: "200"}
+
 var itrd_qps_med_map  map[uint16]map[uint32]uint64 = map[uint16]map[uint32]uint64 {
 	1 : {
 		100000: 1340, 200000: 2891, 400000: 5257, 600000: 7836, 800000: 10385, 

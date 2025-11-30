@@ -16,10 +16,8 @@ import ( "time"
 
 // ONLINE PHASE
 //var qpses []int = []int{50000, 100000, 200000, 400000, 600000, 750000, 900000}
-var qpses []int = []int{100000, 200000, 400000, 600000, 900000}
-var medians []int = []int{17576, 33329, 62459, 86988, 114710}
-var opt_dvfs []string = []string{"1a00", "c00", "1a00", "1a00", "1100"}
-var opt_itrd []string = []string{"300", "250", "200", "150", "100"}
+//var qpses []int = []int{100000, 200000, 400000, 600000, 900000}
+//var medians []int = []int{17576, 33329, 62459, 86988, 114710}
 
 func (stats_s *stats_shepherd) run_workload(m_id string) {
 	l_m := stats_s.stats_musters[m_id]

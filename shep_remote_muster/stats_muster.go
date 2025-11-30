@@ -5,20 +5,6 @@ import (
 )
 
 /*********************************************/
-func setup_target_resources_cX220(ncores uint8) []resource {
-	target_resources := make([]resource, 0)
-	mid := ncores / 2
-	var i uint8
-	for i = 0; i < mid - 1; i++ {
-		target_resources = append(target_resources, resource{label: "core", index: i})
-	}
-	for i = mid; i < ncores - 1; i++ {
-		target_resources = append(target_resources, resource{label: "core", index: i})
-	}
-	target_resources = append(target_resources, resource{label: "node", index: 0})
-	return target_resources
-}
-
 
 func (stats_m *stats_muster) init() {
 	stats_m.rx_bytes_all = make(map[string][]uint64)
