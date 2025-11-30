@@ -49,6 +49,41 @@ func (stats_s *stats_shepherd) init() {
 /***** LOG PROCESSING *****/
 /**************************/
 
+func (stats_s stats_shepherd) concat_rx_bytes(m_id string) {
+	l_m := stats_s.stats_musters[m_id]
+
+	iterators := make(map[string]int)
+	total_length := 0
+	for sheep_id, sheep := range(l_m.pasture) { 
+		if sheep.label == "node" { continue }
+		iterators[sheep_id] = 0 
+		total_length += len(l_m.rx_bytes_all[sheep_id])
+	}
+
+	l_m.rx_bytes_concat = make([]int, total_length)
+	min_timestamp := uint64(math.Pow(2, 64))
+	ref_iterator := 0
+	ref_sheep := ""
+	for j := 0; j < total_length; j ++ {
+		for sheep_id, sheep := range(l_m.pasture) {
+			if sheep.label == "node" { continue }
+			sheep_itr := iterators[sheep_id]
+			sheep_timestamps := l_m.timestamps_all[sheep_id]
+			if sheep_itr == len(sheep_timestamps) { continue }
+			if sheep_timestamps[sheep_itr] <= min_timestamp {
+				min_timestamp = sheep_timestamps[sheep_itr]
+				ref_iterator = sheep_itr
+				ref_sheep = sheep_id
+			}
+		}
+		l_m.rx_bytes_concat[j] = int(l_m.rx_bytes_all[ref_sheep][ref_iterator])
+		iterators[ref_sheep] += 1
+		min_timestamp = uint64(math.Pow(2, 64))
+	}
+
+
+}
+
 /* 
    This function implements the log processing loop of a stats shepherd.
    Currently, this shepherd is specialized to 1) compute a metric's signal that
@@ -88,68 +123,71 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 						if len(l_m.rx_bytes_all[sheep_id]) < 2048 { ready = false }
 					}
 					if ready {
-						// concat
-
-						iterators := make(map[string]int)
-						total_length := 0
-						for sheep_id, _ := range(l_m.pasture) { 
-							if sheep.label == "node" { continue }
-							iterators[sheep_id] = 0 
-							total_length += len(l_m.rx_bytes_all[sheep_id])
-						}
-
-						l_m.rx_bytes_concat = make([]int, total_length)
-						min_timestamp := uint64(math.Pow(2, 64))
-						ref_iterator := 0
-						ref_sheep := ""
-						for j := 0; j < total_length; j ++ {
-							for sheep_id, _ := range(l_m.pasture) {
-								if sheep.label == "node" { continue }
-								sheep_itr := iterators[sheep_id]
-								sheep_timestamps := l_m.timestamps_all[sheep_id]
-								if sheep_itr == len(sheep_timestamps) { continue }
-								if sheep_timestamps[sheep_itr] <= min_timestamp {
-									min_timestamp = sheep_timestamps[sheep_itr]
-									ref_iterator = sheep_itr
-									ref_sheep = sheep_id
-								}
-							}
-							l_m.rx_bytes_concat[j] = int(l_m.rx_bytes_all[ref_sheep][ref_iterator])
-							iterators[ref_sheep] += 1
-							min_timestamp = uint64(math.Pow(2, 64))
-						}
-
+						stats_s.concat_rx_bytes(l_m.id)
+						
 						// get current median of the concatenated rx-bytes frame
 						sort.Ints(l_m.rx_bytes_concat)
-						l_m.rx_bytes_median = l_m.rx_bytes_concat[total_length/2]
+						l_m.rx_bytes_median = l_m.rx_bytes_concat[len(l_m.rx_bytes_concat)/2]
 
 						// OFFLINE PHASE: append to medians list of per-frame medians across run
-//						l_m.rx_bytes_medians = append(l_m.rx_bytes_medians, l_m.rx_bytes_median)
+						//l_m.rx_bytes_medians = append(l_m.rx_bytes_medians, l_m.rx_bytes_median)
 
 						/* ONLINE PHASE: testing with manually collected medians */
-						var guess int
-						var diffs []float64 = []float64{0, 0, 0, 0, 0}
-						for q := 0; q < len(qpses); q ++ {
-							diffs[q] = math.Abs(float64(l_m.rx_bytes_median - medians[q]))
-//							if l_m.rx_bytes_median <= (medians[q] + medians[q]/4) { 
-//								guess = q
-//								break 
-//							}
-						}
-						var min_diff float64 = math.Pow(2, 64)
-						for q := 0; q < len(qpses); q ++ {
-							if diffs[q] < min_diff { 
-								min_diff = diffs[q] 
-								guess = q
+						var cur_itrd uint64
+						for _, sheep := range(l_m.pasture) {
+							if sheep.label == "node" {
+								cur_ctrls := sheep.controls
+								for _, ctrl := range(cur_ctrls) {
+									if ctrl.knob == "itr-delay" {
+										cur_itrd = ctrl.value
+										break
+									}
+								}
+								break
 							}
 						}
 
-						fmt.Println("************ QPS GUESS -- ", qpses[guess], " -- MEDIAN -- ", l_m.rx_bytes_median)
-						if cur_qps_guess == qpses[guess] { 
+						// big hack
+						if cur_itrd == 0 { cur_itrd = 1 }
+						fmt.Println(cur_itrd)
+
+						var diffs map[uint32]uint64 = make(map[uint32]uint64)
+						for itrd, qps_medians := range(itrd_qps_med_map) {
+							if uint64(itrd) == cur_itrd {
+								fmt.Println(qps_medians)
+								for qps, med := range(qps_medians) {
+									diffs[qps] = uint64(math.Abs(float64(l_m.rx_bytes_median - int(med))))
+								}
+							}
+						}
+
+//						for q := 0; q < len(qpses); q ++ {
+//							diffs[q] = math.Abs(float64(l_m.rx_bytes_median - medians[q]))
+//						}
+
+						var guess uint32
+						var min_diff uint64 = uint64(math.Pow(2, 64))
+						for qps, diff := range(diffs) {
+							if diff < min_diff { 
+								min_diff = diff
+								guess = qps
+							}
+
+						}
+
+//						for q := 0; q < len(qpses); q ++ {
+//							if diffs[q] < min_diff { 
+//								min_diff = diffs[q] 
+//								guess = q
+//							}
+//						}
+
+						fmt.Println("************ QPS GUESS -- ", guess, " -- MEDIAN -- ", l_m.rx_bytes_median)
+						if cur_qps_guess == int(guess) { 
 							ctrl_break = 1 
 						} else {
 							if ctrl_break == 0 {
-								fmt.Println("************ APPLYING CTRLS **********************", opt_dvfs[guess], opt_itrd[guess])
+								fmt.Println("************ APPLYING CTRLS **********************"/*, opt_dvfs[guess], opt_itrd[guess]*/)
 								new_ctrls := make(map[string]uint64)
 								for _, sheep := range(stats_s.musters[m_id].pasture) {
 									if sheep.label == "node" {
@@ -163,7 +201,7 @@ func (stats_s stats_shepherd) process_logs(m_id string) {
 										break
 									}
 								}
-								cur_qps_guess = qpses[guess]
+								cur_qps_guess = int(guess)
 							}
 							ctrl_break = (ctrl_break + 1) % 3
 						}
