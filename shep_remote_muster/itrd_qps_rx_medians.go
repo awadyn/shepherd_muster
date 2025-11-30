@@ -1,9 +1,9 @@
 package main
 
-import "fmt"
-import "math"
+//import "fmt"
+//import "math"
 
-var itrd_qps_med_map  map[uint16]map[uint32]uint32 = map[uint16]map[uint32]uint32 {
+var itrd_qps_med_map  map[uint16]map[uint32]uint64 = map[uint16]map[uint32]uint64 {
 	1 : {
 		100000: 1340, 200000: 2891, 400000: 5257, 600000: 7836, 800000: 10385, 
 		1000000: 12512, 1200000: 14000,
@@ -50,23 +50,23 @@ var itrd_qps_med_map  map[uint16]map[uint32]uint32 = map[uint16]map[uint32]uint3
 	},
 }
 
-func main() {
-	var itrd_test uint16 = 200
-	var med_test uint32 = 7000
-	var qps_guess uint32 = 0
-	min_diff := math.Pow(2, 32)
-
-	for itrd, qps_map := range(itrd_qps_med_map) {
-		if itrd != itrd_test { continue }
-		for qps, med := range(qps_map) {
-			diff := math.Abs(float64(med) - float64(med_test))
-			if diff < min_diff { 
-				min_diff = diff
-				qps_guess = qps
-			}
-			fmt.Println(itrd, qps, med, med_test, diff, min_diff, qps_guess);
-		}
-			
-	}
-}
+//func main() {
+//	var itrd_test uint16 = 200
+//	var med_test uint32 = 7000
+//	var qps_guess uint32 = 0
+//	min_diff := math.Pow(2, 32)
+//
+//	for itrd, qps_map := range(itrd_qps_med_map) {
+//		if itrd != itrd_test { continue }
+//		for qps, med := range(qps_map) {
+//			diff := math.Abs(float64(med) - float64(med_test))
+//			if diff < min_diff { 
+//				min_diff = diff
+//				qps_guess = qps
+//			}
+//			fmt.Println(itrd, qps, med, med_test, diff, min_diff, qps_guess);
+//		}
+//			
+//	}
+//}
 
