@@ -26,6 +26,7 @@ func (m *muster) init_local(logs_dir string) {
 */
 func (s *shepherd) init(nodes []node) {
 	s.hb_chan = make(chan *pb.HeartbeatReply)
+	s.new_ctrl_chan = make(chan map[string]control_request)
 
 	/* init 1 muster for each node and 1 sheep for each core */
 	s.musters = make(map[string]*muster)

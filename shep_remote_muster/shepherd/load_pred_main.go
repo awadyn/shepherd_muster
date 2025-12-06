@@ -1,11 +1,6 @@
 package main
 
 import ( "time"
-//	 "os"
-//	 "os/exec" 
-//	 "strconv"
-	 "fmt"
-//	 "sort"
 )
 
 
@@ -26,15 +21,10 @@ func load_pred_main(nodes []node) {
 	load_pred_s.deploy_musters()
 
 	for _, l_m := range(load_pred_s.local_musters) {
-		for _, sheep := range(l_m.pasture) {
-			for _, ctrl := range(sheep.controls) {
-				fmt.Println(ctrl.value)
-			}
-		}
-	
 		go load_pred_s.process_logs(l_m.id)
 		go load_pred_s.start_exp(l_m.id)
 	}
+	go load_pred_s.process_control()
 
 	time.Sleep(exp_timeout)
 	for _, l_m := range(load_pred_s.local_musters) {

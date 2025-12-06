@@ -8,27 +8,24 @@ import (
 
 var specialize_on = true
 var optimize_on bool = false
-//var debug bool = true
-var debug bool = false
+var debug bool = true
+//var debug bool = false
 
 
 func main() {
-	target_resources := setup_target_resources_cX220(20)
+	target_resources := setup_target_resources_cX220(16)
 
-	// assume that a list of nodes is known apriori
-//	nodes := []node{{ip: "10.10.1.2", ip_idx: -1, ncores: 16, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081, optimizer_server_port: 50091, optimizer_client_port: 50101}}
-	nodes := []node{{ip: "10.10.1.2", ip_idx: -1, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081, optimizer_server_port: 50091, optimizer_client_port: 50101, resources: target_resources}}
-//	nodes := []node{{ip: "localhost", ip_idx: -1, ncores: 16, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081}}
+//	nodes := []node{{ip: "10.10.1.2", ip_idx: -1, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081, optimizer_server_port: 50091, optimizer_client_port: 50101, resources: target_resources}}
 //	nodes := []node{{ip: "localhost", ip_idx: 0, ncores: 1, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081},
 //			{ip: "localhost", ip_idx: 1, ncores: 1, pulse_port: 50052, log_port:50062, ctrl_port: 50072, coordinate_port: 50082}}
 
-//	args := make(map[string]map[string]string)
-//	args[nodes[0].ip] := make(map[string]string)
-//	args[nodes[0].ip]["opt_type"] = "bayopt"
-//	args[nodes[0].ip]["num_trials"] = "30"
 
-	//stats_main(nodes)
-	load_pred_main(nodes)
+	// define k8s worker nodes 
+	nodes := []node{{ip: "10.10.1.2", ip_idx: -1, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081, optimizer_server_port: 50091, optimizer_client_port: 50101, resources: target_resources},
+			{ip: "10.10.1.3", ip_idx: -1, pulse_port: 50052, log_port:50062, ctrl_port: 50072, coordinate_port: 50082, optimizer_server_port: 50092, optimizer_client_port: 50102, resources: target_resources},
+			{ip: "10.10.1.4", ip_idx: -1, pulse_port: 50053, log_port:50063, ctrl_port: 50073, coordinate_port: 50083, optimizer_server_port: 50093, optimizer_client_port: 50103, resources: target_resources}}
+
+	k8s_main(nodes)
 }
 
 

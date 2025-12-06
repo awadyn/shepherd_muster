@@ -188,6 +188,12 @@ func (l_m *local_muster) start_controller() {
 	go l_m.control(conn, c, ctx, cancel)
 }
 
+
+/* This is the final step on the local side of the control path.
+   Control syncronization with remote side happens when new_ctrls is signalled
+   to local muster new_ctrl_chan.
+   new_ctrls is expected to be a map of string ctrl-ids to uint64 ctrl-vals. 
+*/
 func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx context.Context, cancel context.CancelFunc) {
 	<- l_m.hb_chan
 	defer conn.Close()

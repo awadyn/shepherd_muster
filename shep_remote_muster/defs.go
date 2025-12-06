@@ -211,6 +211,7 @@ type cat struct {
 
 type shepherd struct {
 	hb_chan chan *pb.HeartbeatReply
+	new_ctrl_chan chan map[string]control_request
 
 	//complete_run_chan chan []string
 
@@ -222,7 +223,10 @@ type shepherd struct {
 type Shepherd interface {
 	init()
 	deploy_musters()
+	
 	process_logs()
+	process_control()
+
 	compute_control()
 	complete_run()
 }

@@ -124,7 +124,7 @@ func (load_pred_m *load_pred_muster) is_ready_load_pred() bool {
 	// check if rx_bytes_all map is complete 
 	// i.e. all per-core rx_bytes signals non-empty
 	ready := true
-	frame_size := 4096
+	frame_size := 2048
 	if len(load_pred_m.rx_bytes_all) == len(load_pred_m.pasture) - 1 {
 		for sheep_id, sheep := range(load_pred_m.pasture) {
 			if sheep.label == "node" { continue }
@@ -184,6 +184,16 @@ func (load_pred_s *load_pred_shepherd) check_ready_control(m_id string, guess ui
 	} else {
 		if load_pred_m.ctrl_break == 0 {
 			fmt.Println("************ APPLYING CTRLS **********************", opt_dvfs[guess], opt_itrd[guess])
+			// signal load_pred_shepherd process_control() at new_ctrl_chan with m_id and dvfs,itrd
+			// load_pred_shepherd converts dvfs,itrd,m_id to new_ctrls map 
+			// load_pred_shepherd signals shepherd or muster directly
+
+//			select {
+//			case load_pred_s.new_ctrl_chan <- 
+//			}
+
+			// bayesopt:
+			// signal process_control --> process_control starts bayesopt loop with new controls every iteration WHILE load_pred is still happening
 			new_ctrls := make(map[string]uint64)
 			for _, sheep := range(load_pred_m.pasture) {
 				if sheep.label == "node" {
@@ -262,7 +272,19 @@ func (load_pred_s load_pred_shepherd) process_logs(m_id string) {
 }
 
 
-
+func (load_pred_s load_pred_shepherd) process_control() {
+//	for {
+//		select {
+//		case new_muster_ctrls := <- load_pred_s.new_ctrl_chan:
+//			for m_id, ctrl_req := range(new_muster_ctrls) {
+//				fmt.Println(m_id, ctrl_req)
+//				for sheep_id, ctrls := range(ctrl_req) {
+//					fmt.Println(sheep_id, ctrls)
+//				}
+//			}
+//		}
+//	}
+}
 
 
 
