@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+option go_package = "github.com/awadyn/shep_remote_muster";
+
+import "google/protobuf/any.proto";
+
+package shepherd;
+
+service LogProcessor {
+	rpc StartOptimizer (StartOptimizerRequest) returns (StartOptimizerReply);
+//	rpc StopOptimizer (StopOptimizerRequest) returns (StopOptimizerReply);
+	rpc ProcessLog (ProcessLogRequest) returns (ProcessLogReply);
+}
+
+service LogStatsMessenger {
+	rpc EvaluateLogStats (EvaluateLogStatsRequest) returns (EvaluateLogStatsReply);
+}
+
+message ProcessLogRequest {
+	repeated google.protobuf.Any args = 1;
+}
+
+message ProcessLogReply {
+	bool done = 1;
+}
+
+message StartOptimizerRequest {
+	repeated google.protobuf.Any args = 1;
+}
+
+message StartOptimizerReply {
+	bool done = 1;
+}
+
+message EvaluateLogStatsRequest {
+	repeated google.protobuf.Any args = 1;
+}
+
+message EvaluateLogStatsReply {
+	bool done = 1;
+}
+
+//message StopOptimizerRequest {
+//}
+//
+//message StopOptimizerReply {
+//	bool done = 1;
+//}
+
+

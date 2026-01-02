@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"slices"
-	"sort"
-	"math"
 	"strconv"
+	"flag"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 /**************************************/
@@ -26,7 +26,6 @@ type load_pred_muster struct {
 	timestamps_all map[string][]uint64
 	rx_bytes_concat []uint64
 	rx_bytes_median uint64
-//	rx_bytes_medians []int
 
 	ctrl_break uint16
 	cur_load_pred uint32
@@ -39,13 +38,11 @@ type load_pred_muster struct {
 type load_pred_shepherd struct {
 	intlog_shepherd
 	load_pred_musters map[string]*load_pred_muster
-//	rx_bytes_medians map[int][]int
 }
 
 
 func (load_pred_s *load_pred_shepherd) init() {
 	load_pred_s.load_pred_musters = make(map[string]*load_pred_muster)
-//	load_pred_s.rx_bytes_medians = make(map[int][]int)
 
 	for _, intlog_m := range(load_pred_s.intlog_musters) {
 		load_pred_m := load_pred_muster{intlog_muster: *intlog_m}
@@ -56,167 +53,40 @@ func (load_pred_s *load_pred_shepherd) init() {
 
 
 
+
+func (load_pred_s *load_pred_shepherd) init_optimizers(server_ports []uint64, client_ports []uint64) {
+	load_pred_s.optimizers = make(map[string]*optimizer)
+	log_proc_optimizer := optimizer{id: "log_proc_opt"}
+	for i, p := range(server_ports) {
+		if (i == 0) {
+			i_str := strconv.Itoa(int(i))
+			port := flag.Int("optimize_server_port_" + i_str + "_" + load_pred_s.id, int(p), 
+					 "local muster optimization server port")
+			log_proc_optimizer.port = port
+		}
+	}
+	for i, p := range(client_ports) {
+		if (i == 0) {
+			i_str := strconv.Itoa(int(i))
+			addr := flag.String("optimize_server_addr_" + i_str + "_" + load_pred_s.id,  
+							"localhost:" + strconv.Itoa(int(p)),
+							"address of optimization client")
+			log_proc_optimizer.addr = addr
+		}
+	}
+	load_pred_s.optimizers["log_proc_opt"] = &log_proc_optimizer
+	load_pred_s.optimizers["log_proc_opt"].start_optimize_chan = make(chan start_optimize_request, 1)
+	load_pred_s.optimizers["log_proc_opt"].ready_optimize_chan = make(chan bool, 1)
+	load_pred_s.optimizers["log_proc_opt"].request_optimize_chan = make(chan optimize_request, 1)
+	load_pred_s.optimizers["log_proc_opt"].done_optimize_chan = make(chan bool, 1)
+}
+
+
+
 /**************************/
 /***** LOG PROCESSING *****/
 /**************************/
 
-/* given a log object, returns 2 arrays representing rx-bytes and timestamp signal
-   of the log's current mem_buff
-*/
-func get_rx_signal(l log) ([]uint64, []uint64) {
-	mem_buff := l.mem_buff
-	timestamps := make([]uint64, len(*mem_buff))
-	rx_bytes := make([]uint64, len(*mem_buff))
-
-	var rx_bytes_idx int = slices.Index(l.metrics, "rx_bytes")
-	var timestamp_idx int = slices.Index(l.metrics, "timestamp")
-	for j := 0; j < len(*mem_buff); j ++ {
-		rx_bytes[j] = (*mem_buff)[j][rx_bytes_idx]
-		timestamps[j] = (*mem_buff)[j][timestamp_idx]
-	}
-	return rx_bytes, timestamps
-}
-
-func (load_pred_m *load_pred_muster) concat_rx_bytes() {
-	iterators := make(map[string]int)
-	total_length := 0
-	for sheep_id, sheep := range(load_pred_m.pasture) { 
-		if sheep.label == "node" { continue }
-		iterators[sheep_id] = 0 
-		total_length += len(load_pred_m.rx_bytes_all[sheep_id])
-	}
-
-	load_pred_m.rx_bytes_concat = make([]uint64, total_length)
-
-	min_timestamp := uint64(math.Pow(2, 64))
-	ref_iterator := 0
-	ref_sheep := ""
-	for j := 0; j < total_length; j ++ {
-		for sheep_id, sheep := range(load_pred_m.pasture) {
-			if sheep.label == "node" { continue }
-			sheep_itr := iterators[sheep_id]
-			sheep_timestamps := load_pred_m.timestamps_all[sheep_id]
-			if sheep_itr == len(sheep_timestamps) { continue }
-			if sheep_timestamps[sheep_itr] <= min_timestamp {
-				min_timestamp = sheep_timestamps[sheep_itr]
-				ref_iterator = sheep_itr
-				ref_sheep = sheep_id
-			}
-		}
-		load_pred_m.rx_bytes_concat[j] = load_pred_m.rx_bytes_all[ref_sheep][ref_iterator]
-		iterators[ref_sheep] += 1
-		min_timestamp = uint64(math.Pow(2, 64))
-	}
-
-}
-
-func (load_pred_m *load_pred_muster) compute_rx_median() {
-	load_pred_m.concat_rx_bytes()
-
-	sort.Slice(load_pred_m.rx_bytes_concat, func(i, j int) bool {
-		return load_pred_m.rx_bytes_concat[i] < load_pred_m.rx_bytes_concat[j] // Sort in ascending order
-	})
-
-	load_pred_m.rx_bytes_median = load_pred_m.rx_bytes_concat[len(load_pred_m.rx_bytes_concat)/2]
-}
-
-func (load_pred_m *load_pred_muster) is_ready_load_pred() bool {
-	// check if rx_bytes_all map is complete 
-	// i.e. all per-core rx_bytes signals non-empty
-	ready := true
-	frame_size := 2048
-	if len(load_pred_m.rx_bytes_all) == len(load_pred_m.pasture) - 1 {
-		for sheep_id, sheep := range(load_pred_m.pasture) {
-			if sheep.label == "node" { continue }
-			if len(load_pred_m.rx_bytes_all[sheep_id]) < frame_size { ready = false }
-		}
-	} else { 
-		ready = false 
-	}
-
-	return ready
-}
-
-func (load_pred_m *load_pred_muster) load_pred() uint32 {
-	var cur_itrd uint64
-	for _, sheep := range(load_pred_m.pasture) {
-		if sheep.label == "node" {
-			cur_ctrls := sheep.controls
-			for _, ctrl := range(cur_ctrls) {
-				if ctrl.knob == "itr-delay" {
-					cur_itrd = ctrl.value
-					break
-				}
-			}
-			break
-		}
-	}
-
-	// big hack
-	if cur_itrd == 0 { cur_itrd = 50 }
-
-	var diffs map[uint32]float64 = make(map[uint32]float64)
-	for itrd, qps_medians := range(itrd_qps_med_map) {
-		if uint64(itrd) == cur_itrd {
-			for qps, med := range(qps_medians) {
-				diffs[qps] = math.Abs(float64(load_pred_m.rx_bytes_median) - float64(med))
-			}
-		}
-	}
-	fmt.Println("QPS median diffs: ", diffs)
-
-	var guess uint32
-	var min_diff float64 = math.Pow(2, 64)
-	for qps, diff := range(diffs) {
-		if diff < min_diff { 
-			min_diff = diff
-			guess = qps
-		}
-	}
-
-	return guess
-}
-
-func (load_pred_s *load_pred_shepherd) check_ready_control(m_id string, guess uint32) {
-	load_pred_m := load_pred_s.load_pred_musters[m_id]
-	if load_pred_m.cur_load_pred == guess { 
-		load_pred_m.ctrl_break = 1 
-	} else {
-		if load_pred_m.ctrl_break == 0 {
-			fmt.Println("************ APPLYING CTRLS **********************", opt_dvfs[guess], opt_itrd[guess])
-			// signal load_pred_shepherd process_control() at new_ctrl_chan with m_id and dvfs,itrd
-			// load_pred_shepherd converts dvfs,itrd,m_id to new_ctrls map 
-			// load_pred_shepherd signals shepherd or muster directly
-
-//			select {
-//			case load_pred_s.new_ctrl_chan <- 
-//			}
-
-			// bayesopt:
-			// signal process_control --> process_control starts bayesopt loop with new controls every iteration WHILE load_pred is still happening
-			new_ctrls := make(map[string]uint64)
-			for _, sheep := range(load_pred_m.pasture) {
-				if sheep.label == "node" {
-					index := strconv.Itoa(int(sheep.index))
-					label := sheep.label
-					itrd_val, _ := strconv.ParseUint(opt_itrd[guess], 10, 64)
-					dvfs_val, _ := strconv.ParseUint(opt_dvfs[guess], 16, 64)
-					new_ctrls["itr-ctrl-" + label + "-" + index + "-" + load_pred_m.ip] = itrd_val
-					new_ctrls["dvfs-ctrl-" + label + "-" + index + "-" + load_pred_m.ip] = dvfs_val
-					load_pred_s.control(m_id, sheep.id, new_ctrls)
-					break
-				}
-			}
-			load_pred_m.cur_load_pred = guess
-		}
-		if guess == load_pred_m.cur_load_guess { 
-			load_pred_m.ctrl_break = (load_pred_m.ctrl_break + 1) % 3 
-		} else { 
-			load_pred_m.ctrl_break = 1 
-		}
-		load_pred_m.cur_load_guess = guess
-	}
-}
 
 func (load_pred_s load_pred_shepherd) process_logs(m_id string) {
 	l_m := load_pred_s.load_pred_musters[m_id]
@@ -230,46 +100,87 @@ func (load_pred_s load_pred_shepherd) process_logs(m_id string) {
 			go func() {
 				sheep := sheep
 				log := log
-				l_m := l_m
-				if debug { fmt.Printf("\033[32m-------- SPECIALIZED PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep.id, log.id) }
-
-				rx_bytes, timestamps := get_rx_signal(log)
-
-				<- l_m.processing_lock
-
-				// append per-sheep rx_bytes signal to map of per-sheep rx_bytes signals
-				l_m.timestamps_all[sheep.id] = append(l_m.timestamps_all[sheep.id], timestamps...)
-				l_m.rx_bytes_all[sheep.id] = append(l_m.rx_bytes_all[sheep.id], rx_bytes...)
-
-				ready := l_m.is_ready_load_pred()
-
-				if ready {
-					l_m.compute_rx_median()
-					guess := l_m.load_pred()
-					if l_m.cur_load_guess == 0 { l_m.cur_load_guess = guess }
-					fmt.Println("************ QPS GUESS -- ", guess, " -- CURRENT QPS GUESS -- ", l_m.cur_load_pred, " -- MEDIAN -- ", l_m.rx_bytes_median)
-
-					load_pred_s.check_ready_control(l_m.id, guess)
-
-					// reset/cleanup
-					l_m.timestamps_all = make(map[string][]uint64)
-					l_m.rx_bytes_all = make(map[string][]uint64)
-					l_m.rx_bytes_concat = make([]uint64, 0)
+				sheep_id := sheep_id
+				log_id := log_id
+				if debug { fmt.Printf("\033[32m-------- SPECIALIZED PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep_id, log_id) }
+		
+				opt_args := make([]*anypb.Any, 0)
+				data := wrapperspb.String(log.id)
+				arg, _ := anypb.New(data)
+				opt_args = append(opt_args, arg)
+				optimizer := load_pred_s.optimizers["log_proc_opt"]
+				optimizer.request_optimize_chan <- optimize_request{args: opt_args}
+				done := <- optimizer.done_optimize_chan
+				if !done {
+					fmt.Printf("** ** ** ERROR ** ** ** OPTIMIZER %v COULD NOT PROCESS LOG\n", optimizer.id)
 				}
-
+				
 				if debug { fmt.Printf("\033[32m-------- COMPLETED SPECIALIZED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id) }
-				select {
-				case l_m.processing_lock <- true:
-				default:
-				}
-				select {
-				case log.ready_process_chan <- true:
-				default:
-				}
+				log.ready_process_chan <- true
 			} ()
 		}
 	}
 }
+
+
+//func (load_pred_s load_pred_shepherd) process_logs(m_id string) {
+//	l_m := load_pred_s.load_pred_musters[m_id]
+//	for {
+//		select {
+//		case ids := <- l_m.process_buff_chan:
+//			sheep_id := ids[0]
+//			log_id := ids[1]
+//			sheep := l_m.pasture[sheep_id]
+//			log := *(sheep.logs[log_id])
+//			go func() {
+//				sheep := sheep
+//				log := log
+//				l_m := l_m
+//				log.log_file_lock <- true
+//
+//				// rpc to python log processing server with sheep_id, log_id, logs_dir
+//				// signal done immediately 
+//				// log processing server may return after some condition passes
+//				// in this case, it will rpc to the shepherd who will signal process_control with the returned stats
+//
+//
+//				rx_bytes, timestamps := get_rx_signal(log)
+//
+//				<- l_m.processing_lock
+//
+//				// append per-sheep rx_bytes signal to map of per-sheep rx_bytes signals
+//				l_m.timestamps_all[sheep.id] = append(l_m.timestamps_all[sheep.id], timestamps...)
+//				l_m.rx_bytes_all[sheep.id] = append(l_m.rx_bytes_all[sheep.id], rx_bytes...)
+//
+//				ready := l_m.is_ready_load_pred()
+//
+//				if ready {
+//					l_m.compute_rx_median()
+//					guess := l_m.load_pred()
+//					if l_m.cur_load_guess == 0 { l_m.cur_load_guess = guess }
+//					fmt.Println("************ QPS GUESS -- ", guess, " -- CURRENT QPS GUESS -- ", l_m.cur_load_pred, " -- MEDIAN -- ", l_m.rx_bytes_median)
+//
+//					load_pred_s.check_ready_control(l_m.id, guess)
+//
+//					// reset/cleanup
+//					l_m.timestamps_all = make(map[string][]uint64)
+//					l_m.rx_bytes_all = make(map[string][]uint64)
+//					l_m.rx_bytes_concat = make([]uint64, 0)
+//				}
+//
+//				if debug { fmt.Printf("\033[32m-------- COMPLETED SPECIALIZED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id) }
+//				select {
+//				case l_m.processing_lock <- true:
+//				default:
+//				}
+//				select {
+//				case log.ready_process_chan <- true:
+//				default:
+//				}
+//			} ()
+//		}
+//	}
+//}
 
 
 func (load_pred_s load_pred_shepherd) process_control() {

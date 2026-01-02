@@ -19,7 +19,6 @@ func (load_pred_m *load_pred_muster) init() {
 	load_pred_m.rx_bytes_all = make(map[string][]uint64)
 	load_pred_m.timestamps_all = make(map[string][]uint64)
 	load_pred_m.rx_bytes_concat = make([]uint64, 0)
-//	stats_m.rx_bytes_medians = make([]int, 0)
 
 	load_pred_m.ctrl_break = 1
 	load_pred_m.cur_load_pred = 0
