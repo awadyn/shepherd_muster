@@ -20,7 +20,8 @@ message HeartbeatReply {
 
 
 service Log {
-	rpc SyncLogBuffers (stream SyncLogRequest) returns (SyncLogReply) {}
+	//rpc SyncLogBuffers (stream SyncLogRequest) returns (SyncLogReply) {}
+	rpc SyncLogBuffers (SyncLogRequest) returns (SyncLogReply) {}
 }
 
 message LogEntry {
@@ -30,11 +31,14 @@ message LogEntry {
 message SyncLogRequest {
 	string sheep_id = 1;
 	string log_id = 2;
-	LogEntry log_entry = 3;
+	//LogEntry log_entry = 3;
+	repeated LogEntry log_buffer = 3;
+	bool start = 4;
 }
 
 message SyncLogReply {
 	bool sync_complete = 1;
+	bool start = 2;
 }
 
 

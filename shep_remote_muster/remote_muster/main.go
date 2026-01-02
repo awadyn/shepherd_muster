@@ -8,8 +8,8 @@ import (
 
 /*********************************************/
 
-var debug bool = true
-//var debug bool = false
+//var debug bool = true
+var debug bool = false
 var mirror_ip string
 
 func main() {
@@ -38,7 +38,7 @@ func main() {
 			    ctrl_port: ctrl_port, coordinate_port: coordinate_port,
 		    	    resources: target_resources}
 
-	stats_main(remote_node)
+	intlog_main(remote_node)
 }
 
 

@@ -105,53 +105,97 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 		case ids := <- r_m.full_buff_chan:
 			sheep_id := ids[0]
 			log_id := ids[1]
-			sheep := r_m.pasture[sheep_id]
-			log := sheep.logs[log_id]
-			if debug { fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep.id, log.id) }
+			if debug { fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep_id, log_id) }
 
 			go func() {
-				sheep := sheep
-				log := log
-				for {	// try until stream is initialized with local muster log sync server
-					stream, err := c.SyncLogBuffers(ctx)
+				sheep_id := sheep_id
+				log_id := log_id
+				sheep := r_m.pasture[sheep_id]
+				log := sheep.logs[log_id]
+
+				log_buffer := make([]*pb.LogEntry, 0)
+				for _, log_entry := range *(log.mem_buff) {
+					log_buffer = append(log_buffer, &pb.LogEntry{Vals: log_entry})
+				}
+
+				for {
+					r, err := c.SyncLogBuffers(ctx, &pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogBuffer: log_buffer, Start: true})
 					if err != nil {
-						fmt.Printf("\033[31;1m****** ERROR: %v could not initialize log sync stream %v:\n       %v\n\033[0m", r_m.id, log.id, err)
+						fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log sync buffer:\n      %v\n\033[0m", r_m.id, log_id, err)
 						time.Sleep(time.Second/5)
 						continue	// try again
-					}
-					for _, log_entry := range *(log.mem_buff) {
-						for {	// try until log entry is sent to log sync server
-							err := stream.Send(&pb.SyncLogRequest{SheepId: sheep.id, LogId:log.id, LogEntry: &pb.LogEntry{Vals: log_entry}})
-							if err != nil { 
-								fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log entry %v:\n      %v\n\033[0m", r_m.id, log.id, log_entry, err)
-								time.Sleep(time.Second/5)
-								continue	// try again
-							}
-							break
-						}
-					}
-					for {	// try until stream with log sync server is closed
-						r, err := stream.CloseAndRecv()
-						if err != nil {
-							fmt.Printf("\033[31;1m****** ERROR: %v problem receiving log sync reply %v:\n       %v\n\033[0m", r_m.id, log.id, err)
+					} else {
+						if r.GetSyncComplete() {
+							if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log_id, r.GetSyncComplete()) }
+							log.ready_buff_chan <- true
+							return
+						} else {
+							fmt.Printf("\033[31;1m****** ERROR: %v problem with log sync of %v - reply:\n       %v\n\033[0m", r_m.id, log_id, r)
 							time.Sleep(time.Second/5)
 							continue	// try again
 						}
-						if r.GetSyncComplete() {
-							if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log.id, r.GetSyncComplete()) }
-							log.ready_buff_chan <- true
-						} else {
-							fmt.Printf("\033[31;1m****** ERROR: %v problem with local log sync of %v - reply:\n       %v\n\033[0m", r_m.id, log.id, r)
-							// if here, log mem buff is no longer available for use
-						}
-						break
 					}
-					break	// done when all above RPCs complete successfully 
 				}
-			}()
+			} ()
 		}
 	}
 }
+
+
+//func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context.Context, cancel context.CancelFunc) {
+//	defer conn.Close()
+//	defer cancel()
+//	for {
+//		select {
+//		case ids := <- r_m.full_buff_chan:
+//			sheep_id := ids[0]
+//			log_id := ids[1]
+//			if debug { fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep_id, log_id) }
+//			go func() {
+//				sheep_id := sheep_id
+//				log_id := log_id
+//				for {	// try until stream is initialized with local muster log sync server
+//					stream, err := c.SyncLogBuffers(ctx)
+//					if err != nil {
+//						fmt.Printf("\033[31;1m****** ERROR: %v could not initialize log sync stream %v:\n       %v\n\033[0m", r_m.id, log_id, err)
+//						time.Sleep(time.Second/5)
+//						continue	// try again
+//					}
+//					start := true
+//					for _, log_entry := range *(r_m.pasture[sheep_id].logs[log_id].mem_buff) {
+//						for {	// try until log entry is sent to log sync server
+//							err := stream.Send(&pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogEntry: &pb.LogEntry{Vals: log_entry}, Start: start})
+//							if err != nil { 
+//								fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log entry %v:\n      %v\n\033[0m", r_m.id, log_id, log_entry, err)
+//								time.Sleep(time.Second/5)
+//								continue	// try again
+//							}
+//							break
+//						}
+//						start = false
+//					}
+//					for {	// try until stream with log sync server is closed
+//						r, err := stream.CloseAndRecv()
+//						if err != nil {
+//							fmt.Printf("\033[31;1m****** ERROR: %v problem receiving log sync reply %v:\n       %v\n\033[0m", r_m.id, log_id, err)
+//							time.Sleep(time.Second/5)
+//							continue	// try again
+//						}
+//						if r.GetSyncComplete() {
+//							if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log_id, r.GetSyncComplete()) }
+//							r_m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true
+//						} else {
+//							fmt.Printf("\033[31;1m****** ERROR: %v problem with local log sync of %v - reply:\n       %v\n\033[0m", r_m.id, log_id, r)
+//							// if here, log mem buff is no longer available for use
+//						}
+//						break
+//					}
+//					break	// done when all above RPCs complete successfully 
+//				}
+//			}()
+//		}
+//	}
+//}
 
 /*********************/
 /* REMOTE CONTROLLER */
