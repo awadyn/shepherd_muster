@@ -77,13 +77,12 @@ func (nop_s nop_shepherd) process_logs(m_id string) {
 /***************************/
 
 func (nop_s nop_shepherd) compute_control(m_id string) {
-	l_m := nop_s.local_musters[m_id]
-	for {
-		select {
-		case opt_req := <- l_m.request_optimize_chan:
-			fmt.Printf("\033[31m-------- REQUEST OPTIMIZE SIGNAL :  %v - %v\n\033[0m", m_id, opt_req)
-		}
-	}
+//	for {
+//		select {
+//		case opt_req := <- l_m.request_optimize_chan:
+//			fmt.Printf("\033[31m-------- REQUEST OPTIMIZE SIGNAL :  %v - %v\n\033[0m", m_id, opt_req)
+//		}
+//	}
 }
 
 

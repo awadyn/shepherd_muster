@@ -9,7 +9,8 @@ import (
 
 	"google.golang.org/grpc"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
-	pb_opt "github.com/awadyn/shep_remote_muster/shep_optimizer"
+	pb_opt "github.com/awadyn/shep_remote_muster/shep_log_processor"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 /************************************/
 
@@ -40,8 +41,8 @@ type node struct {
 	log_port int
 	ctrl_port int
 	coordinate_port int
-	optimizer_client_port int
-	optimizer_server_port int
+	optimizer_server_ports []int
+	optimizer_client_ports []int
 	ip_idx int			//differentiates musters on the same node
 	ip string
 	resources []resource
@@ -74,19 +75,9 @@ type control_reply struct {
 	ctrls map[string]uint64
 }
 
-type start_optimize_request struct {
-	ntrials uint32
-}
-
 type optimize_setting struct {
 	knob string
 	val uint64
-}
-
-type optimize_request struct {
-	m_id string
-	sheep_id string
-	settings []optimize_setting 
 }
 
 type reward struct {
@@ -112,7 +103,6 @@ type log struct {
 	id string
 
 	log_wait_factor time.Duration		// seconds to wait before updating log filesystem representative
-						// TODO: buff_wait_factor ??
 }
 
 
@@ -168,25 +158,19 @@ type local_muster struct {
 	muster
 	hb_chan chan *pb.HeartbeatReply
 
-	start_optimize_chan chan start_optimize_request
-	request_optimize_chan chan optimize_request
-	ready_optimize_chan chan bool
-	ready_reward_chan chan reward_reply
+//	request_optimize_chan chan optimize_request
+//	ready_reward_chan chan reward_reply
 
 	log_server_port *int
 	ctrl_server_addr *string
 	pulse_server_addr *string
-	optimize_server_addr *string
-	optimize_server_port *int
 	coordinate_server_addr *string
 
 	pb.UnimplementedLogServer
-	pb_opt.UnimplementedOptimizeServer
 }
 
 type remote_muster struct {	// i.e. 1st level specialization of a muster
 	muster
-//	hb_chan chan bool
 
 	log_server_addr *string
 	ctrl_server_port *int
@@ -209,6 +193,29 @@ type cat struct {
 	chaos uint8
 }
 
+type start_optimize_request struct {
+	args []*anypb.Any
+}
+
+type optimize_request struct {
+//	m_id string
+//	sheep_id string
+//	settings []optimize_setting 
+	args []*anypb.Any
+}
+
+type optimizer struct {
+	id string
+	port *int
+	addr *string
+
+	start_optimize_chan chan start_optimize_request	
+	ready_optimize_chan chan bool
+
+	request_optimize_chan chan optimize_request
+	done_optimize_chan chan bool
+}
+
 type shepherd struct {
 	hb_chan chan *pb.HeartbeatReply
 	new_ctrl_chan chan map[string]control_request
@@ -218,6 +225,10 @@ type shepherd struct {
 	musters map[string]*muster
 	local_musters map[string]*local_muster
 	id string
+
+	optimizers map[string]*optimizer
+	
+	pb_opt.UnimplementedLogStatsMessengerServer
 }
 
 type Shepherd interface {
@@ -229,42 +240,6 @@ type Shepherd interface {
 
 	compute_control()
 	complete_run()
-}
-
-/* SPECIALIZATIONS */
-
-//type flink_shepherd struct {
-//	shepherd
-//	flink_musters map[string]*flink_local_muster
-//}
-//
-//type flink_local_muster struct {
-//	base_muster *local_muster
-//	logs_dir string
-//	flink_metrics []string
-//	buff_max_size uint64
-//}
-//
-//type flink_worker_muster struct {
-//	bayopt_muster
-//}
-//
-//type flink_source_muster struct {
-//	remote_muster
-//	logs_dir string
-//	flink_metrics []string
-//	buff_max_size uint64
-//}
-
-type ep_shepherd struct {
-	shepherd
-}
-
-type test_muster struct {
-	remote_muster
-	done_log_map map[string](map[string]chan bool)
-	log_f_map map[string](map[string]*os.File)
-	log_reader_map map[string](map[string]*csv.Reader)
 }
 
 
@@ -282,10 +257,10 @@ func (r_m *remote_muster) show() {
 	fmt.Printf("-- REMOTE MUSTER :  %v\n   %v \n", r_m.id, r_m)
 	fmt.Printf("-- ROLE : %v \n", r_m.role)
 	fmt.Printf("-- NODE :  %v \n", r_m.node)
-	fmt.Printf("   -- PULSE SERVE PORT :  %v \n", *r_m.pulse_server_port)
+	fmt.Printf("   -- PULSE SERVER PORT :  %v \n", *r_m.pulse_server_port)
 	fmt.Printf("   -- LOG CLIENT PORT :  %v \n", *r_m.log_server_addr)
-	fmt.Printf("   -- CONTROL SERVE PORT :  %v \n", *r_m.ctrl_server_port)
-	fmt.Printf("   -- COORDINATION SERVE PORT :  %v \n", *r_m.coordinate_server_port)
+	fmt.Printf("   -- CONTROL SERVER PORT :  %v \n", *r_m.ctrl_server_port)
+	fmt.Printf("   -- COORDINATION SERVER PORT :  %v \n", *r_m.coordinate_server_port)
 	fmt.Printf("   -- PASTURE :  \n")
 	r_m.muster.show()
 }
@@ -294,10 +269,10 @@ func (l_m *local_muster) show() {
 	fmt.Printf("-- LOCAL MUSTER :  %v\n   %v \n", l_m.id, l_m)
 	fmt.Printf("-- ROLE : %v \n", l_m.role)
 	fmt.Printf("-- NODE :  %v \n", l_m.node)
-	fmt.Printf("   -- PULSE SERVE PORT :  %v \n", *l_m.pulse_server_addr)
-	fmt.Printf("   -- LOG CLIENT PORT :  %v \n", *l_m.log_server_port)
-	fmt.Printf("   -- CONTROL SERVE PORT :  %v \n", *l_m.ctrl_server_addr)
-	fmt.Printf("   -- COORDINATION SERVE PORT :  %v \n", *l_m.coordinate_server_addr)
+	fmt.Printf("   -- PULSE CLIENT PORT :  %v \n", *l_m.pulse_server_addr)
+	fmt.Printf("   -- LOG SERVER PORT :  %v \n", *l_m.log_server_port)
+	fmt.Printf("   -- CONTROL CLIENT PORT :  %v \n", *l_m.ctrl_server_addr)
+	fmt.Printf("   -- COORDINATION CLIENT PORT :  %v \n", *l_m.coordinate_server_addr)
 	fmt.Printf("   -- PASTURE :  \n")
 	l_m.muster.show()
 }
@@ -317,5 +292,13 @@ func (m *muster) show() {
 	fmt.Println()
 }
 
-
+func (s *shepherd) show() {
+	for id, opt := range(s.optimizers) {
+		fmt.Printf("** OPTIMIZER :  %v \n", id)
+		port := opt.port
+		addr := opt.addr
+		fmt.Printf("** ** OPTIMIZER SERVER PORT:  %v \n", *port)
+		fmt.Printf("** ** OPTIMIZER CLIENT PORT:  %v \n", *addr)
+	}
+}
 

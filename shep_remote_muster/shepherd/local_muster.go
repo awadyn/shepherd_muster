@@ -5,7 +5,7 @@ import (
 	"context"
 	"flag"
 	"net"
-	"io"
+//	"io"
 	"time"
 	"strconv"
 //	"errors"
@@ -13,17 +13,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
-	pb_opt "github.com/awadyn/shep_remote_muster/shep_optimizer"
 )
 
 /************************************/
 
 func (l_m *local_muster) init() {
 	l_m.hb_chan = make(chan *pb.HeartbeatReply)
-	l_m.start_optimize_chan = make(chan start_optimize_request, 1)
-	l_m.request_optimize_chan = make(chan optimize_request, 1)
-	l_m.ready_reward_chan = make(chan reward_reply, 1)
-	l_m.ready_optimize_chan = make(chan bool, 1)
 
 	for _, sheep := range(l_m.pasture) {
 		for _, log := range(sheep.logs) {
@@ -44,14 +39,9 @@ func (l_m *local_muster) init() {
 	l_m.coordinate_server_addr = flag.String("coordinate_server_addr_" + l_m.id + idx, 
 						l_m.ip + ":" + strconv.Itoa(l_m.coordinate_port),
 						"address of remote muster  coordination server")
-	l_m.optimize_server_addr = flag.String("optimize_server_addr_" + l_m.id + idx,  
-						"localhost:" + strconv.Itoa(l_m.optimizer_client_port),
-						"address of optimization client")
 	// shepherd servers
 	l_m.log_server_port = flag.Int("log_server_port_" + l_m.id + idx, l_m.log_port, 
 					"local muster log syncing server port")
-	l_m.optimize_server_port = flag.Int("optimize_server_port_" + l_m.id + idx, l_m.optimizer_server_port, 
-						"local muster optimization server port")
 }
 
 
@@ -130,40 +120,68 @@ func (l_m *local_muster) log() {
 	}
 }
 
-func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) error {
-	buff_ctr := 0
+func (l_m *local_muster) SyncLogBuffers(ctx context.Context, in *pb.SyncLogRequest) (*pb.SyncLogReply, error) {
 	var log_id string
 	var sheep_id string
 	var mem_buff *[][]uint64
-	for {
-		sync_req, err := stream.Recv()
 
-		if buff_ctr == 0 {
-			sheep_id = sync_req.GetSheepId()
-			log_id = sync_req.GetLogId()
-			if debug { fmt.Printf("\033[36m-----> SYNC-REQ -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
-			<- l_m.pasture[sheep_id].logs[log_id].ready_buff_chan
-			mem_buff = l_m.pasture[sheep_id].logs[log_id].mem_buff
-			*(mem_buff)  = make([][]uint64, 0)
-		}
+	sheep_id = in.GetSheepId()
+	log_id = in.GetLogId()
+	log_buff := in.GetLogBuffer()
+	sheep := l_m.pasture[sheep_id]
+	log := sheep.logs[log_id]
 
-		switch {
-		case err == io.EOF:
-			/* i.e. all log entries have been copied to mem_buff*/
-			l_m.full_buff_chan <- []string{sheep_id, log_id}
-			if debug { fmt.Printf("\033[36m<----- SYNC-REP -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
-			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:true})
+	<- log.ready_buff_chan
 
-		case err != nil:
-			fmt.Printf("\033[31;1m****** ERROR: could not receive sync log request from stream\n\033[0m")
-			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:false})
-
-		default:
-			*mem_buff = append(*mem_buff, sync_req.GetLogEntry().GetVals())
-			buff_ctr++
-		}
+	mem_buff = log.mem_buff
+	*(mem_buff)  = make([][]uint64, 0)
+	for _, log_entry := range(log_buff) {
+		*mem_buff = append(*mem_buff, log_entry.GetVals())
 	}
+
+	l_m.full_buff_chan <- []string{sheep_id, log_id}
+	
+	if debug { fmt.Printf("\033[36m<----- SYNC-REP -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
+	return &pb.SyncLogReply{SyncComplete:true, Start: false}, nil
 }
+
+
+//func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) error {
+//	var log_id string
+//	var sheep_id string
+//	var mem_buff *[][]uint64
+//	for {
+//		sync_req, err := stream.Recv()
+//
+//		switch {
+//		case err == io.EOF:
+//			/* i.e. all log entries have been copied to mem_buff*/
+//			if sync_req.GetStart() == true {
+//				// empty sync request
+//				return stream.SendAndClose(&pb.SyncLogReply{SyncComplete: true, Start: sync_req.GetStart()})
+//			}
+//
+//			l_m.full_buff_chan <- []string{sheep_id, log_id}
+//			if debug { fmt.Printf("\033[36m<----- SYNC-REP -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }//sheep_id, log_id) }
+//			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:true, Start: sync_req.GetStart()})
+//
+//		case err != nil:
+//			fmt.Printf("\033[31;1m****** ERROR: could not receive sync log request from stream\n\033[0m")
+//			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:false, Start: sync_req.GetStart()})
+//
+//		default:
+//			if sync_req.GetStart() == true {
+//				sheep_id = sync_req.GetSheepId()
+//				log_id = sync_req.GetLogId()
+//				<- l_m.pasture[sheep_id].logs[log_id].ready_buff_chan
+//				if debug { fmt.Printf("\033[36m-----> SYNC-REQ -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
+//				mem_buff = l_m.pasture[sheep_id].logs[log_id].mem_buff
+//				*(mem_buff)  = make([][]uint64, 0)
+//			}
+//			*mem_buff = append(*mem_buff, sync_req.GetLogEntry().GetVals())
+//		}
+//	}
+//}
 
 
 /************************/
@@ -306,73 +324,5 @@ func (l_m *local_muster) coordinate(conn *grpc.ClientConn, c pb.CoordinateClient
 	}
 }
 
-
-func (l_m *local_muster) start_optimizer() {
-	fmt.Printf("\033[34;1m-- STARTING LOCAL OPTIMIZER :  %v\n\033[0m", l_m.id)
-	// start optimization server
-	go l_m.optimize_server()
-
-	conn, err := grpc.Dial(*l_m.optimize_server_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		fmt.Printf("****** ERROR: %v could not create connection to optimizer server:\n****** %v\n", l_m.id, err)
-	}
-	c := pb_opt.NewSetupOptimizeClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), exp_timeout)
-	fmt.Printf("\033[36m---- %v -- Initialized optimizer client\n\033[0m", l_m.id)
-	// start optimization client
-	go l_m.optimize_client(conn, c, ctx, cancel)
-
-}
-
-func (l_m *local_muster) optimize_server() {
-	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *l_m.optimize_server_port))
-	if err != nil {
-		fmt.Printf("\033[31;1m****** ERROR: %v failed to listen at %v: %v\n\033[0m", l_m.id, *l_m.optimize_server_port, err)
-	}
-	s := grpc.NewServer()
-	pb_opt.RegisterOptimizeServer(s, l_m)
-	fmt.Printf("\033[36m---- %v -- Initialized optimization server listening at %v \n\033[0m", l_m.id, lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		fmt.Printf("\033[31;1m****** ERROR: %v failed to start optimization server: %v\n\033[0m", l_m.id, err)
-	}
-}
-
-// TODO add core number to optimize_request
-func (l_m *local_muster) EvaluateOptimizer(ctx context.Context, in *pb_opt.OptimizeRequest) (*pb_opt.OptimizeReply, error) {
-	fmt.Printf("\033[36m-----> OPTIMIZE-REQ -- %v - NEW CTRLS -- %v\n\033[0m", l_m.id, in.GetCtrls())
-	opt_settings := make([]optimize_setting,0)
-	for _, ctrl := range(in.GetCtrls()) {
-		opt_settings = append(opt_settings, optimize_setting{knob: ctrl.Knob, val: ctrl.Val})
-	}
-	l_m.request_optimize_chan <- optimize_request{settings: opt_settings} 
-	reward_rep := <- l_m.ready_reward_chan
-	rewards := make([]*pb_opt.RewardEntry, 0)
-	for _, reward := range(reward_rep.rewards) {
-		rewards = append(rewards, &pb_opt.RewardEntry{Id: reward.id, Val: reward.val})
-	}
-	fmt.Println("rewards: ", rewards)
-	return &pb_opt.OptimizeReply{Done: true, Rewards: rewards}, nil
-}
-
-
-func (l_m *local_muster) optimize_client(conn *grpc.ClientConn, c pb_opt.SetupOptimizeClient, ctx context.Context, cancel context.CancelFunc) {
-	defer conn.Close()
-	defer cancel()
-	for {
-		select {
-		case opt_req := <- l_m.start_optimize_chan:
-			ntrials := opt_req.ntrials
-			r, err := c.StartOptimizer(ctx, &pb_opt.StartOptimizerRequest{NTrials: ntrials})  
-			if err != nil {
-				fmt.Printf("\033[31;1m***** COULD NOT START OPTIMIZER:  %v\n\033[0m", l_m.id)
-				return
-			} else {
-				fmt.Printf("\033[34;1m***** STARTED OPTIMIZER:  %v - %v\n\033[0m", l_m.id, r.GetDone())
-				l_m.ready_optimize_chan <- r.GetDone()
-			}
-		}
-	}
-}
 
 
