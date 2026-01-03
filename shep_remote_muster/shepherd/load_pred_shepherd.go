@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"flag"
+	"math"
+
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -87,9 +89,36 @@ func (load_pred_s *load_pred_shepherd) init_optimizers(server_ports []uint64, cl
 /***** LOG PROCESSING *****/
 /**************************/
 
+func (load_pred_s *load_pred_shepherd) load_pred() uint32 {
+	var cur_itrd uint64 = 100 
+
+	var diffs map[uint32]float64 = make(map[uint32]float64)
+	for itrd, qps_medians := range(itrd_qps_med_map) {
+		if uint64(itrd) == cur_itrd {
+			for qps, med := range(qps_medians) {
+				diffs[qps] = math.Abs(float64(rx_bytes_median) - float64(med))
+			}
+		}
+	}
+//	fmt.Println("QPS median diffs: ", diffs)
+
+	var guess uint32
+	var min_diff float64 = math.Pow(2, 64)
+	for qps, diff := range(diffs) {
+		if diff < min_diff { 
+			min_diff = diff
+			guess = qps
+		}
+	}
+
+	return guess
+}
+
+
 
 func (load_pred_s load_pred_shepherd) process_logs(m_id string) {
 	l_m := load_pred_s.load_pred_musters[m_id]
+	var cur_guess uint32 = 0
 	for {
 		select {
 		case ids := <- l_m.process_buff_chan:
@@ -115,6 +144,12 @@ func (load_pred_s load_pred_shepherd) process_logs(m_id string) {
 					fmt.Printf("** ** ** ERROR ** ** ** OPTIMIZER %v COULD NOT PROCESS LOG\n", optimizer.id)
 				}
 				
+				guess := load_pred_s.load_pred()
+				if guess != cur_guess {
+					fmt.Println("************ QPS GUESS -- ", guess, " -- MEDIAN -- ", rx_bytes_median)
+					cur_guess = guess
+				}
+
 				if debug { fmt.Printf("\033[32m-------- COMPLETED SPECIALIZED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id) }
 				log.ready_process_chan <- true
 			} ()

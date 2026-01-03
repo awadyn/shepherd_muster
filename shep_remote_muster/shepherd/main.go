@@ -12,6 +12,7 @@ var optimize_on bool = true
 //var debug bool = true
 var debug bool = false
 
+var rx_bytes_median uint64 = 0
 
 func main() {
 	target_resources := setup_target_resources_cX220(16)

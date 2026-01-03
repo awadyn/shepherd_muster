@@ -276,12 +276,15 @@ func (s *shepherd) optimize_server(port *int) {
 
 func (s *shepherd) EvaluateLogStats(ctx context.Context, in *pb_opt.EvaluateLogStatsRequest) (*pb_opt.EvaluateLogStatsReply, error) {
 	if debug { fmt.Printf("\033[0m-----> OPTIMIZE-REQ -- %v - ARGS -- %v\n\033[0m", s.id, in.GetArgs()) }
-	for _, arg := range(in.GetArgs()) {
+	for i, arg := range(in.GetArgs()) {
 		value := wrapperspb.Int64(0)
 		if err := arg.UnmarshalTo(value); err != nil { 
 			fmt.Println("ERROR : ", err) 
 		}
-		fmt.Println(value) 
+		if i == 1 {
+			fmt.Println(value) 
+			rx_bytes_median = uint64(value.GetValue())
+		}
 	}
 	return &pb_opt.EvaluateLogStatsReply{Done: true}, nil
 }
