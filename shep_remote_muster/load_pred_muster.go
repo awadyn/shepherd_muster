@@ -9,6 +9,32 @@ import (
 
 /*********************************************/
 
+type intlog_sheep struct {
+	sheep
+
+	rx_bytes []uint64
+	timestamps []uint64
+
+	processing_lock chan bool	
+}
+
+/* a load_pred_muster extends from an intlog_muster with additional data structures 
+   for storing log statistics to use in load prediction and control optimization
+*/
+type load_pred_muster struct {
+	intlog_muster
+	intlog_pasture map[string]*intlog_sheep
+
+	processing_lock chan bool	// write protection if multiple sheep access muster structs
+	
+	rx_bytes_concat []uint64
+	rx_bytes_median uint64
+
+	ctrl_break uint16
+	cur_load uint32
+	cur_load_guess uint32
+}
+
 /* a load prediction muster manages one Memcached server
    it holds data to maintain statistics about the load imposed on the server
    it issues control state change requests when that load changes
