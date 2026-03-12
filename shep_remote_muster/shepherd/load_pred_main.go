@@ -25,20 +25,10 @@ func load_pred_main(nodes []node) {
 		optimizer_server_ports := []uint64{50091}
 		optimizer_client_ports := []uint64{50101}
 		load_pred_s.init_optimizers(optimizer_server_ports, optimizer_client_ports)
-	}
-
-	load_pred_s.show()
-
-	// start all management and coordination threads
-	load_pred_s.deploy_musters()
-
-	for _, l_m := range(load_pred_s.local_musters) {
-		go load_pred_s.process_logs(l_m.id)
-		go load_pred_s.start_exp(l_m.id)
-	}
-//	go load_pred_s.process_control()
-
-	if optimize_on {
+		for id, _ := range(load_pred_s.optimizers) {
+			load_pred_s.start_optimizer_server(id)
+			load_pred_s.start_optimizer_client(id)
+		}
 		for id, optimizer := range(load_pred_s.optimizers) {
 			start_args := make([]*anypb.Any, 0)
 			data := wrapperspb.String("/users/awadyn/shepherd_muster/shep_remote_muster/mustherd-logs-muster-10.10.1.2/")
@@ -55,7 +45,19 @@ func load_pred_main(nodes []node) {
 		}
 	}
 
+	load_pred_s.show()
+	// start all management and coordination threads
+	load_pred_s.deploy_musters()
+
+	for _, l_m := range(load_pred_s.local_musters) {
+		go load_pred_s.process_logs(l_m.id)
+	//	go load_pred_s.process_control()
+	}
+
+	go load_pred_s.start_exp()
+
 	time.Sleep(exp_timeout)
+	load_pred_s.cleanup()
 	for _, l_m := range(load_pred_s.local_musters) {
 		for _, sheep := range(l_m.pasture) {
 			for _, f := range(sheep.log_f_map) { f.Close() }

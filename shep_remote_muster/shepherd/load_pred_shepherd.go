@@ -14,25 +14,25 @@ import (
 /****** SHEPHERD SPECIALIZATION  ******/
 /**************************************/
 
-/* a load_pred_muster extends from an intlog_muster with additional data structures used
-   during the process of log processing and load prediction
-   to store useful log statistics
-*/
-type load_pred_muster struct {
-	intlog_muster
-	
-	// write protection in case of multiple per-sheep threads accessing muster datatypes
-	processing_lock chan bool		
-	
-	rx_bytes_all map[string][]uint64
-	timestamps_all map[string][]uint64
-	rx_bytes_concat []uint64
-	rx_bytes_median uint64
-
-	ctrl_break uint16
-	cur_load_pred uint32
-	cur_load_guess uint32
-}
+///* a load_pred_muster extends from an intlog_muster with additional data structures used
+//   during the process of log processing and load prediction
+//   to store useful log statistics
+//*/
+//type load_pred_muster struct {
+//	intlog_muster
+//	
+//	// write protection in case of multiple per-sheep threads accessing muster datatypes
+//	processing_lock chan bool		
+//	
+//	rx_bytes_all map[string][]uint64
+//	timestamps_all map[string][]uint64
+//	rx_bytes_concat []uint64
+//	rx_bytes_median uint64
+//
+//	ctrl_break uint16
+//	cur_load_pred uint32
+//	cur_load_guess uint32
+//}
 
 /* a load_pred_shepherd extends from an intlog_shepherd with additional log processing
    functionality that enables load prediction
@@ -119,6 +119,8 @@ func (load_pred_s *load_pred_shepherd) load_pred() uint32 {
 func (load_pred_s load_pred_shepherd) process_logs(m_id string) {
 	l_m := load_pred_s.load_pred_musters[m_id]
 	var cur_guess uint32 = 0
+	var cur_qps uint32 = 0
+	ctrl_break := 1
 	for {
 		select {
 		case ids := <- l_m.process_buff_chan:
@@ -145,9 +147,23 @@ func (load_pred_s load_pred_shepherd) process_logs(m_id string) {
 				}
 				
 				guess := load_pred_s.load_pred()
+				fmt.Println("****** QPS GUESS -- ", guess, " -- MEDIAN -- ", rx_bytes_median)
 				if guess != cur_guess {
-					fmt.Println("************ QPS GUESS -- ", guess, " -- MEDIAN -- ", rx_bytes_median)
+					// start over guess count
+					ctrl_break = 1
 					cur_guess = guess
+				} else {
+					if guess != cur_qps {
+						if ctrl_break == 0 {
+							cur_qps = guess
+							fmt.Println("****************** APPLYING CTRLS **********************"/*, opt_dvfs[guess], opt_itrd[guess]*/)
+							ctrl_break = 1		// reset guess count
+						} else {
+							ctrl_break = (ctrl_break + 1) % 3
+						}
+					} else {
+						ctrl_break = 1
+					}
 				}
 
 				if debug { fmt.Printf("\033[32m-------- COMPLETED SPECIALIZED PROCESS LOG :  %v - %v\n\033[0m", sheep.id, log.id) }
