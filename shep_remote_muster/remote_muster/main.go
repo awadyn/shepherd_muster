@@ -38,7 +38,8 @@ func main() {
 			    ctrl_port: ctrl_port, coordinate_port: coordinate_port,
 		    	    resources: target_resources}
 
-	intlog_main(remote_node)
+	//intlog_main(remote_node)
+	load_pred_main(remote_node)
 }
 
 
