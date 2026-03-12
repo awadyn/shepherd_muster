@@ -17,6 +17,7 @@ var log_wait_factor time.Duration = 1
 func (intlog_m *intlog_muster) init() {
 	intlog_m.native_loggers["intlogger"] = ixgbe_native_log
 	for _, sheep := range(intlog_m.pasture) {
+		if (sheep.label != "core") { continue }
 		// specialize default log id then init log specifics
 		index := strconv.Itoa(int(sheep.index))
 		label := sheep.label
