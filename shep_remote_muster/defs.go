@@ -20,10 +20,10 @@ func setup_target_resources_cX220(ncores uint8) []resource {
 	target_resources := make([]resource, 0)
 	mid := ncores / 2
 	var i uint8
-	for i = 0; i < mid - 1; i++ {
+	for i = 1; i < mid; i++ {
 		target_resources = append(target_resources, resource{label: "core", index: i})
 	}
-	for i = mid; i < ncores - 1; i++ {
+	for i = mid + 1; i < ncores; i++ {
 		target_resources = append(target_resources, resource{label: "core", index: i})
 	}
 	target_resources = append(target_resources, resource{label: "node", index: 0})
@@ -41,8 +41,8 @@ type node struct {
 	log_port int
 	ctrl_port int
 	coordinate_port int
-	optimizer_server_ports []int
-	optimizer_client_ports []int
+//	optimizer_server_ports []int
+//	optimizer_client_ports []int
 	ip_idx int			//differentiates musters on the same node
 	ip string
 	resources []resource
@@ -134,16 +134,6 @@ type sheep struct {
 }
 
 type muster struct {
-	full_buff_chan chan []string
-	process_buff_chan chan []string
-
-	request_ctrl_chan chan map[string]map[string]uint64
-	done_request_chan chan bool
-
-	new_ctrl_chan chan control_request
-	request_log_chan chan []string
-//	request_ctrl_chan chan []string
-
 	node
 	pulsing bool
 	role string
@@ -152,6 +142,21 @@ type muster struct {
 
 	native_loggers map[string]func(*sheep, *log, string)
 	logs_dir string
+	
+	full_buff_chan chan []string
+	process_buff_chan chan []string
+
+	request_ctrl_chan chan map[string]map[string]uint64
+	
+	process_ctrl_chan chan []any
+	done_ctrl_chan chan bool
+	new_ctrl_chan chan control_request
+	
+	done_request_chan chan bool
+
+	request_log_chan chan []string
+//	request_ctrl_chan chan []string
+
 }
 
 type local_muster struct {
