@@ -146,43 +146,6 @@ func (l_m *local_muster) SyncLogBuffers(ctx context.Context, in *pb.SyncLogReque
 }
 
 
-//func (l_m *local_muster) SyncLogBuffers(stream pb.Log_SyncLogBuffersServer) error {
-//	var log_id string
-//	var sheep_id string
-//	var mem_buff *[][]uint64
-//	for {
-//		sync_req, err := stream.Recv()
-//
-//		switch {
-//		case err == io.EOF:
-//			/* i.e. all log entries have been copied to mem_buff*/
-//			if sync_req.GetStart() == true {
-//				// empty sync request
-//				return stream.SendAndClose(&pb.SyncLogReply{SyncComplete: true, Start: sync_req.GetStart()})
-//			}
-//
-//			l_m.full_buff_chan <- []string{sheep_id, log_id}
-//			if debug { fmt.Printf("\033[36m<----- SYNC-REP -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }//sheep_id, log_id) }
-//			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:true, Start: sync_req.GetStart()})
-//
-//		case err != nil:
-//			fmt.Printf("\033[31;1m****** ERROR: could not receive sync log request from stream\n\033[0m")
-//			return stream.SendAndClose(&pb.SyncLogReply{SyncComplete:false, Start: sync_req.GetStart()})
-//
-//		default:
-//			if sync_req.GetStart() == true {
-//				sheep_id = sync_req.GetSheepId()
-//				log_id = sync_req.GetLogId()
-//				<- l_m.pasture[sheep_id].logs[log_id].ready_buff_chan
-//				if debug { fmt.Printf("\033[36m-----> SYNC-REQ -- %v - %v - %v\n\033[0m", l_m.id, sheep_id, log_id) }
-//				mem_buff = l_m.pasture[sheep_id].logs[log_id].mem_buff
-//				*(mem_buff)  = make([][]uint64, 0)
-//			}
-//			*mem_buff = append(*mem_buff, sync_req.GetLogEntry().GetVals())
-//		}
-//	}
-//}
-
 
 /************************/
 /*** LOCAL CONTROLLER ***/
@@ -238,6 +201,16 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 					break
 				}
 				new_ctrl_reply := control_reply{ctrls: new_ctrls, done: done_ctrl}
+
+				done_ctrls := new_ctrl_reply.ctrls
+				done_status := new_ctrl_reply.done
+				if (done_status) {
+					fmt.Println("-------- CTRL CHANGE ", sheep_id, done_ctrls)
+					for ctrl_id, ctrl_val := range(done_ctrls) {
+						l_m.pasture[sheep_id].controls[ctrl_id].value = ctrl_val
+					}
+				}
+
 				l_m.pasture[sheep_id].done_ctrl_chan <- new_ctrl_reply
 				fmt.Printf("\033[35m-------> CTRL REP --  %v - %v - %v\n\033[0m", l_m.id, sheep_id, new_ctrls)
 			}()
