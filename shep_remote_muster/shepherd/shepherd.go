@@ -88,13 +88,6 @@ func (s *shepherd) deploy_musters() {
 		go s.process_logs(l_m.id)
 		go s.process_control(l_m.id)
 
-		if optimize_on { 
-			for id, _ := range(s.optimizers) {
-				s.start_optimizer_server(id)
-				s.start_optimizer_client(id)
-			}
-		}
-
 		l_m.show()
 	}
 	go s.listen_heartbeats()
@@ -146,18 +139,12 @@ func (s shepherd) process_logs(m_id string) {
 				log := sheep.logs[log_id]
 
 				if debug { fmt.Printf("\033[32m-------- PROCESS LOG SIGNAL :  %v - %v\n\033[0m", sheep_id, log_id) }
+				
 				sheep.write_log_file(log_id)
 
 				if specialize_on {
-					go func() {
-						l_m := l_m
-						log := log
-						sheep_id := sheep_id
-						log_id := log_id
-
-						l_m.process_buff_chan <- []string{sheep_id, log_id}
-						<- log.ready_process_chan
-					} ()
+					l_m.process_buff_chan <- []string{sheep_id, log_id}
+					<- log.ready_process_chan
 				}
 
 				if debug { fmt.Printf("\033[32m-------- COMPLETED PROCESS LOG :  %v - %v\n\033[0m", sheep_id, log_id) }
@@ -282,7 +269,6 @@ func (s *shepherd) EvaluateLogStats(ctx context.Context, in *pb_opt.EvaluateLogS
 			fmt.Println("ERROR : ", err) 
 		}
 		if i == 1 {
-			fmt.Println(value) 
 			rx_bytes_median = uint64(value.GetValue())
 		}
 	}
