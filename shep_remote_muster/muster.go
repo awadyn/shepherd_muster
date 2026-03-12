@@ -97,6 +97,8 @@ func (m *muster) init() {
 	m.full_buff_chan = make(chan []string)
 	m.process_buff_chan = make(chan []string)
 	m.new_ctrl_chan = make(chan control_request)
+	m.process_ctrl_chan = make(chan []any)
+	m.done_ctrl_chan = make(chan bool, 1)
 	/* coordination channels */
 	m.request_log_chan = make(chan []string)
 	m.request_ctrl_chan = make(chan map[string]map[string]uint64)
