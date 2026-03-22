@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"math"
 	"slices"
-	//"fmt"
+	"fmt"
 )
 
 /*********************************************/
@@ -14,6 +14,7 @@ type intlog_sheep struct {
 
 	rx_bytes []uint64
 	timestamps []uint64
+	joules []uint64
 
 	processing_lock chan bool	
 }
@@ -67,7 +68,8 @@ func (load_pred_m *load_pred_muster) init() {
 	for sheep_id, sheep := range(load_pred_m.pasture) {
 		rx_bytes := make([]uint64, 0)
 		timestamps := make([]uint64, 0)
-		intlog_sh := intlog_sheep{sheep: *sheep, rx_bytes: rx_bytes, timestamps: timestamps}
+		joules := make([]uint64, 0)
+		intlog_sh := intlog_sheep{sheep: *sheep, rx_bytes: rx_bytes, joules: joules, timestamps: timestamps}
 		intlog_sh.processing_lock = make(chan bool, 1)
 		intlog_sh.processing_lock <- true
 		intlog_pasture[sheep_id] = &intlog_sh
@@ -101,16 +103,22 @@ func (load_pred_m *load_pred_muster) get_rx_signal(intlog_sh *intlog_sheep, l lo
 	mem_buff := l.mem_buff
 	var rx_bytes_idx int = slices.Index(l.metrics, "rx_bytes")
 	var timestamp_idx int = slices.Index(l.metrics, "timestamp")
+	var joules_idx int = slices.Index(l.metrics, "joules")
 	timestamps := make([]uint64, len(*mem_buff))
 	rx_bytes := make([]uint64, len(*mem_buff))
+	joules := make([]uint64, len(*mem_buff))
 	for i := 0; i < len(*mem_buff); i ++ {
 		rx_bytes[i] = (*mem_buff)[i][rx_bytes_idx]
 		timestamps[i] = (*mem_buff)[i][timestamp_idx]
+		//if (intlog_sh.index == 1) || (intlog_sh.index == 9) {
+		joules[i] = (*mem_buff)[i][joules_idx]
+		//}
 	}
 
 	<- intlog_sh.processing_lock
 	intlog_sh.rx_bytes = append(intlog_sh.rx_bytes, rx_bytes...)
 	intlog_sh.timestamps = append(intlog_sh.timestamps, timestamps...)
+	intlog_sh.joules = append(intlog_sh.joules, joules...)
 	intlog_sh.processing_lock <- true
 }
 
@@ -126,16 +134,33 @@ func (load_pred_m *load_pred_muster) check_ready_pred() bool {
 }
 
 
-func (load_pred_m *load_pred_muster) concat_rx_bytes() []int {
+func (load_pred_m *load_pred_muster) concat_rx_bytes() ([]int, uint64, uint64, uint64) {
 	iterators := make(map[string]int)
 	total_length := 0
+	var joules_consumed uint64 = 0
 	for sheep_id, sheep := range(load_pred_m.intlog_pasture) { 
 		if sheep.label == "node" { continue }
 		iterators[sheep_id] = 0 
 		total_length += len(sheep.rx_bytes)
+		if (sheep.index == 1) || (sheep.index == 9) {
+			if (len(sheep.joules) == 0) { 
+				fmt.Println("empty joules", sheep.id) 
+				break
+			}
+			joules_start := sheep.joules[0] 
+			joules_end := sheep.joules[len(sheep.joules) - 1]
+			if (joules_end > joules_start) {
+				joules_consumed += sheep.joules[len(sheep.joules) - 1] - sheep.joules[0]
+			} else {
+				delta := uint64(math.Pow(2, 32)) - joules_start + joules_end
+				joules_consumed += delta
+			}
+		}
 	}
+	
 	load_pred_m.rx_bytes_concat = make([]uint64, total_length)
 	ints_concat := make([]int, total_length)
+	timestamps := make([]uint64, total_length)
 	min_timestamp := uint64(math.Pow(2, 64))
 	ref_sheep := ""
 	var ref_rx_bytes uint64 = 0
@@ -151,11 +176,14 @@ func (load_pred_m *load_pred_muster) concat_rx_bytes() []int {
 			}
 		}
 		load_pred_m.rx_bytes_concat[i] = ref_rx_bytes
+		timestamps[i] = min_timestamp
 		ints_concat[i] = int(ref_rx_bytes)
 		iterators[ref_sheep] += 1
 		min_timestamp = uint64(math.Pow(2, 64))
 	}
-	return ints_concat
+	end_timestamp := timestamps[len(timestamps) - 1]
+	start_timestamp := timestamps[0]
+	return ints_concat, start_timestamp, end_timestamp, joules_consumed
 }
 
 

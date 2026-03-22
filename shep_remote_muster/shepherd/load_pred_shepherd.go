@@ -90,7 +90,7 @@ func (load_pred_s *load_pred_shepherd) init_optimizers(server_ports []uint64, cl
 /**************************/
 
 func (load_pred_s *load_pred_shepherd) load_pred() uint32 {
-	var cur_itrd uint64 = 100 
+	var cur_itrd uint64 = 1 
 
 	var diffs map[uint32]float64 = make(map[uint32]float64)
 	for itrd, qps_medians := range(itrd_qps_med_map) {

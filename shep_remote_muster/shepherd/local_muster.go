@@ -205,14 +205,12 @@ func (l_m *local_muster) control(conn *grpc.ClientConn, c pb.ControlClient, ctx 
 				done_ctrls := new_ctrl_reply.ctrls
 				done_status := new_ctrl_reply.done
 				if (done_status) {
-					fmt.Println("-------- CTRL CHANGE ", sheep_id, done_ctrls)
 					for ctrl_id, ctrl_val := range(done_ctrls) {
 						l_m.pasture[sheep_id].controls[ctrl_id].value = ctrl_val
 					}
 				}
 
 				l_m.pasture[sheep_id].done_ctrl_chan <- new_ctrl_reply
-				fmt.Printf("\033[35m-------> CTRL REP --  %v - %v - %v\n\033[0m", l_m.id, sheep_id, new_ctrls)
 			}()
 		}
 	}

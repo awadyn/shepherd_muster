@@ -50,13 +50,14 @@ func (load_pred_bayopt_s *load_pred_bayopt_shepherd) check_ready_ctrl(m_id strin
 		l_m.ctrl_break = 1		// reset count N
 	} else {					// same load predicted
 		if (l_m.ctrl_break == 0) {	// consistent load prediction N times
-
-			ctrl_req := make([]any, 0)
-			ctrl_req = append(ctrl_req, guess)
-			l_m.process_ctrl_chan <- ctrl_req
-			<- l_m.done_ctrl_chan
-			l_m.cur_load = guess	// update load to predicted load value
 			l_m.ctrl_break = 1	// reset count N
+			if (l_m.cur_load != guess) {
+				ctrl_req := make([]any, 0)
+				ctrl_req = append(ctrl_req, guess)
+				l_m.process_ctrl_chan <- ctrl_req
+				<- l_m.done_ctrl_chan
+				l_m.cur_load = guess	// update load to predicted load value
+			}
 		} else {				// not ready yet to apply control
 			l_m.ctrl_break = (l_m.ctrl_break + 1) % 3
 		}
@@ -70,11 +71,14 @@ func (load_pred_bayopt_s *load_pred_bayopt_shepherd) pred_load(m_id string) {
 		if sheep.label == "node" { continue }
 		<- sheep.processing_lock
 	}
-	rx_bytes_concat := l_m.concat_rx_bytes()
+	rx_bytes_concat, earliest_timestamp, latest_timestamp, joules := l_m.concat_rx_bytes()
 	sort.Ints(rx_bytes_concat)
 	l_m.rx_bytes_median = uint64(rx_bytes_concat[len(rx_bytes_concat)/2])
 	guess := l_m.rx_to_load_guess()
-	fmt.Println("****** QPS GUESS -- ", guess, " -- MEDIAN -- ", l_m.rx_bytes_median)
+	earliest_timestamp = earliest_timestamp/(2899999*1000)
+	latest_timestamp = latest_timestamp/(2899999*1000)
+	joules = joules * 61/1000000
+	fmt.Println("****** QPS GUESS -- ", guess, " -- MEDIAN -- ", l_m.rx_bytes_median, " -- START TIMESTAMP -- ", earliest_timestamp, " -- END TIMESTAMP -- ", latest_timestamp, " -- DIFF -- ", latest_timestamp - earliest_timestamp, " -- JOULES --", joules)
 
 	load_pred_bayopt_s.check_ready_ctrl(m_id, guess)
 
@@ -82,6 +86,7 @@ func (load_pred_bayopt_s *load_pred_bayopt_shepherd) pred_load(m_id string) {
 		if sheep.label == "node" { continue }
 		sheep.timestamps = make([]uint64, 0)
 		sheep.rx_bytes = make([]uint64, 0)
+		sheep.joules = make([]uint64, 0)
 	}
 	l_m.rx_bytes_concat = make([]uint64, 0)
 	for _, sheep := range(l_m.intlog_pasture) {
@@ -125,11 +130,11 @@ func (load_pred_bayopt_s load_pred_bayopt_shepherd) process_control(m_id string)
 			new_ctrls := make(map[string]uint64)
 			for _, sheep := range(l_m.intlog_pasture) {
 				if sheep.label != "node" { continue }
-				fmt.Println("*********** APPLYING CTRLS ***************", sheep.id, new_ctrls)
 				index := strconv.Itoa(int(sheep.index))
 				label := sheep.label
 				new_ctrls["itr-ctrl-" + label + "-" + index + "-" + l_m.ip] = itrd_val
 				new_ctrls["dvfs-ctrl-" + label + "-" + index + "-" + l_m.ip] = dvfs_val
+				fmt.Println("*********** APPLYING CTRLS ***************", sheep.id, new_ctrls)
 				l_m.new_ctrl_chan <- control_request{sheep_id: sheep.id, ctrls: new_ctrls}
 				ctrl_reply := <- sheep.done_ctrl_chan
 				fmt.Println("*********** DONE CTRLS ***************", sheep.id, ctrl_reply)
