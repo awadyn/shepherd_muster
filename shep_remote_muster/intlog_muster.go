@@ -10,7 +10,7 @@ import (
 //			    "instructions", "cycles", "ref_cycles", "llc_miss", 
 //			    "c1", "c1e", "c3", "c3e", "c6", "c7", "joules","timestamp"}
 //var ixgbe_metrics []string = []string{"rx_bytes", "timestamp"}
-var ixgbe_metrics []string = []string{"rx_bytes", "instructions", "cycles", "ref_cycles", "llc_miss", "timestamp"}
+var ixgbe_metrics []string = []string{"rx_bytes", "instructions", "cycles", "ref_cycles", "llc_miss", "joules", "timestamp"}
 var buff_max_size uint64 = 1024
 var log_wait_factor time.Duration = 1
 
