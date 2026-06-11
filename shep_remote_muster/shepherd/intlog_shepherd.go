@@ -31,44 +31,48 @@ func (intlog_s *intlog_shepherd) init() {
 
 func (intlog_s *intlog_shepherd) start_exp() {
 	for _, l_m := range(intlog_s.local_musters) {
-		<- l_m.hb_chan
+		go func() {
+			l_m := l_m
 
-		home_dir, err := os.Getwd()
-		if err != nil { panic(err) }
-		l_m.logs_dir = home_dir + "/" + "mustherd-logs-" + l_m.id + "/"
-		err = os.Mkdir(l_m.logs_dir, 0750)
-		if err != nil && !os.IsExist(err) { panic(err) }
-		intlog_s.init_log_files(l_m.logs_dir)
+			<- l_m.hb_chan
 
-		for _, sheep := range(l_m.pasture) {
-			if sheep.label == "core" {
-				for _, log := range(sheep.logs) {
-					l_m.request_log_chan <- []string{sheep.id, log.id, "start", "intlogger"}
+			home_dir, err := os.Getwd()
+			if err != nil { panic(err) }
+			l_m.logs_dir = home_dir + "/" + "mustherd-logs-" + l_m.id + "/"
+			err = os.Mkdir(l_m.logs_dir, 0750)
+			if err != nil && !os.IsExist(err) { panic(err) }
+			intlog_s.init_log_files(l_m.id, l_m.logs_dir)
+
+			for _, sheep := range(l_m.pasture) {
+				if sheep.label == "core" {
+					for _, log := range(sheep.logs) {
+						l_m.request_log_chan <- []string{sheep.id, log.id, "start", "intlogger"}
+					}
 				}
 			}
-		}
-		for _, sheep := range(l_m.pasture) {
-			if sheep.label == "core" {
-				for _, log := range(sheep.logs) {
-					l_m.request_log_chan <- []string{sheep.id, log.id, "all", "intlogger"}
+			for _, sheep := range(l_m.pasture) {
+				if sheep.label == "core" {
+					for _, log := range(sheep.logs) {
+						l_m.request_log_chan <- []string{sheep.id, log.id, "all", "intlogger"}
+					}
+				}
+			}	
+			time.Sleep(time.Second * exp_timeout)	/* workload is running in meantime.. */
+			for _, sheep := range(l_m.pasture) {
+				if sheep.label == "core" {
+					for _, log := range(sheep.logs) {
+						l_m.request_log_chan <- []string{sheep.id, log.id, "stop", "intlogger"}
+					}
 				}
 			}
-		}	
-		time.Sleep(time.Second * exp_timeout)	/* workload is running in meantime.. */
-		for _, sheep := range(l_m.pasture) {
-			if sheep.label == "core" {
-				for _, log := range(sheep.logs) {
-					l_m.request_log_chan <- []string{sheep.id, log.id, "stop", "intlogger"}
+			/*for _, sheep := range(l_m.pasture) {
+				if sheep.label == "core" {
+					for _, log := range(sheep.logs) {
+						l_m.request_log_chan <- []string{sheep.id, log.id, "close", "intlogger"}
+					}
 				}
-			}
-		}
-		/*for _, sheep := range(l_m.pasture) {
-			if sheep.label == "core" {
-				for _, log := range(sheep.logs) {
-					l_m.request_log_chan <- []string{sheep.id, log.id, "close", "intlogger"}
-				}
-			}
-		}*/
+			}*/
+		} ()
 	}
 }
 
