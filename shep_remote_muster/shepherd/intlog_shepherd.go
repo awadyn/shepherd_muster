@@ -41,7 +41,7 @@ func (intlog_s *intlog_shepherd) start_exp() {
 			l_m.logs_dir = home_dir + "/" + "mustherd-logs-" + l_m.id + "/"
 			err = os.Mkdir(l_m.logs_dir, 0750)
 			if err != nil && !os.IsExist(err) { panic(err) }
-			intlog_s.init_log_files(l_m.id, l_m.logs_dir)
+			intlog_s.init_log_files(l_m.logs_dir)
 
 			for _, sheep := range(l_m.pasture) {
 				if sheep.label == "core" {
