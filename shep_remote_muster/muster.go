@@ -6,8 +6,6 @@ import (
 	"os"
 )
 
-//import "fmt"
-
 /*********************************************/
 func ctrl_get_remote(core uint8, extra_args ...string) uint64 {
 	return 0
@@ -31,9 +29,16 @@ func (c *control) init(knob string, getter func(uint8, ...string)uint64, setter 
 
 func (l *log) init_specs(buff_max_size uint64, metrics []string, log_wait_factor time.Duration) {
 	mem_buff := make([][]uint64, 0)
+	// log_buff will store readings from /proc/ixgbe_stats
+	// it should be a 2D slice with maximum capacity = maximum number of log entries * size of log entry
+	// = 1 entry per-millisecond * 1000 milliseconds per-second * 1 second (wait time) * size of log entry
+	// = 1000 * 8 bytes * len(metrics)
+	log_buff := make([][]uint64, 0, 1000 * 8 * len(metrics))
 	l.metrics = metrics
 	l.max_size = buff_max_size
 	l.mem_buff = &mem_buff
+	l.log_buff = &log_buff
+	l.log_buff_itr = 0
 	l.log_wait_factor = log_wait_factor
 }
 

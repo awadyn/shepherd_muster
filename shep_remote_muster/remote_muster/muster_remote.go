@@ -61,57 +61,38 @@ func (m *muster) cleanup() {
 /*
    populates one full memory buffer of log entries
 */
-func do_log(shared_log *log, reader *csv.Reader) error {
+func do_log(shared_log *log) error {
 	var counter uint64
-	var row []string
-	var err error
+	var row []uint64
 	for counter=0; counter < shared_log.max_size; counter++ {
-		row, err = reader.Read()
-		// here if finished reading file into partial or empty mem_buff
-		if err == io.EOF { 
+		// here if finished reading log_buff into partial or empty mem_buff
+		if (int(shared_log.log_buff_itr) == len(*shared_log.log_buff)) {
 			// return with partially filled mem_buff
 			if counter > 0 {
 				return nil
 			} else {
 				return io.EOF
 			}
-		} else {
-			// here if problem reading from log file
-			if err != nil { 
-				// TODO handle this:
-				// if here, then reading from the log file here and writing to it by read_ixgbe_stats.sh
-				// might be happening concurrently resulting in reading an incomplete log entry
-				// this error can be ignored: r := csv.NewReader(file); r.FieldsPerRecord = -1
-				// in theory, we should be able to ignore a few such log entries and read onwards
-				// this error appears infrequently, but not rarely
-				// do not ignore
-				fmt.Println("!!!ERROR!!!", shared_log.id, err, row)
-				continue	// ignore this incomplete row and continue filling mem_buff
-				return err
-			}
 		}
-		// here if still reading; append log entry read from file
-		log_entry := make([]uint64, len(shared_log.metrics))
-		for i := range(len(shared_log.metrics)) {
-			val, _ := strconv.Atoi(row[i])
-			log_entry[i] = uint64(val)
-		}
-		*shared_log.mem_buff = append(*shared_log.mem_buff, log_entry)
+		row = (*shared_log.log_buff)[shared_log.log_buff_itr]
+		*shared_log.mem_buff = append(*shared_log.mem_buff, row)
+		shared_log.log_buff_itr += 1
 	}
 	// here if finished reading one full mem_buff
 	return nil
 }
 
-func (r_m *remote_muster) sync_with_logger(sheep_id string, log_id string, reader *csv.Reader, logger_func func(*log, *csv.Reader)error, n_iter int) error {
+func (r_m *remote_muster) sync_with_logger(sheep_id string, log_id string, logger_func func(*log)error, n_iter int) error {
 	sheep := r_m.pasture[sheep_id]
 	shared_log := sheep.logs[log_id]
 	var err error = nil
+	fmt.Println("HERE***")
 	for {
 		select {
 		case <- shared_log.kill_log_chan:
 			return nil
 		default:		
-			err = logger_func(shared_log, reader)
+			err = logger_func(shared_log)
 			if err == io.EOF {
 				// do nothing if nothing has been logged yet
 				time.Sleep(time.Second)
@@ -123,6 +104,8 @@ func (r_m *remote_muster) sync_with_logger(sheep_id string, log_id string, reade
 				r_m.full_buff_chan <- []string{sheep.id, shared_log.id}
 				<- shared_log.ready_buff_chan
 				*(shared_log.mem_buff) = make([][]uint64, 0)
+//				*(shared_log.log_buff) = (*shared_log.log_buff)[shared_log.log_buff_itr:]
+//				shared_log.log_buff_itr = 0
 			}
 		}
 	}
@@ -165,16 +148,11 @@ func (r_m *remote_muster) log_manage(sheep_id string, log_id string, cmd string,
 		return true
 
 	case cmd == "all":
-		f := sheep.log_f_map[log_id]
-		reader := sheep.log_reader_map[log_id]
-		f.Seek(0, io.SeekStart)
-
 		// at runtime, there are as many of this thread as there are sheep x num_logs_per_sheep
 		go func() {
 			sheep := sheep
 			log := log
-			reader := reader
-			err := r_m.sync_with_logger(sheep.id, log.id, reader, do_log, -1)
+			err := r_m.sync_with_logger(sheep.id, log.id, do_log, -1)
 			if err != nil { 
 				panic(err) 
 			} else { 
@@ -183,7 +161,6 @@ func (r_m *remote_muster) log_manage(sheep_id string, log_id string, cmd string,
 				return
 			}
 		} ()
-
 		log.ready_request_chan <- true 
 		return true
 

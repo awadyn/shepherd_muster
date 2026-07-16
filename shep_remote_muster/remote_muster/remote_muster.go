@@ -5,11 +5,9 @@ import (
 	"flag"
 	"context"
 	"strconv"
-//	"strings"
 	"time"
 	"net"
 	"io"
-//	"os/exec"
 
 	pb "github.com/awadyn/shep_remote_muster/shep_remote_muster"
 	"google.golang.org/grpc"
@@ -126,7 +124,7 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 						continue	// try again
 					} else {
 						if r.GetSyncComplete() {
-							if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log_id, r.GetSyncComplete()) }
+							if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v - %v - %v - %v\n\033[0m", log_id, r.GetSyncComplete(), len(*log.mem_buff), len(*log.log_buff), log.log_buff_itr) }
 							log.ready_buff_chan <- true
 							return
 						} else {
@@ -142,60 +140,6 @@ func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context
 }
 
 
-//func (r_m *remote_muster) log(conn *grpc.ClientConn, c pb.LogClient, ctx context.Context, cancel context.CancelFunc) {
-//	defer conn.Close()
-//	defer cancel()
-//	for {
-//		select {
-//		case ids := <- r_m.full_buff_chan:
-//			sheep_id := ids[0]
-//			log_id := ids[1]
-//			if debug { fmt.Printf("\033[36m<----- SYNC REQ -- %v - %v\n\033[0m", sheep_id, log_id) }
-//			go func() {
-//				sheep_id := sheep_id
-//				log_id := log_id
-//				for {	// try until stream is initialized with local muster log sync server
-//					stream, err := c.SyncLogBuffers(ctx)
-//					if err != nil {
-//						fmt.Printf("\033[31;1m****** ERROR: %v could not initialize log sync stream %v:\n       %v\n\033[0m", r_m.id, log_id, err)
-//						time.Sleep(time.Second/5)
-//						continue	// try again
-//					}
-//					start := true
-//					for _, log_entry := range *(r_m.pasture[sheep_id].logs[log_id].mem_buff) {
-//						for {	// try until log entry is sent to log sync server
-//							err := stream.Send(&pb.SyncLogRequest{SheepId: sheep_id, LogId:log_id, LogEntry: &pb.LogEntry{Vals: log_entry}, Start: start})
-//							if err != nil { 
-//								fmt.Printf("\033[31;1m****** ERROR: %v %v could not send log entry %v:\n      %v\n\033[0m", r_m.id, log_id, log_entry, err)
-//								time.Sleep(time.Second/5)
-//								continue	// try again
-//							}
-//							break
-//						}
-//						start = false
-//					}
-//					for {	// try until stream with log sync server is closed
-//						r, err := stream.CloseAndRecv()
-//						if err != nil {
-//							fmt.Printf("\033[31;1m****** ERROR: %v problem receiving log sync reply %v:\n       %v\n\033[0m", r_m.id, log_id, err)
-//							time.Sleep(time.Second/5)
-//							continue	// try again
-//						}
-//						if r.GetSyncComplete() {
-//							if debug { fmt.Printf("\033[36m-----> SYNC REP -- %v - %v\n\033[0m", log_id, r.GetSyncComplete()) }
-//							r_m.pasture[sheep_id].logs[log_id].ready_buff_chan <- true
-//						} else {
-//							fmt.Printf("\033[31;1m****** ERROR: %v problem with local log sync of %v - reply:\n       %v\n\033[0m", r_m.id, log_id, r)
-//							// if here, log mem buff is no longer available for use
-//						}
-//						break
-//					}
-//					break	// done when all above RPCs complete successfully 
-//				}
-//			}()
-//		}
-//	}
-//}
 
 /*********************/
 /* REMOTE CONTROLLER */
@@ -209,16 +153,12 @@ func (r_m *remote_muster) ApplyControl(stream pb.Control_ApplyControlServer) err
 		req, err := stream.Recv()
 		switch {
 		case err == io.EOF:
-			//if debug { 
 			fmt.Printf("\033[35m-----> CTRL-REQ -- %v - %v\n\033[0m", sheep_id, new_ctrls) 
-			//}
 			sheep := r_m.pasture[sheep_id]
 
 			sheep.new_ctrl_chan <- new_ctrls
 			<- sheep.done_ctrl_chan
-
-//			r_m.flush_log_files(sheep_id)
-
+			
 			if debug { fmt.Printf("\033[35m<----- CTRL REP -- %v - %v\n\033[0m", sheep_id, new_ctrls) }
 			return stream.SendAndClose(&pb.ControlReply{CtrlComplete: true})
 		case err != nil:
