@@ -41,8 +41,6 @@ type node struct {
 	log_port int
 	ctrl_port int
 	coordinate_port int
-//	optimizer_server_ports []int
-//	optimizer_client_ports []int
 	ip_idx int			//differentiates musters on the same node
 	ip string
 	resources []resource
@@ -97,6 +95,8 @@ type log struct {
 	kill_log_chan chan bool
 
 	mem_buff *[][]uint64
+	log_buff *[][]uint64
+	log_buff_itr uint64
 	max_size uint64
 	metrics []string
 	n_ip string
@@ -155,16 +155,11 @@ type muster struct {
 	done_request_chan chan bool
 
 	request_log_chan chan []string
-//	request_ctrl_chan chan []string
-
 }
 
 type local_muster struct {
 	muster
 	hb_chan chan *pb.HeartbeatReply
-
-//	request_optimize_chan chan optimize_request
-//	ready_reward_chan chan reward_reply
 
 	log_server_port *int
 	ctrl_server_addr *string
@@ -253,9 +248,12 @@ type Shepherd interface {
 func (l_ptr *log) show() {
 	fmt.Printf("    ADDR %p ", l_ptr)
 	fmt.Println("ID:", l_ptr.id, "  --  MAX_SIZE:", l_ptr.max_size, "  --  METRICS:", l_ptr.metrics)
-	fmt.Printf("    -- %p R_BUFF:", l_ptr.mem_buff)
-	fmt.Println(*l_ptr.mem_buff)
-
+	if l_ptr.mem_buff == nil { return }
+	if l_ptr.log_buff == nil { return }
+	fmt.Printf("    -- %p MEM_BUFF: len = %d\n", l_ptr.mem_buff, len(*l_ptr.mem_buff))
+	fmt.Printf("    -- %p LOG_BUFF: len = %d\n", l_ptr.log_buff, len(*l_ptr.log_buff))
+	//fmt.Println(len(*l_ptr.mem_buff))
+	//fmt.Println(len(*l_ptr.log_buff))
 }
 
 func (r_m *remote_muster) show() {
@@ -286,8 +284,9 @@ func (m *muster) show() {
 	for sheep_id, _ := range(m.pasture) {
 		fmt.Printf("      -- SHEEP : %v \n", sheep_id)
 		fmt.Printf("         -- LOGS :  \n")
-		for log_id, _ := range(m.pasture[sheep_id].logs) {
+		for log_id, log := range(m.pasture[sheep_id].logs) {
 			fmt.Printf("            %v \n", m.pasture[sheep_id].logs[log_id])
+			log.show()
 		} 
 		fmt.Printf("         -- CONTROLS :  \n")
 		for ctrl_id, _ := range(m.pasture[sheep_id].controls) {
