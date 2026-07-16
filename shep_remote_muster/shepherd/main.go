@@ -15,13 +15,13 @@ var debug bool = false
 var rx_bytes_median uint64 = 0
 
 func main() {
-	target_resources := setup_target_resources_cX220(16)
+	target_resources := setup_target_resources_cX220(20)
 
 //	optimizer_server_ports := []int{50091}
 //	optimizer_client_ports := []int{50101}
 
 //	nodes := []node{{ip: "128.110.96.27", ip_idx: -1, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081, resources: target_resources}}
-	nodes := []node{{ip: "10.10.1.2", ip_idx: -1, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081, resources: target_resources}}
+	nodes := []node{{ip: "10.10.1.1", ip_idx: -1, pulse_port: 50051, log_port:50061, ctrl_port: 50071, coordinate_port: 50081, resources: target_resources}}
 
 
 //	// define k8s worker nodes 
